@@ -1,32 +1,46 @@
+import axios from "axios";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 const Home = () => {
-  const posts = [
-    {
-      id: 1,
-      title: "Post Title 1",
-      desc: "This is the description for Post 1. Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      img: "https://example.com/image1.jpg",
-    },
-    {
-      id: 2,
-      title: "Post Title 2",
-      desc: "A brief description for Post 2. Nulla facilisi. Sed vel neque.",
-      img: "https://example.com/image2.jpg",
-    },
-    {
-      id: 3,
-      title: "Post Title 3",
-      desc: "Description for Post 3. In hac habitasse platea dictumst.",
-      img: "https://example.com/image3.jpg",
-    },
-    {
-      id: 4,
-      title: "Post Title 4",
-      desc: "The description for Post 4. Quisque eget urna ut quam dignissim efficitur.",
-      img: "https://example.com/image4.jpg",
-    },
-  ];
+  const [posts, setPosts] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await axios.get("/api/posts");
+        setPosts(res.data);
+      } catch (error) {}
+    };
+    fetchData();
+  });
+
+  // const posts = [
+  //   {
+  //     id: 1,
+  //     title: "Post Title 1",
+  //     desc: "This is the description for Post 1. Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+  //     img: "https://example.com/image1.jpg",
+  //   },
+  //   {
+  //     id: 2,
+  //     title: "Post Title 2",
+  //     desc: "A brief description for Post 2. Nulla facilisi. Sed vel neque.",
+  //     img: "https://example.com/image2.jpg",
+  //   },
+  //   {
+  //     id: 3,
+  //     title: "Post Title 3",
+  //     desc: "Description for Post 3. In hac habitasse platea dictumst.",
+  //     img: "https://example.com/image3.jpg",
+  //   },
+  //   {
+  //     id: 4,
+  //     title: "Post Title 4",
+  //     desc: "The description for Post 4. Quisque eget urna ut quam dignissim efficitur.",
+  //     img: "https://example.com/image4.jpg",
+  //   },
+  // ];
   return (
     <div className="home">
       <div className="posts">
