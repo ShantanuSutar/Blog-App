@@ -2,9 +2,11 @@ import express from "express";
 import postRoutes from "./routes/posts.js";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
+import cookieParser from "cookie-parser";
 
 const app = express();
 app.use(express.json()); // to send json data to the server
+app.use(cookieParser()); // to send json data to the server
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);

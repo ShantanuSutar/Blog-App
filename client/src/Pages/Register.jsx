@@ -29,8 +29,6 @@ const Register = () => {
     }
   };
 
-  console.log(inputs);
-
   return (
     <div className="auth">
       <h1>Register</h1>
