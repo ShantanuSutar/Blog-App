@@ -1,65 +1,67 @@
+import React, { useEffect, useState } from "react";
 import { BiSolidEdit } from "react-icons/bi";
 import { AiFillDelete } from "react-icons/ai";
-import { Link } from "react-router-dom";
-import Menu from "../Components/Menu";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import Menu from "../components/Menu";
+import axios from "axios";
+import moment from "moment";
+import { useContext } from "react";
+import { AuthContext } from "../../../api/context/authContext";
+
 const Single = () => {
+  const [post, setPost] = useState({});
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const postId = location.pathname.split("/")[2];
+
+  const { currentUser } = useContext(AuthContext);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await axios.get(`/api/posts/${postId}`);
+        setPost(res.data);
+      } catch (err) {
+        console.log(err);
+      }
+    };
+    fetchData();
+  }, [postId]);
+
   return (
     <div className="single">
       <div className="content">
-        <img
-          src="https://images.unsplash.com/photo-1697014960838-7f0d01539bcf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1887&q=80"
-          alt=""
-        />
+        <img src={post?.img} alt="" />
         <div className="user">
-          <img
-            src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fHBlcnNvbnxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=500&q=60"
-            alt=""
-          />
+          {post.userImg ? (
+            <img src={post.userImg} alt="" />
+          ) : (
+            <img
+              src="https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg"
+              alt=""
+            />
+          )}
+
+          {/* user image or random image */}
+
           <div className="info">
-            <span>John</span>
-            <p>Posted 2 days ago</p>
+            <span>{post.username}</span>
+            <p>Posted {moment(post.date).fromNow()}</p>
           </div>
-          <div className="edit">
-            <Link to={"/write?edit=2"}>
-              <BiSolidEdit />
-            </Link>
-            <AiFillDelete />
-          </div>
+          {currentUser?.username === post?.username && (
+            <div className="edit">
+              <Link to={`/write?edit=2`} state={post}>
+                <BiSolidEdit />
+              </Link>
+              <AiFillDelete />
+            </div>
+          )}
         </div>
-        <h1>Lorem ipsum dolor sit amet consectetur adipisicing elit. </h1>
-        <p>
-          Lorem ipsum dolor sit amet consectetur adipisicing elit. Laudantium
-          praesentium autem nobis magnam nihil doloremque sint odio explicabo
-          iste molestias impedit deleniti dicta sapiente, labore fugiat corporis
-          magni sit similique. Lorem ipsum dolor sit amet consectetur
-          adipisicing elit. Veniam quibusdam fugit, expedita fugiat, praesentium
-          deserunt natus numquam reprehenderit quo magni omnis dolorum hic.
-          <br />
-          <br />
-          Quam, blanditiis beatae placeat dolores voluptates pariatur! Sint
-          quidem enim rerum ea quis nesciunt dolorem consectetur, provident
-          optio, officia esse ex et laboriosam quo neque quas adipisci!
-          Provident ullam architecto natus doloribus assumenda soluta, et
-          deserunt laboriosam. Commodi doloremque minus quaerat dolorum
-          <br />
-          <br />
-          voluptatem ut atque explicabo ducimus perferendis voluptatum illum
-          porro eum sequi quasi quam distinctio nisi odio laboriosam placeat
-          doloribus, dignissimos amet facilis, voluptate nesciunt! Tempora. Fuga
-          commodi minima enim sapiente tempore reprehenderit ullam nobis
-          mollitia est ducimus aperiam iste illum quos debitis inventore, veniam
-          <br />
-          <br />
-          temporibus eum tenetur. Labore dolores totam necessitatibus quae nulla
-          fugiat fuga. Doloribus ad consequatur esse alias reiciendis optio
-          culpa quisquam repellat ut possimus? Tempora, maxime officiis.
-          Inventore ipsum exercitationem illo perferendis dicta! Quisquam sint
-          quia repudiandae nisi, modi eos obcaecati nam.
-        </p>
+        <h1>{post.title}</h1>
       </div>
-      <div className="menu">
-        <Menu />
-      </div>
+      <Menu cat={post.cat} />
     </div>
   );
 };
