@@ -37,11 +37,13 @@ const Navbar = () => {
           ) : (
             <Link to="/login">Login</Link>
           )}
-          <span className="write">
-            <Link to="/write" className="link">
-              Write
-            </Link>
-          </span>
+          {currentUser && (
+            <span className="write">
+              <Link to="/write" className="link">
+                Write
+              </Link>
+            </span>
+          )}
         </div>
       </div>
     </div>
