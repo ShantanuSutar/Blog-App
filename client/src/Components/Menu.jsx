@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 const Menu = ({ cat }) => {
-  console.log(cat);
+  // console.log(cat);
   // const posts = [
   //   {
   //     id: 1,
@@ -38,8 +38,10 @@ const Menu = ({ cat }) => {
       try {
         const res = await axios.get(`/api/posts/?cat=${cat}`);
         setPosts(res.data);
-        console.log(res);
-      } catch (error) {}
+        // console.log(res);
+      } catch (error) {
+        console.log(error);
+      }
     };
     fetchData();
   }, [cat]);

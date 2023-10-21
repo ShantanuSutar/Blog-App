@@ -2,6 +2,7 @@ import express from "express";
 import postRoutes from "./routes/posts.js";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
+import commentRoutes from "./routes/comment.js";
 import cookieParser from "cookie-parser";
 import multer from "multer";
 
@@ -28,6 +29,7 @@ app.post("/api/upload", upload.single("file"), function (req, res) {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/comments", commentRoutes);
 
 app.use("/", (req, res) => {
   res.send("Hello to homepage");

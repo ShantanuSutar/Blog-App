@@ -7,9 +7,44 @@ import axios from "axios";
 import moment from "moment";
 import { useContext } from "react";
 import { AuthContext } from "../../../api/context/authContext";
+import Comment from "../components/Comment.jsx";
 
 const Single = () => {
+  // const comments = [
+  //   {
+  //     id: 1,
+  //     comment: "This is a comment",
+  //     username: "John Doe",
+  //     userImg:
+  //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
+  //   },
+  //   {
+  //     id: 2,
+  //     comment:
+  //       "lorem ipsum dolor sit amet consectetur adipisicing elit. lorem ipsum dolor sit amet consectetur adipisicing elit.lorem ipsum dolor sit amet consectetur adipisicing elit.lorem ipsum dolor sit amet consectetur adipisicing elit.",
+  //     username: "Kate Smith",
+  //     userImg:
+  //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
+  //   },
+  //   {
+  //     id: 3,
+  //     comment: "This is a comment",
+  //     username: "Alex Johnson",
+  //     userImg:
+  //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
+  //   },
+  //   {
+  //     id: 4,
+  //     comment:
+  //       "lorem ipsum dolor sit amet consectetur adipisicing elit. lorem ipsum dolor sit amet consectetur adipisicing elit.lorem ipsum dolor sit amet consectetur adipisicing elit.lorem ipsum dolor sit amet consectetur adipisicing elit.  ",
+  //     username: "billy bob",
+  //     userImg:
+  //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
+  //   },
+  // ];
+
   const [post, setPost] = useState({});
+  const [comments, setComments] = useState([]);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -27,7 +62,20 @@ const Single = () => {
         console.log(err);
       }
     };
+
+    const fetchComments = async () => {
+      try {
+        const res = await axios.get(`/api/comments/${postId}`);
+        setComments(res.data);
+
+        console.log(res.data);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
     fetchData();
+    fetchComments();
   }, [postId]);
 
   const handleDelete = async () => {
@@ -75,6 +123,11 @@ const Single = () => {
         </div>
         <h1>{post.title}</h1>
         <p>{getText(post.desc)}</p>
+        <div className="comments">
+          {comments.map((c) => {
+            return <Comment key={c.id} c={c} />;
+          })}
+        </div>
       </div>
       <Menu cat={post.cat} />
     </div>

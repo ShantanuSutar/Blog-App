@@ -202,6 +202,8 @@ $lightGreen: #b9e7e7;
       }
     }
 
+    //SINGLE POST
+
     .single {
       min-height: 100vh;
       display: flex;
@@ -259,6 +261,7 @@ $lightGreen: #b9e7e7;
           line-height: 30px;
         }
       }
+      //MENU
       .menu {
         flex: 2;
         display: flex;
@@ -386,6 +389,34 @@ $lightGreen: #b9e7e7;
             align-items: center;
             gap: 2px;
             color: teal;
+          }
+        }
+      }
+    }
+
+    //COMMENT
+    .comment {
+      .user {
+        // border: 1px solid red;
+        display: flex;
+        height: auto;
+        padding: 2px;
+        margin: 20px 0;
+        .userImg {
+          margin-bottom: auto;
+          img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+        }
+        .userInfo {
+          span {
+            font-size: 16px;
+          }
+          p {
+            font-size: 15px;
           }
         }
       }
