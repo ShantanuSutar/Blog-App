@@ -1,6 +1,9 @@
+import { useThemeContext } from "../Context/theme";
+
 const Comment = ({ c }) => {
   const { comment, username, img: userImg } = c;
-  console.log(userImg);
+  const { theme, setTheme } = useThemeContext();
+
   return (
     <div className="comment">
       <div className="user">
@@ -17,7 +20,7 @@ const Comment = ({ c }) => {
 
         {/* user image or random image */}
 
-        <div className="userInfo">
+        <div className={theme === "dark" ? "userInfo dark" : "userInfo"}>
           <span>{username}</span>
           <p>{comment}</p>
         </div>

@@ -4,7 +4,9 @@ import "react-quill/dist/quill.snow.css";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import moment from "moment";
+import { useThemeContext } from "../Context/theme";
 const Write = () => {
+  const { theme, setTheme } = useThemeContext();
   const state = useLocation().state;
   const [value, setValue] = useState(state?.desc || "");
   const [title, setTitle] = useState(state?.title || "");
@@ -58,7 +60,11 @@ const Write = () => {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <div className="editorContainer">
+        <div
+          className={
+            theme === "dark" ? "editorContainer dark" : "editorContainer"
+          }
+        >
           <ReactQuill
             className="editor"
             theme="snow"
@@ -69,11 +75,11 @@ const Write = () => {
       </div>
       <div className="menu">
         <div className="item">
-          <h1>Publish</h1>
-          <span>
+          <h1 className={theme === "dark" ? " dark" : ""}>Publish</h1>
+          <span className={theme === "dark" ? " dark" : ""}>
             <b>Status: </b> Draft
           </span>
-          <span>
+          <span className={theme === "dark" ? " dark" : ""}>
             <b>Visibility: </b> Public
           </span>
           <input
@@ -83,17 +89,22 @@ const Write = () => {
             name=""
             onChange={(e) => setFile(e.target.files[0])}
           />
-          <label className="file" htmlFor="file">
+          <label
+            className={theme === "dark" ? "file text dark" : "file text"}
+            htmlFor="file"
+          >
             Upload Image
           </label>
           <div className="buttons">
-            <button>Save as a draft</button>
-            <button onClick={handleClick}>Publish</button>
+            <button className="btn-grad">Save as a draft</button>
+            <button onClick={handleClick} className="btn-grad">
+              Publish
+            </button>
           </div>
         </div>
         <div className="item">
-          <h1>Category</h1>
-          <div className="cat">
+          <h1 className={theme === "dark" ? " dark" : ""}>Category</h1>
+          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
             <input
               type="radio"
               checked={cat === "art"}
@@ -104,7 +115,7 @@ const Write = () => {
             />
             <label htmlFor="art">Art</label>
           </div>
-          <div className="cat">
+          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
             <input
               type="radio"
               checked={cat === "scitech"}
@@ -115,7 +126,7 @@ const Write = () => {
             />
             <label htmlFor="scitech">Sci-Tech</label>
           </div>
-          <div className="cat">
+          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
             <input
               type="radio"
               checked={cat === "sports"}
@@ -126,7 +137,7 @@ const Write = () => {
             />
             <label htmlFor="sports">Sports</label>
           </div>
-          <div className="cat">
+          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
             <input
               type="radio"
               checked={cat === "cinema"}
@@ -137,7 +148,7 @@ const Write = () => {
             />
             <label htmlFor="cinema">Cinema</label>
           </div>
-          <div className="cat">
+          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
             <input
               type="radio"
               checked={cat === "food"}
@@ -148,7 +159,7 @@ const Write = () => {
             />
             <label htmlFor="food">Food</label>
           </div>
-          <div className="cat">
+          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
             <input
               type="radio"
               checked={cat === "travel"}

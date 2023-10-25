@@ -33,24 +33,31 @@ const Login = () => {
 
   return (
     <div className="auth">
-      <h1>Login</h1>
+      <h1 className="text">Login</h1>
       <form>
         <input
+          className="text"
           type="text"
           placeholder="username"
           name="username"
           onChange={handleChange}
         />
         <input
+          className="text"
           type="password"
           placeholder="password"
           name="password"
           onChange={handleChange}
         />
-        <button onClick={handleSubmit}>Login</button>
+        <button className="btn-grad" onClick={handleSubmit}>
+          Login
+        </button>
         {err && <p>{err} !</p>}
         <span>
-          Don't you have an account ? <Link to={"/register"}>Register</Link>
+          Don't you have an account ?{" "}
+          <Link className="text" to={"/register"}>
+            Register
+          </Link>
         </span>
       </form>
     </div>

@@ -4,7 +4,7 @@ const Footer = () => {
   return (
     <footer className="footer">
       <img src={Logo} alt="" />
-      <span>
+      <span className="text">
         Made with <span style={{ color: "red" }}>❤</span> and <b>Reactjs</b>
       </span>
     </footer>

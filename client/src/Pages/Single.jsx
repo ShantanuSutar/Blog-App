@@ -2,12 +2,13 @@ import React, { useEffect, useState } from "react";
 import { BiSolidEdit } from "react-icons/bi";
 import { AiFillDelete } from "react-icons/ai";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import Menu from "../components/Menu";
+import Menu from "../Components/Menu.jsx";
 import axios from "axios";
 import moment from "moment";
 import { useContext } from "react";
 import { AuthContext } from "../../../api/context/authContext";
-import Comment from "../components/Comment.jsx";
+import Comment from "../Components/Comment.jsx";
+import { useThemeContext } from "../Context/theme.jsx";
 
 const Single = () => {
   // const comments = [
@@ -42,10 +43,11 @@ const Single = () => {
   //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
   //   },
   // ];
+  const { theme, setTheme } = useThemeContext();
 
   const [post, setPost] = useState({});
   const [comments, setComments] = useState([]);
-
+  const [comment, setComment] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -67,8 +69,6 @@ const Single = () => {
       try {
         const res = await axios.get(`/api/comments/${postId}`);
         setComments(res.data);
-
-        console.log(res.data);
       } catch (error) {
         console.log(error);
       }
@@ -82,6 +82,20 @@ const Single = () => {
     try {
       await axios.delete(`/api/posts/${postId}`);
       navigate("/");
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const handleAddComment = async () => {
+    try {
+      await axios
+        .post(`/api/comments/${postId}`, {
+          comment,
+          postId,
+          userId: currentUser.id,
+        })
+        .then(window.location.reload(false));
     } catch (err) {
       console.log(err);
     }
@@ -109,21 +123,59 @@ const Single = () => {
           {/* user image or random image */}
 
           <div className="info">
-            <span>{post.username}</span>
-            <p>Posted {moment(post.date).fromNow()}</p>
+            <span className={theme === "dark" ? "dark" : ""}>
+              {post.username}
+            </span>
+            <p className={theme === "dark" ? "dark" : ""}>
+              Posted {moment(post.date).fromNow()}
+            </p>
           </div>
           {currentUser?.username === post?.username && (
             <div className="edit">
               <Link to={`/write?edit=2`} state={post}>
-                <BiSolidEdit />
+                <BiSolidEdit className={theme === "dark" ? "dark" : ""} />
               </Link>
-              <AiFillDelete onClick={handleDelete} />
+              <AiFillDelete
+                className={theme === "dark" ? "dark" : ""}
+                onClick={handleDelete}
+              />
             </div>
           )}
         </div>
-        <h1>{post.title}</h1>
-        <p>{getText(post.desc)}</p>
+        <h1 className={theme === "dark" ? "text dark" : "text"}>
+          {post.title}
+        </h1>
+        <p className={theme === "dark" ? "text dark" : "text"}>
+          {getText(post.desc)}
+        </p>
         <div className="comments">
+          <h2 className={theme === "dark" ? "dark" : ""}>Comments</h2>
+          {currentUser ? (
+            <div className="addComment">
+              <input
+                className={theme === "dark" ? "text dark" : "text"}
+                type="text"
+                placeholder="Type Here..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+              />
+              <button className="btn-grad" onClick={handleAddComment}>
+                Comment
+              </button>
+            </div>
+          ) : (
+            <div
+              className={theme === "dark" ? "addComment dark" : "addComment"}
+            >
+              Wanna write a comment...?
+              <Link
+                className={theme === "dark" ? "text dark" : "text"}
+                to={"/login"}
+              >
+                Login
+              </Link>
+            </div>
+          )}
           {comments.map((c) => {
             return <Comment key={c.id} c={c} />;
           })}

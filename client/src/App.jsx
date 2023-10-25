@@ -7,6 +7,7 @@ import Navbar from "./Components/Navbar";
 import Footer from "./Components/Footer";
 import Single from "./Pages/Single";
 import Write from "./Pages/Write";
+import { useThemeContext } from "./Context/theme";
 
 const Layout = () => {
   return (
@@ -56,8 +57,10 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
+  const { theme, setTheme } = useThemeContext();
+
   return (
-    <div className="app">
+    <div className={theme === "dark" ? "app dark" : "app"}>
       <div className="container">
         <RouterProvider router={router} />
       </div>

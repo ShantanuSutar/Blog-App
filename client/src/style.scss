@@ -1,52 +1,184 @@
-$lightGreen: #b9e7e7;
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap");
+// $color: rgb(236, 18, 87);
+// // background: rgb(236,18,87);
+// $background: linear-gradient(
+//   90deg,
+//   rgba(236, 18, 87, 1) 0%,
+//   rgba(123, 8, 102, 1) 100%
+// );
+// $backgroundver: linear-gradient(
+//   180deg,
+//   rgba(236, 18, 87, 1) 0%,
+//   rgba(123, 8, 102, 1) 100%
+// );
+
+// DARK MODE COLORS
+// 0F0F0F - black
+// 232D3F - less black
+//
+$dark: #0f0f0f;
+$lessdark: #232d3f;
+
+.tooltip {
+  position: relative;
+  display: inline-block;
+  img {
+    cursor: pointer;
+  }
+}
+
+.tooltip .tooltip-text {
+  visibility: hidden;
+  background-color: #ec1257;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 13px;
+  position: absolute;
+  // width: 3.4rem;
+  transform: translate(-95%, 140%);
+  z-index: 1;
+  font-size: 16px;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  transition: all 1s ease-in;
+}
+
+.tooltip .tooltip-text::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  right: 40%;
+  border-width: 8.66px;
+  border-style: solid;
+  border-color: transparent transparent #ec1257;
+}
+
+.tooltip:hover .tooltip-text,
+.tooltip:focus .tooltip-text {
+  visibility: visible;
+}
+
+.btn-grad {
+  background-image: linear-gradient(
+    to right,
+    #7b0866 0%,
+    #ec1257 51%,
+    #7b0866 100%
+  );
+  margin: 10px;
+  padding: 15px 25px;
+  text-align: center;
+  transition: 0.5s;
+  background-size: 200% auto;
+  color: white;
+  // box-shadow: 0 0 10px #eee;
+  border-radius: 10px;
+  display: block;
+}
+
+.btn-grad:hover {
+  background-position: right center; /* change the direction of the change here */
+  color: #fff;
+  text-decoration: none;
+}
+
+.text {
+  font-family: "Abril Fatface", sans-serif;
+  background: linear-gradient(to right, #1b0517, #ec1257, #7b0866);
+  background-size: 200% 200%;
+  animation: rainbow 2s ease-in-out infinite;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: rgba(0, 0, 0, 1);
+  transition: color 0.2s ease-in-out;
+}
+.text:hover {
+  color: rgba(0, 0, 0, 0);
+}
+@keyframes rainbow {
+  0% {
+    background-position: left;
+  }
+  50% {
+    background-position: right;
+  }
+  100% {
+    background-position: left;
+  }
+}
+// DARK MODE TEXT
+.text.dark {
+  font-family: "Abril Fatface", sans-serif;
+  background: linear-gradient(to right, #1b0517, #ec1257, #7b0866);
+  background-size: 200% 200%;
+  animation: rainbow 2s ease-in-out infinite;
+  background-clip: text;
+  -webkit-background-clip: text;
+  transition: color 0.2s ease-in-out;
+  color: rgb(255, 255, 255, 1);
+}
+.text.dark:hover {
+  color: rgba(255, 255, 255, 0);
+}
+// .text:hover {
+//   background-position: right center; /* change the direction of the change here */
+//   color: #fff;
+//   text-decoration: none;
+// }
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
+
+.app.dark {
+  background-color: $lessdark;
+}
 .app {
+  transition: all 0.5s ease-in-out;
   display: flex;
   justify-content: center;
+  font-family: "Abril Fatface", sans-serif;
 
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  // font-family: "Roboto", sans-serif;
   min-height: 100vh;
 
   .container {
-    width: 70%;
+    // width: 70%;
     //LOGIN AND REGISTER
 
     .auth {
+      // border: 1px solid red;
+      width: 100vw;
+      height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      background-color: $lightGreen;
+      transform: scale(1.1);
+      background-color: $lessdark;
 
       h1 {
-        font-size: 24px;
-        color: teal;
+        font-size: 28px;
       }
 
       form {
         display: flex;
         flex-direction: column;
         padding: 50px;
-        background-color: #fff;
         min-width: 200px;
         gap: 20px;
 
         input {
           padding: 10px;
           border: none;
-          border-bottom: 1px solid gray;
+          border-bottom: 1px solid #7b0866;
+          outline-color: #ec1257;
         }
         button {
           padding: 10px;
           border: none;
           background-color: teal;
-          color: white;
           cursor: pointer;
         }
         span {
@@ -61,16 +193,24 @@ $lightGreen: #b9e7e7;
       }
     }
     //NAVBAR
+    .navbar.dark {
+      background-color: $lessdark;
+    }
     .navbar {
+      min-width: 70vw;
+      box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
       z-index: 2;
-      position: sticky;
+      // position: sticky;
       top: 0;
       background-color: white;
+      // border: 1px solid red;
+      border-radius: 0px 0px 10px 10px;
       .container {
-        padding: 10px 0px;
+        padding: 10px 10px;
         display: flex;
         justify-content: space-between;
         width: 100%;
+
         .logo {
           img {
             width: 120px;
@@ -81,21 +221,30 @@ $lightGreen: #b9e7e7;
           display: flex;
           gap: 20px;
 
+          img {
+            width: 50px;
+            height: auto;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+
           a {
             text-decoration: none;
-            color: black;
           }
 
           h6 {
             font-size: 16px;
-            font-weight: 400;
+            font-weight: 100;
+            // letter-spacing: 2px;
             text-transform: uppercase;
           }
           span {
             cursor: pointer;
           }
           .write {
-            background-color: $lightGreen;
+            .writelink {
+              color: white;
+            }
             width: 50px;
             height: 50px;
             border-radius: 50%;
@@ -103,11 +252,23 @@ $lightGreen: #b9e7e7;
             align-items: center;
             justify-content: center;
             border: 1px solid white;
-
+            background-image: linear-gradient(
+              to right,
+              #7b0866 0%,
+              #ec1257 51%,
+              #7b0866 100%
+            );
+            margin: 10px;
+            text-align: center;
+            transition: 0.5s;
+            background-size: 200% auto;
+            box-shadow: 0 0 20px #eee;
             &:hover {
-              color: #008080;
-              background-color: white;
-              border: 1px solid teal;
+              // color: #008080;
+              // background-color: white;
+              // border: 1px solid teal;
+              background-position: right center; /* change the direction of the change here */
+              text-decoration: none;
             }
           }
         }
@@ -118,17 +279,19 @@ $lightGreen: #b9e7e7;
     footer {
       margin-top: 10rem;
       padding: 20px;
-      background-color: $lightGreen;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 12px;
+      font-size: 18px;
       img {
-        height: 35px;
+        height: 65px;
       }
     }
 
     //HOME
+    .home.dark {
+      background-color: $lessdark;
+    }
     .home {
       .posts {
         margin-top: 50px;
@@ -144,6 +307,12 @@ $lightGreen: #b9e7e7;
             flex-direction: row-reverse;
           }
 
+          .img.dark {
+            background-color: $lessdark;
+            img {
+              box-shadow: rgba(255, 255, 255, 0.1) 0px 4px 12px;
+            }
+          }
           .img {
             flex: 2;
             position: relative;
@@ -153,7 +322,6 @@ $lightGreen: #b9e7e7;
               content: "";
               width: 100%;
               height: 100%;
-              background-color: $lightGreen;
               position: absolute;
               top: 20px;
               left: -20px;
@@ -163,6 +331,8 @@ $lightGreen: #b9e7e7;
               width: 23rem;
               object-fit: cover;
               height: 25rem;
+              border-radius: 1rem;
+              box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
             }
           }
           .content {
@@ -171,7 +341,7 @@ $lightGreen: #b9e7e7;
             flex-direction: column;
             justify-content: space-between;
 
-            h1 {
+            h1.text {
               font-size: 48px;
             }
             p {
@@ -184,14 +354,6 @@ $lightGreen: #b9e7e7;
               border: none;
               cursor: pointer;
               background-color: white;
-              border: 1px solid teal;
-              color: teal;
-
-              &:hover {
-                border: 1px solid white;
-                background-color: $lightGreen;
-                color: black;
-              }
             }
             a {
               text-decoration: none;
@@ -208,6 +370,7 @@ $lightGreen: #b9e7e7;
       min-height: 100vh;
       display: flex;
       gap: 50px;
+      margin: 2rem 0rem;
 
       .content {
         flex: 5;
@@ -219,6 +382,8 @@ $lightGreen: #b9e7e7;
           width: 100%;
           height: 300px;
           object-fit: cover;
+          border-radius: 1rem;
+          box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
         }
 
         .user {
@@ -233,8 +398,14 @@ $lightGreen: #b9e7e7;
             border-radius: 50%;
             object-fit: cover;
           }
+          span.dark {
+            color: white;
+          }
           span {
             font-weight: bold;
+          }
+          p.dark {
+            color: white;
           }
         }
         .edit {
@@ -242,18 +413,24 @@ $lightGreen: #b9e7e7;
           gap: 5px;
           a {
             text-decoration: none;
-            color: black;
+          }
+          svg.dark {
+            color: white;
           }
           svg {
             width: 20px;
             height: 20px;
             cursor: pointer;
+            color: rgb(40, 40, 40);
+            transition: all 0.2s ease-in-out;
+            &:hover {
+              transform: translateY(-5px);
+            }
           }
         }
 
         h1 {
           font-size: 42px;
-          color: #333;
         }
 
         p {
@@ -262,12 +439,16 @@ $lightGreen: #b9e7e7;
         }
       }
       //MENU
+
       .menu {
         flex: 2;
         display: flex;
         flex-direction: column;
         gap: 25px;
 
+        h1.dark {
+          color: white;
+        }
         h1 {
           font-size: 20px;
           color: #555;
@@ -282,26 +463,23 @@ $lightGreen: #b9e7e7;
             width: 100%;
             height: 200px;
             object-fit: cover;
+            border-radius: 1rem;
+            box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
           }
 
+          h2.dark {
+            color: white;
+          }
           h2 {
-            color: #555;
+            color: #414141;
           }
-
+          a {
+            text-decoration: none;
+          }
           button {
             width: max-content;
-            padding: 7.5px 15px;
             border: none;
             cursor: pointer;
-            color: teal;
-            background-color: white;
-            border: 1px solid teal;
-
-            &:hover {
-              border: 1px solid white;
-              background-color: $lightGreen;
-              color: black;
-            }
           }
         }
       }
@@ -325,6 +503,10 @@ $lightGreen: #b9e7e7;
           border: 1px solid lightgray;
         }
 
+        .editorContainer.dark {
+          background-color: white;
+          color: black;
+        }
         .editorContainer {
           height: 300px;
           overflow: scroll;
@@ -352,7 +534,14 @@ $lightGreen: #b9e7e7;
           justify-content: space-between;
           font-size: 14px;
           color: #555;
+          gap: 8px;
 
+          h1.dark {
+            color: white;
+          }
+          span.dark {
+            color: white;
+          }
           h1 {
             font-size: 22px;
           }
@@ -365,22 +554,13 @@ $lightGreen: #b9e7e7;
           .buttons {
             display: flex;
             justify-content: space-between;
-
-            :first-child {
+            button {
               cursor: pointer;
-              color: teal;
               background-color: white;
-              border: 1px solid teal;
-              padding: 3px 5px;
+              border: none;
+              padding: 8px 15px;
               font-size: 14px;
-            }
-            :last-child {
-              cursor: pointer;
-              color: white;
-              background-color: teal;
-              border: 1px solid teal;
-              padding: 3px 5px;
-              font-size: 14px;
+              border-radius: 5px;
             }
           }
 
@@ -388,35 +568,73 @@ $lightGreen: #b9e7e7;
             display: flex;
             align-items: center;
             gap: 2px;
-            color: teal;
+            // color: teal;
           }
         }
       }
     }
 
     //COMMENT
-    .comment {
-      .user {
-        // border: 1px solid red;
+    .comments {
+      margin: 2rem 0rem;
+      h2.dark {
+        color: white;
+      }
+      h2 {
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .addComment.dark {
+        color: white;
+      }
+      .addComment {
         display: flex;
-        height: auto;
-        padding: 2px;
-        margin: 20px 0;
-        .userImg {
-          margin-bottom: auto;
-          img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-          }
+        flex-direction: column;
+        width: 60%;
+        gap: 15px;
+        margin: 30px 0;
+        input {
+          font-size: 16px;
+          padding: 10px;
+          border: 1px solid #7b0866;
+          height: auto;
+          border-radius: 5px;
+          outline-color: #ec1257;
         }
-        .userInfo {
-          span {
-            font-size: 16px;
+
+        button {
+          font-size: 16px;
+          border: none;
+          cursor: pointer;
+        }
+      }
+      .comment {
+        .user {
+          // border: 1px solid red;
+          display: flex;
+          height: auto;
+          padding: 2px;
+          margin: 20px 0;
+          .userImg {
+            margin-bottom: auto;
+            img {
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              object-fit: cover;
+            }
           }
-          p {
-            font-size: 15px;
+          .userInfo.dark {
+            color: white;
+          }
+          .userInfo {
+            span {
+              font-size: 16px;
+            }
+            p {
+              font-size: 15px;
+            }
           }
         }
       }

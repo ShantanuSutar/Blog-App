@@ -1,10 +1,12 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useThemeContext } from "../Context/theme";
 
 const Home = () => {
+  const { theme, setTheme } = useThemeContext();
   const [posts, setPosts] = useState([]);
-
+  console.log(theme);
   const cat = useLocation().search;
 
   useEffect(() => {
@@ -17,52 +19,31 @@ const Home = () => {
     fetchData();
   }, [cat]);
 
-  // const posts = [
-  //   {
-  //     id: 1,
-  //     title: "Post Title 1",
-  //     desc: "This is the description for Post 1. Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-  //     img: "https://example.com/image1.jpg",
-  //   },
-  //   {
-  //     id: 2,
-  //     title: "Post Title 2",
-  //     desc: "A brief description for Post 2. Nulla facilisi. Sed vel neque.",
-  //     img: "https://example.com/image2.jpg",
-  //   },
-  //   {
-  //     id: 3,
-  //     title: "Post Title 3",
-  //     desc: "Description for Post 3. In hac habitasse platea dictumst.",
-  //     img: "https://example.com/image3.jpg",
-  //   },
-  //   {
-  //     id: 4,
-  //     title: "Post Title 4",
-  //     desc: "The description for Post 4. Quisque eget urna ut quam dignissim efficitur.",
-  //     img: "https://example.com/image4.jpg",
-  //   },
-  // ];
-
   const getText = (html) => {
     const doc = new DOMParser().parseFromString(html, "text/html");
     return doc.body.textContent;
   };
 
   return (
-    <div className="home">
+    <div className={theme === "dark" ? "home dark" : "home"}>
       <div className="posts">
         {posts.map((post) => (
           <div className="post" key={post.id}>
-            <div className="img">
+            <div className={theme === "dark" ? "img dark" : "img"}>
               <img src={`../upload/${post.img}`} alt="" />
             </div>
             <div className="content">
               <Link className="link" to={`/post/${post.id}`}>
-                <h1>{post.title}</h1>
+                <h1 className={theme === "dark" ? "text dark" : "text"}>
+                  {post.title}
+                </h1>
               </Link>
-              <p>{getText(post.desc)}</p>
-              <button>Read More</button>
+              <p className={theme === "dark" ? "text dark" : "text"}>
+                {getText(post.desc)}
+              </p>
+              <Link className="" to={`/post/${post.id}`}>
+                <button className="btn-grad">Read More</button>
+              </Link>
             </div>
           </div>
         ))}

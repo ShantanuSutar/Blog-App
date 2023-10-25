@@ -1,7 +1,14 @@
 import { db } from "../db.js";
 
 export const addComment = (req, res) => {
-  return res.json("from controller");
+  const q = "INSERT INTO comments(`comment`, `Cpostid`, `Cuserid`) VALUES (?)";
+
+  const values = [req.body.comment, req.body.postId, req.body.userId];
+
+  db.query(q, [values], (err, data) => {
+    if (err) return res.status(500).json(err);
+    return res.json("Post has been created.");
+  });
 };
 
 export const getComment = (req, res) => {
