@@ -5,6 +5,9 @@ import userRoutes from "./routes/users.js";
 import commentRoutes from "./routes/comment.js";
 import cookieParser from "cookie-parser";
 import multer from "multer";
+import dotenv from "dotenv";
+dotenv.config();
+const port = process.env.PORT || 8800;
 
 const app = express();
 app.use(express.json()); // to send json data to the server
@@ -35,6 +38,6 @@ app.use("/", (req, res) => {
   res.send("Hello to homepage");
 });
 
-app.listen(8800, () => {
-  console.log("Server is running on port 8800");
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
