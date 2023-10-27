@@ -6,7 +6,6 @@ import { useThemeContext } from "../Context/theme";
 const Home = () => {
   const { theme, setTheme } = useThemeContext();
   const [posts, setPosts] = useState([]);
-  console.log(theme);
   const cat = useLocation().search;
 
   useEffect(() => {

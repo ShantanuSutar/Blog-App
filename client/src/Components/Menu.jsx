@@ -11,7 +11,6 @@ const Menu = ({ cat }) => {
   const navigate = useNavigate();
 
   const [postId, setPostId] = useState(location.pathname.split("/")[2]);
-  console.log(postId);
   function shuffle(array) {
     let currentIndex = array.length,
       randomIndex;
