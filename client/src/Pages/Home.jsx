@@ -29,7 +29,7 @@ const Home = () => {
         {posts.map((post) => (
           <div className="post" key={post.id}>
             <div className={theme === "dark" ? "img dark" : "img"}>
-              <img src={`../upload/${post.img}`} alt="" />
+              <img src={post?.img} alt="" />
             </div>
             <div className="content">
               <Link className="link" to={`/post/${post.id}`}>

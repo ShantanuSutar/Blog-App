@@ -5,6 +5,10 @@ import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import moment from "moment";
 import { useThemeContext } from "../Context/theme";
+
+const cloudname = import.meta.env.VITE_CLOUD_NAME;
+const cloudUploadPreset = import.meta.env.VITE_CLOUD_UPLOAD_PRESET;
+
 const Write = () => {
   const { theme, setTheme } = useThemeContext();
   const state = useLocation().state;
@@ -19,8 +23,21 @@ const Write = () => {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await axios.post("/api/upload", formData);
-      return res.data;
+      formData.append("upload_preset", cloudUploadPreset);
+      formData.append("cloud_name", cloudname);
+      const res = fetch(
+        `https://api.cloudinary.com/v1_1/${cloudname}/image/upload`,
+        {
+          method: "post",
+          body: formData,
+        }
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          return data.url;
+        });
+
+      return res;
     } catch (err) {
       console.log(err);
     }

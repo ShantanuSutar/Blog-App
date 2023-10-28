@@ -88,6 +88,14 @@ const Single = () => {
   };
 
   const handleAddComment = async () => {
+    const fetchComments = async () => {
+      try {
+        const res = await axios.get(`/api/comments/${postId}`);
+        setComments(res.data);
+      } catch (error) {
+        console.log(error);
+      }
+    };
     try {
       await axios
         .post(`/api/comments/${postId}`, {
@@ -95,7 +103,8 @@ const Single = () => {
           postId,
           userId: currentUser.id,
         })
-        .then(window.location.reload(false));
+        .then(fetchComments())
+        .then(setComment(""));
     } catch (err) {
       console.log(err);
     }
@@ -109,7 +118,7 @@ const Single = () => {
   return (
     <div className="single">
       <div className="content">
-        <img src={`../upload/${post.img}`} alt="" />
+        <img src={post?.img} alt="" />
         <div className="user">
           {post.userImg ? (
             <img src={post.userImg} alt="" />
