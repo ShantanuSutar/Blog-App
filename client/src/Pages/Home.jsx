@@ -7,11 +7,12 @@ const Home = () => {
   const { theme, setTheme } = useThemeContext();
   const [posts, setPosts] = useState([]);
   const cat = useLocation().search;
-
+  const URL = import.meta.env.VITE_BASE_URL;
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get(`/api/posts${cat}`);
+        const res = await axios.get(`/api/posts/${cat}`);
+        console.log(res);
         setPosts(res.data);
       } catch (error) {}
     };
@@ -26,7 +27,7 @@ const Home = () => {
   return (
     <div className={theme === "dark" ? "home dark" : "home"}>
       <div className="posts">
-        {posts.map((post) => (
+        {posts?.map((post) => (
           <div className="post" key={post.id}>
             <div className={theme === "dark" ? "img dark" : "img"}>
               <img src={post?.img} alt="" />

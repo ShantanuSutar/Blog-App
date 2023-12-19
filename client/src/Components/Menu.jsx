@@ -9,6 +9,7 @@ const Menu = ({ cat }) => {
 
   const location = useLocation();
   const navigate = useNavigate();
+  const URL = import.meta.env.VITE_BASE_URL;
 
   const [postId, setPostId] = useState(location.pathname.split("/")[2]);
   function shuffle(array) {

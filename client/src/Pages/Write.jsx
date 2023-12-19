@@ -18,6 +18,7 @@ const Write = () => {
   const [cat, setCat] = useState(state?.cat || "");
 
   const navigate = useNavigate();
+  const URL = import.meta.env.VITE_BASE_URL;
 
   const upload = async () => {
     try {

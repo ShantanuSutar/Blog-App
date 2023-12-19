@@ -50,6 +50,7 @@ const Single = () => {
   const [comment, setComment] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
+  const URL = import.meta.env.VITE_BASE_URL;
 
   const postId = location.pathname.split("/")[2];
 
