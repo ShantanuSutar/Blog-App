@@ -59,7 +59,7 @@ const Single = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get(`/api/posts/${postId}`);
+        const res = await axios.get(`${URL}/api/posts/${postId}`);
         setPost(res.data);
       } catch (err) {
         console.log(err);
@@ -68,7 +68,7 @@ const Single = () => {
 
     const fetchComments = async () => {
       try {
-        const res = await axios.get(`/api/comments/${postId}`);
+        const res = await axios.get(`${URL}/api/comments/${postId}`);
         setComments(res.data);
       } catch (error) {
         console.log(error);
@@ -81,7 +81,7 @@ const Single = () => {
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`/api/posts/${postId}`);
+      await axios.delete(`${URL}/api/posts/${postId}`);
       navigate("/");
     } catch (err) {
       console.log(err);
@@ -91,7 +91,7 @@ const Single = () => {
   const handleAddComment = async () => {
     const fetchComments = async () => {
       try {
-        const res = await axios.get(`/api/comments/${postId}`);
+        const res = await axios.get(`${URL}/api/comments/${postId}`);
         setComments(res.data);
       } catch (error) {
         console.log(error);
@@ -99,7 +99,7 @@ const Single = () => {
     };
     try {
       await axios
-        .post(`/api/comments/${postId}`, {
+        .post(`${URL}/api/comments/${postId}`, {
           comment,
           postId,
           userId: currentUser.id,

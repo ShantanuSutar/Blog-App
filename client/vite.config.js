@@ -12,8 +12,6 @@ export default defineConfig({
 
   plugins: [viteCommonjs(), react(), resolve()],
   build: {
-    rollupOptions: {
-      external: ["axios"],
-    },
+    rollupOptions: {},
   },
 });

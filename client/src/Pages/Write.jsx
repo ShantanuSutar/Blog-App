@@ -50,13 +50,13 @@ const Write = () => {
 
     try {
       state
-        ? await axios.put(`/api/posts/${state.id}`, {
+        ? await axios.put(`${URL}/api/posts/${state.id}`, {
             title,
             desc: value,
             cat,
             img: file ? imgUrl : "",
           })
-        : await axios.post(`/api/posts/`, {
+        : await axios.post(`${URL}/api/posts/`, {
             title,
             desc: value,
             cat,
