@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [viteCommonjs(), react(), resolve()],
   build: {
     rollupOptions: {
-      external: ["../../api.context.authContext.jsx"],
+      external: ["axios"],
     },
   },
 });
