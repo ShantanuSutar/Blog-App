@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import Logo from "../img/logos/logo-no-background.png";
-import { AuthContext } from "../../../api/context/authContext";
+import { AuthContext } from "../AuthContext/authContext.jsx";
 import Dark from "../img/icons/dark-mode.gif";
 import Light from "../img/icons/light-mode.gif";
 import Profile from "../img/icons/profile.gif";

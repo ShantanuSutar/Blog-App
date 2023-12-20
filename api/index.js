@@ -31,15 +31,15 @@ const storage = multer.diskStorage({
 //UPLOAD IMAGE
 const upload = multer({ storage });
 
-app.post(`${URL}/api/upload`, upload.single("file"), function (req, res) {
+app.post(`/api/upload`, upload.single("file"), function (req, res) {
   const file = req.file;
   res.status(200).json(file.filename);
 });
 
-app.use(`${URL}/api/auth`, authRoutes);
-app.use(`${URL}/api/users`, userRoutes);
-app.use(`${URL}/api/posts`, postRoutes);
-app.use(`${URL}/api/comments`, commentRoutes);
+app.use(`/api/auth`, authRoutes);
+app.use(`/api/users`, userRoutes);
+app.use(`/api/posts`, postRoutes);
+app.use(`/api/comments`, commentRoutes);
 
 app.use("/", (req, res) => {
   res.send("Hello to homepage");

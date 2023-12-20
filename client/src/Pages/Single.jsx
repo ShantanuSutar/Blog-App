@@ -6,7 +6,7 @@ import Menu from "../Components/Menu.jsx";
 import axios from "axios";
 import moment from "moment";
 import { useContext } from "react";
-import { AuthContext } from "../../../api/context/authContext";
+import { AuthContext } from "../AuthContext/authContext.jsx";
 import Comment from "../Components/Comment.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
 

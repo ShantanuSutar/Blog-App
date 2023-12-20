@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+const URL = import.meta.env.VITE_BASE_URL;
 
 const Register = () => {
   const [inputs, setInputs] = useState({

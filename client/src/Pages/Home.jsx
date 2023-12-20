@@ -12,9 +12,10 @@ const Home = () => {
     const fetchData = async () => {
       try {
         const res = await axios.get(`${URL}/api/posts/${cat}`);
-        console.log(res);
         setPosts(res.data);
-      } catch (error) {}
+      } catch (error) {
+        console.log(error);
+      }
     };
     fetchData();
   }, [cat]);

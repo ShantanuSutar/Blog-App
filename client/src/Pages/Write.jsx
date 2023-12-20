@@ -10,8 +10,8 @@ const cloudname = import.meta.env.VITE_CLOUD_NAME;
 const cloudUploadPreset = import.meta.env.VITE_CLOUD_UPLOAD_PRESET;
 
 const Write = () => {
-  const { theme, setTheme } = useThemeContext();
   const state = useLocation().state;
+  const { theme, setTheme } = useThemeContext();
   const [value, setValue] = useState(state?.desc || "");
   const [title, setTitle] = useState(state?.title || "");
   const [file, setFile] = useState(null);

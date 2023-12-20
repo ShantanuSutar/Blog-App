@@ -1,8 +1,7 @@
 import axios from "axios";
 import { createContext, useEffect, useState } from "react";
-const URL = import.meta.env.URL;
+const URL = import.meta.env.VITE_BASE_URL;
 export const AuthContext = createContext();
-
 export const AuthContextProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(
     JSON.parse(localStorage.getItem("user")) || null
