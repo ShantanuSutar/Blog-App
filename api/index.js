@@ -12,7 +12,6 @@ dotenv.config();
 const port = process.env.PORT || 8800;
 
 const app = express();
-const URL = import.meta.env.URL;
 
 // Use cors middleware
 app.use(cors());
