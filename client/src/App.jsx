@@ -11,7 +11,7 @@ import { useThemeContext } from "./Context/theme";
 
 const Layout = () => {
   return (
-    <div>
+    <div className="layout">
       <Navbar />
       <Outlet />
       <Footer />
@@ -40,19 +40,11 @@ const router = createBrowserRouter([
   },
   {
     path: "/login",
-    element: (
-      <div>
-        <Login />
-      </div>
-    ),
+    element: <Login />,
   },
   {
     path: "/register",
-    element: (
-      <div>
-        <Register />
-      </div>
-    ),
+    element: <Register />,
   },
 ]);
 

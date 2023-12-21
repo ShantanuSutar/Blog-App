@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import validator from "validator";
 const URL = import.meta.env.VITE_BASE_URL;
 
 const Register = () => {
@@ -20,6 +21,17 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (inputs.username === "") {
+      setError("Please enter username");
+      return;
+    } else if (!validator.isEmail(inputs.email)) {
+      setError("Please enter valid email");
+      return;
+    } else if (inputs.password === "") {
+      setError("Please enter password");
+      return;
+    }
 
     try {
       await axios.post(`${URL}/api/auth/register`, inputs);

@@ -1,6 +1,5 @@
 import { useContext, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 
 const Login = () => {
@@ -22,6 +21,14 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (inputs.username === "") {
+      setError("Please enter username");
+      return;
+    } else if (inputs.password === "") {
+      setError("Please enter password");
+      return;
+    }
+
     try {
       await login(inputs);
       navigate("/");
@@ -32,7 +39,7 @@ const Login = () => {
 
   return (
     <div className="auth">
-      <h1 className="text">Login</h1>
+      <h1 className="text constant">Login</h1>
       <form>
         <input
           className="text"

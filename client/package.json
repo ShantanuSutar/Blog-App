@@ -19,7 +19,8 @@
     "react-icons": "^4.11.0",
     "react-quill": "^2.0.0",
     "react-router-dom": "^6.16.0",
-    "sass": "^1.69.3"
+    "sass": "^1.69.3",
+    "validator": "^13.11.0"
   },
   "devDependencies": {
     "@originjs/vite-plugin-commonjs": "^1.0.3",

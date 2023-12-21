@@ -59,7 +59,11 @@ export const login = (req, res) => {
     // }
 
     // res.cookie("access_token", token, { httpOnly: true });
-    res.status(200).json({ success: true, token, other });
+    try {
+      res.status(200).json({ success: true, token, other });
+    } catch (error) {
+      res.json(error);
+    }
   });
 };
 
