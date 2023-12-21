@@ -105,6 +105,9 @@ const Single = () => {
       console.log(err);
     }
   };
+  const MyComponent = ({ htmlContent }) => {
+    return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+  };
 
   const handleAddComment = async () => {
     const fetchComments = async () => {
@@ -129,10 +132,10 @@ const Single = () => {
     }
   };
 
-  const getText = (html) => {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    return doc.body.textContent;
-  };
+  // const getText = (html) => {
+  //   const doc = new DOMParser().parseFromString(html, "text/html");
+  //   return doc.body.textContent;
+  // };
 
   return (
     <div className="single">
@@ -174,7 +177,8 @@ const Single = () => {
           {post.title}
         </h1>
         <p className={theme === "dark" ? "text dark" : "text"}>
-          {getText(post.desc)}
+          {/* {getText(post.desc)} */}
+          <MyComponent htmlContent={post.desc} />
         </p>
         <div className="comments">
           <h2 className={theme === "dark" ? "dark" : ""}>Comments</h2>

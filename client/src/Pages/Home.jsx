@@ -2,6 +2,7 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useThemeContext } from "../Context/theme";
+import Tilt from "react-parallax-tilt";
 
 const Home = () => {
   const { theme, setTheme } = useThemeContext();
@@ -31,7 +32,9 @@ const Home = () => {
         {posts?.map((post) => (
           <div className="post" key={post.id}>
             <div className={theme === "dark" ? "img dark" : "img"}>
-              <img src={post?.img} alt="" />
+              <Tilt>
+                <img src={post?.img} alt="" />
+              </Tilt>
             </div>
             <div className="content">
               <Link className="link" to={`/post/${post.id}`}>
