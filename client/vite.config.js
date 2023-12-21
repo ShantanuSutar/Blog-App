@@ -6,7 +6,7 @@ import resolve from "@rollup/plugin-node-resolve";
 export default defineConfig({
   server: {
     proxy: {
-      "/api": "https://api-kappa-snowy-88.vercel.app/",
+      "/api": "https://qwertyuiop123456789asd.onrender.com/",
     },
   },
 
