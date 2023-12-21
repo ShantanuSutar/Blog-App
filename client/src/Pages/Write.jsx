@@ -48,15 +48,33 @@ const Write = () => {
     e.preventDefault();
     const imgUrl = await upload();
 
+    function getCookie(cookieName) {
+      const name = cookieName + "=";
+      const decodedCookie = decodeURIComponent(document.cookie);
+      const cookieArray = decodedCookie.split(";");
+
+      for (let i = 0; i < cookieArray.length; i++) {
+        let cookie = cookieArray[i].trim();
+        if (cookie.indexOf(name) === 0) {
+          return cookie.substring(name.length, cookie.length);
+        }
+      }
+
+      return null; // Return null if the cookie is not found
+    }
+    const tokenValue = getCookie("access_token");
+
     try {
       state
         ? await axios.put(`${URL}/api/posts/${state.id}`, {
+            tokenValue,
             title,
             desc: value,
             cat,
             img: file ? imgUrl : "",
           })
         : await axios.post(`${URL}/api/posts/`, {
+            tokenValue,
             title,
             desc: value,
             cat,

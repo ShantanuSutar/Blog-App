@@ -15,7 +15,6 @@ const app = express();
 
 // Use cors middleware
 app.use(cors());
-
 app.use(express.json()); // to send json data to the server
 app.use(cookieParser()); // to send json data to the server
 

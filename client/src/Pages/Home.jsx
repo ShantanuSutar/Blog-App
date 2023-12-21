@@ -9,16 +9,6 @@ const Home = () => {
   const cat = useLocation().search;
   const URL = import.meta.env.VITE_BASE_URL;
   useEffect(() => {
-    // Function to get the value of a cookie by name
-    const getCookie = (name) => {
-      const cookies = document.cookie;
-      return cookies;
-    };
-
-    // Get and log the value of the "access_token" cookie
-    const accessToken = getCookie("access_token");
-    console.log("Access Token:", accessToken);
-
     const fetchData = async () => {
       try {
         const res = await axios.get(`${URL}/api/posts/${cat}`);

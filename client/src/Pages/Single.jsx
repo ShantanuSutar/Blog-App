@@ -53,7 +53,6 @@ const Single = () => {
   const URL = import.meta.env.VITE_BASE_URL;
 
   const postId = location.pathname.split("/")[2];
-
   const { currentUser } = useContext(AuthContext);
 
   useEffect(() => {
@@ -79,9 +78,28 @@ const Single = () => {
     fetchComments();
   }, [postId]);
 
-  const handleDelete = async () => {
+  const handleDelete = async (e) => {
+    e.preventDefault();
+    function getCookie(cookieName) {
+      const name = cookieName + "=";
+      const decodedCookie = decodeURIComponent(document.cookie);
+      const cookieArray = decodedCookie.split(";");
+
+      for (let i = 0; i < cookieArray.length; i++) {
+        let cookie = cookieArray[i].trim();
+        if (cookie.indexOf(name) === 0) {
+          return cookie.substring(name.length, cookie.length);
+        }
+      }
+
+      return null; // Return null if the cookie is not found
+    }
+    const tokenValue = getCookie("access_token");
+
     try {
-      await axios.delete(`${URL}/api/posts/${postId}`);
+      await axios.delete(
+        `${URL}/api/posts/${postId}?data=${JSON.stringify(tokenValue)}`
+      );
       navigate("/");
     } catch (err) {
       console.log(err);

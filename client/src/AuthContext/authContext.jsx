@@ -9,11 +9,14 @@ export const AuthContextProvider = ({ children }) => {
 
   const login = async (inputs) => {
     const res = await axios.post(`${URL}/api/auth/login`, inputs);
-    setCurrentUser(res.data);
+    const token = res.data.token;
+    document.cookie = `access_token=${token}; path=/;`;
+    setCurrentUser(res.data.other);
   };
 
   const logout = async () => {
     await axios.post(`${URL}/api/auth/logout`);
+    document.cookie = "access_token=; path=/;";
     setCurrentUser(null);
   };
 
