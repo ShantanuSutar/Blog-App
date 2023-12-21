@@ -11,38 +11,6 @@ import Comment from "../Components/Comment.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
 
 const Single = () => {
-  // const comments = [
-  //   {
-  //     id: 1,
-  //     comment: "This is a comment",
-  //     username: "John Doe",
-  //     userImg:
-  //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
-  //   },
-  //   {
-  //     id: 2,
-  //     comment:
-  //       "lorem ipsum dolor sit amet consectetur adipisicing elit. lorem ipsum dolor sit amet consectetur adipisicing elit.lorem ipsum dolor sit amet consectetur adipisicing elit.lorem ipsum dolor sit amet consectetur adipisicing elit.",
-  //     username: "Kate Smith",
-  //     userImg:
-  //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
-  //   },
-  //   {
-  //     id: 3,
-  //     comment: "This is a comment",
-  //     username: "Alex Johnson",
-  //     userImg:
-  //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
-  //   },
-  //   {
-  //     id: 4,
-  //     comment:
-  //       "lorem ipsum dolor sit amet consectetur adipisicing elit. lorem ipsum dolor sit amet consectetur adipisicing elit.lorem ipsum dolor sit amet consectetur adipisicing elit.lorem ipsum dolor sit amet consectetur adipisicing elit.  ",
-  //     username: "billy bob",
-  //     userImg:
-  //       "https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg",
-  //   },
-  // ];
   const { theme, setTheme } = useThemeContext();
 
   const [post, setPost] = useState({});
@@ -55,6 +23,14 @@ const Single = () => {
   const postId = location.pathname.split("/")[2];
   const { currentUser } = useContext(AuthContext);
 
+  const fetchComments = async () => {
+    try {
+      const res = await axios.get(`${URL}/api/comments/${postId}`);
+      setComments(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -62,15 +38,6 @@ const Single = () => {
         setPost(res.data);
       } catch (err) {
         console.log(err);
-      }
-    };
-
-    const fetchComments = async () => {
-      try {
-        const res = await axios.get(`${URL}/api/comments/${postId}`);
-        setComments(res.data);
-      } catch (error) {
-        console.log(error);
       }
     };
 
@@ -105,37 +72,25 @@ const Single = () => {
       console.log(err);
     }
   };
+
+  //Parsing String to HTML
   const MyComponent = ({ htmlContent }) => {
     return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
   };
 
   const handleAddComment = async () => {
-    const fetchComments = async () => {
-      try {
-        const res = await axios.get(`${URL}/api/comments/${postId}`);
-        setComments(res.data);
-      } catch (error) {
-        console.log(error);
-      }
-    };
     try {
-      await axios
-        .post(`${URL}/api/comments/${postId}`, {
-          comment,
-          postId,
-          userId: currentUser.id,
-        })
-        .then(fetchComments())
-        .then(setComment(""));
+      await axios.post(`${URL}/api/comments/${postId}`, {
+        comment,
+        postId,
+        userId: currentUser.id,
+      });
+      fetchComments();
+      setComment("");
     } catch (err) {
       console.log(err);
     }
   };
-
-  // const getText = (html) => {
-  //   const doc = new DOMParser().parseFromString(html, "text/html");
-  //   return doc.body.textContent;
-  // };
 
   return (
     <div className="single">
