@@ -63,11 +63,9 @@ const Navbar = () => {
             </Link>
           )}
           {currentUser && (
-            <span className="write">
-              <Link to="/write" className="writelink">
-                Write
-              </Link>
-            </span>
+            <Link to="/write" className="write">
+              <span className="writelink">Write</span>
+            </Link>
           )}
           {/* <span className="btn-grad" onClick={handleTheme}>
             Dark

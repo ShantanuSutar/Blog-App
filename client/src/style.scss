@@ -17,7 +17,7 @@
 // 232D3F - less black
 //
 $dark: #0f0f0f;
-$lessdark: #232d3f;
+$lessdark: #151a23;
 
 * {
   transition: all 0.5s ease-in-out;
@@ -212,11 +212,13 @@ $lessdark: #232d3f;
     //NAVBAR
     .navbar.dark {
       background-color: $lessdark;
+      box-shadow: rgba(255, 255, 255, 0.126) 0px 4px 12px;
     }
     .navbar {
       min-width: 70vw;
-      box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
       z-index: 2;
+      box-shadow: rgba(0, 0, 0, 0.126) 0px 4px 12px;
+
       // position: sticky;
       top: 0;
       background-color: white;
@@ -381,6 +383,16 @@ $lessdark: #232d3f;
       }
     }
 
+    .loading {
+      width: 100%;
+      // border: 1px solid red;
+      min-height: 80vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+
     //SINGLE POST
 
     .single {
@@ -504,7 +516,7 @@ $lessdark: #232d3f;
 
     //WRITE
     .add {
-      margin-top: 20px;
+      margin-top: 60px;
       display: flex;
       gap: 20px;
 

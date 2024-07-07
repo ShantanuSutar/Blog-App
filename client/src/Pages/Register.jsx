@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import validator from "validator";
@@ -10,6 +10,7 @@ const Register = () => {
     email: "",
     password: "",
   });
+  const [loading, setLoading] = useState(false);
 
   const [err, setError] = useState(null);
 
@@ -21,23 +22,29 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
     if (inputs.username === "") {
       setError("Please enter username");
+      setLoading(false);
       return;
     } else if (!validator.isEmail(inputs.email)) {
       setError("Please enter valid email");
+      setLoading(false);
       return;
     } else if (inputs.password === "") {
       setError("Please enter password");
+      setLoading(false);
       return;
     }
 
     try {
       await axios.post(`${URL}/api/auth/register`, inputs);
+      setLoading(false);
       navigate("/login");
     } catch (err) {
       console.log(err);
+      setLoading(false);
       setError(err.response.data);
     }
   };
@@ -71,7 +78,7 @@ const Register = () => {
           onChange={handleChange}
         />
         <button className="btn-grad" onClick={handleSubmit}>
-          Register
+          {loading ? "Please wait..." : "Register"}
         </button>
         {err && <p>{err} !</p>}
         <span>

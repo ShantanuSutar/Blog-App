@@ -12,7 +12,7 @@ import { useThemeContext } from "../Context/theme.jsx";
 
 const Single = () => {
   const { theme, setTheme } = useThemeContext();
-
+  const [loading, setLoading] = useState(false);
   const [post, setPost] = useState({});
   const [comments, setComments] = useState([]);
   const [comment, setComment] = useState("");
@@ -79,7 +79,10 @@ const Single = () => {
   };
 
   const handleAddComment = async () => {
+    if (!comment) return;
+
     try {
+      setLoading(true);
       await axios.post(`${URL}/api/comments/${postId}`, {
         comment,
         postId,
@@ -89,6 +92,8 @@ const Single = () => {
       setComment("");
     } catch (err) {
       console.log(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -147,7 +152,7 @@ const Single = () => {
                 onChange={(e) => setComment(e.target.value)}
               />
               <button className="btn-grad" onClick={handleAddComment}>
-                Comment
+                {loading ? "Please wait ..." : "Comment"}
               </button>
             </div>
           ) : (

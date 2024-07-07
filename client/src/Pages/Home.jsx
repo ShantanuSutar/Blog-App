@@ -6,16 +6,20 @@ import Tilt from "react-parallax-tilt";
 
 const Home = () => {
   const { theme, setTheme } = useThemeContext();
+  const [loading, setLoading] = useState(false);
   const [posts, setPosts] = useState([]);
   const cat = useLocation().search;
   const URL = import.meta.env.VITE_BASE_URL;
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         const res = await axios.get(`${URL}/api/posts/${cat}`);
         setPosts(res.data);
       } catch (error) {
         console.log(error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();
@@ -25,6 +29,14 @@ const Home = () => {
     const doc = new DOMParser().parseFromString(html, "text/html");
     return doc.body.textContent;
   };
+
+  if (loading) {
+    return (
+      <div className={`${theme === "dark" ? "text dark" : "text"} loading`}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div className={theme === "dark" ? "home dark" : "home"}>
