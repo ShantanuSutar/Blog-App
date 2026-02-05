@@ -41,28 +41,34 @@ const Home = () => {
   return (
     <div className={theme === "dark" ? "home dark" : "home"}>
       <div className="posts">
-        {posts?.map((post) => (
-          <div className="post" key={post.id}>
-            <div className={theme === "dark" ? "img dark" : "img"}>
-              <Tilt>
-                <img src={post?.img} alt="" />
-              </Tilt>
+        {posts && posts.length > 0 ? (
+          posts.map((post) => (
+            <div className="post" key={post.id}>
+              <div className={theme === "dark" ? "img dark" : "img"}>
+                <Tilt>
+                  <img src={post?.img} alt="" />
+                </Tilt>
+              </div>
+              <div className="content">
+                <Link className="link" to={`/post/${post.id}`}>
+                  <h1 className={theme === "dark" ? "text dark" : "text"}>
+                    {post.title}
+                  </h1>
+                </Link>
+                <p className={theme === "dark" ? "text dark" : "text"}>
+                  {getText(post.desc)}
+                </p>
+                <Link className="" to={`/post/${post.id}`}>
+                  <button className="btn-grad">Read More</button>
+                </Link>
+              </div>
             </div>
-            <div className="content">
-              <Link className="link" to={`/post/${post.id}`}>
-                <h1 className={theme === "dark" ? "text dark" : "text"}>
-                  {post.title}
-                </h1>
-              </Link>
-              <p className={theme === "dark" ? "text dark" : "text"}>
-                {getText(post.desc)}
-              </p>
-              <Link className="" to={`/post/${post.id}`}>
-                <button className="btn-grad">Read More</button>
-              </Link>
-            </div>
+          ))
+        ) : (
+          <div className="no-posts">
+            <p className={theme === "dark" ? "text dark" : "text"}>No posts yet. Be the first to create one!</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

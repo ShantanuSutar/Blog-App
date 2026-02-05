@@ -2,69 +2,54 @@ import { db } from "../db.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-export const register = (req, res) => {
-  //CHECK EXISTING USER
-  const q = "SELECT * FROM users WHERE email = ? OR username = ?";
-
-  db.query(q, [req.body.email, req.body.name], (err, data) => {
-    if (err) return res.status(500).json(err);
-    if (data.length) return res.status(409).json("User already exists");
+export const register = async (req, res) => {
+  try {
+    //CHECK EXISTING USER
+    const checkQuery = "SELECT * FROM users WHERE email = $1 OR username = $2";
+    
+    const existingUserResult = await db.query(checkQuery, [req.body.email, req.body.username]);
+    if (existingUserResult.rows.length) return res.status(409).json("User already exists");
 
     //Hash the password
     const salt = bcrypt.genSaltSync(10);
     const hash = bcrypt.hashSync(req.body.password, salt);
 
-    const q = "INSERT INTO users(`username`, `email`, `password`) VALUES (?)";
+    const insertQuery = "INSERT INTO users(username, email, password) VALUES ($1, $2, $3)";
 
     const values = [req.body.username, req.body.email, hash];
 
-    db.query(q, [values], (err, data) => {
-      if (err) return res.status(500).json(err);
-      return res.status(200).json("User has been created.");
-    });
-  });
+    await db.query(insertQuery, values);
+    return res.status(200).json("User has been created.");
+  } catch (err) {
+    return res.status(500).json(err);
+  }
 };
 
-export const login = (req, res) => {
-  //CHECK USER
-
-  const q = "SELECT * FROM users WHERE username = ?";
-
-  db.query(q, [req.body.username], (err, data) => {
-    if (err) return res.status(500).json(err);
-    if (data.length === 0) return res.status(404).json("User not found!");
+export const login = async (req, res) => {
+  try {
+    //CHECK USER
+    const query = "SELECT * FROM users WHERE username = $1";
+    
+    const result = await db.query(query, [req.body.username]);
+    if (result.rows.length === 0) return res.status(404).json("User not found!");
 
     //Check password
     const isPasswordCorrect = bcrypt.compareSync(
       req.body.password,
-      data[0].password
+      result.rows[0].password
     );
 
     if (!isPasswordCorrect)
       return res.status(400).json("Wrong username or password!");
 
-    const token = jwt.sign({ id: data[0].id }, "jwtkey");
+    const token = jwt.sign({ id: result.rows[0].id }, "jwtkey");
 
-    const { password, ...other } = data[0];
+    const { password, ...other } = result.rows[0];
 
-    // try {
-    //   res
-    //     .cookie("access_token", token, {
-    //       httpOnly: true,
-    //     })
-    //     .status(200)
-    //     .json(other);
-    // } catch (error) {
-    //   console.log(error);
-    // }
-
-    // res.cookie("access_token", token, { httpOnly: true });
-    try {
-      res.status(200).json({ success: true, token, other });
-    } catch (error) {
-      res.json(error);
-    }
-  });
+    res.status(200).json({ success: true, token, other });
+  } catch (error) {
+    return res.status(500).json(error);
+  }
 };
 
 export const logout = (req, res) => {

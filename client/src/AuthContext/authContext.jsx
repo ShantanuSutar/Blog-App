@@ -12,6 +12,7 @@ export const AuthContextProvider = ({ children }) => {
     const token = res.data.token;
     document.cookie = `access_token=${token}; path=/;`;
     setCurrentUser(res.data.other);
+    return res;
   };
 
   const logout = async () => {

@@ -40,7 +40,11 @@ const Login = () => {
       navigate("/");
     } catch (err) {
       setLoading(false);
-      setError(err.response.data);
+      if (err.response && err.response.data) {
+        setError(err.response.data);
+      } else {
+        setError(err.message || "An error occurred");
+      }
     }
   };
   useEffect(() => {
