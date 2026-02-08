@@ -21,7 +21,8 @@ export const register = async (req, res) => {
     await db.query(insertQuery, values);
     return res.status(200).json("User has been created.");
   } catch (err) {
-    return res.status(500).json(err);
+    console.error("Registration error:", err);
+    return res.status(500).json({ message: "Internal server error", error: err.message });
   }
 };
 
@@ -42,13 +43,14 @@ export const login = async (req, res) => {
     if (!isPasswordCorrect)
       return res.status(400).json("Wrong username or password!");
 
-    const token = jwt.sign({ id: result.rows[0].id }, "jwtkey");
+    const token = jwt.sign({ id: result.rows[0].id }, process.env.JWT_SECRET || "fallback_jwt_secret");
 
     const { password, ...other } = result.rows[0];
 
     res.status(200).json({ success: true, token, other });
   } catch (error) {
-    return res.status(500).json(error);
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 

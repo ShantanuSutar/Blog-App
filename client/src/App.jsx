@@ -7,6 +7,7 @@ import Navbar from "./Components/Navbar";
 import Footer from "./Components/Footer";
 import Single from "./Pages/Single";
 import Write from "./Pages/Write";
+import Drafts from "./Pages/Drafts";
 import { useThemeContext } from "./Context/theme";
 
 const Layout = () => {
@@ -35,6 +36,10 @@ const router = createBrowserRouter([
       {
         path: "/write",
         element: <Write />,
+      },
+      {
+        path: "/drafts",
+        element: <Drafts />,
       },
     ],
   },

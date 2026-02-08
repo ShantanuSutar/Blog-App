@@ -11,7 +11,7 @@ export const AuthContextProvider = ({ children }) => {
     const res = await axios.post(`${URL}/api/auth/login`, inputs);
     const token = res.data.token;
     document.cookie = `access_token=${token}; path=/;`;
-    setCurrentUser(res.data.other);
+    setCurrentUser({ ...res.data.other, token });
     return res;
   };
 

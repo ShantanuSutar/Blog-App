@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import axios from "axios";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import moment from "moment";
 import { useThemeContext } from "../Context/theme";
 
@@ -11,14 +11,53 @@ const cloudUploadPreset = import.meta.env.VITE_CLOUD_UPLOAD_PRESET;
 
 const Write = () => {
   const state = useLocation().state;
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('edit');
   const { theme, setTheme } = useThemeContext();
   const [value, setValue] = useState(state?.desc || "");
   const [title, setTitle] = useState(state?.title || "");
   const [file, setFile] = useState(null);
   const [cat, setCat] = useState(state?.cat || "");
-
+  const [scheduledDate, setScheduledDate] = useState(state?.scheduled_publish_date || "");
+  const [tags, setTags] = useState(state?.tags || []);
+  const [tagInput, setTagInput] = useState("");
+  const [featured, setFeatured] = useState(state?.featured || false);
   const navigate = useNavigate();
   const URL = import.meta.env.VITE_BASE_URL;
+
+  // Fetch post data when editing
+  useEffect(() => {
+    if (editId) {
+      const fetchPost = async () => {
+        try {
+          // Get token from cookie
+          const getCookie = (name) => {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+          };
+          
+          const token = getCookie('access_token');
+          
+          const res = await axios.get(`${URL}/api/posts/${editId}/edit`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          const post = res.data;
+          setTitle(post.title);
+          setValue(post.desc);
+          setCat(post.cat || "");
+          setScheduledDate(post.scheduled_publish_date || "");
+          setTags(Array.isArray(post.tags) ? post.tags : JSON.parse(post.tags || "[]"));
+          setFeatured(post.featured || false);
+        } catch (err) {
+          console.log(err);
+        }
+      };
+      fetchPost();
+    }
+  }, [editId, URL]);
 
   const upload = async () => {
     try {
@@ -44,9 +83,9 @@ const Write = () => {
     }
   };
 
-  const handleClick = async (e) => {
+  const handleClick = async (e, isDraft = false) => {
     e.preventDefault();
-    const imgUrl = await upload();
+    const imgUrl = file ? await upload() : "";
 
     function getCookie(cookieName) {
       const name = cookieName + "=";
@@ -65,13 +104,20 @@ const Write = () => {
     const tokenValue = getCookie("access_token");
 
     try {
-      state
-        ? await axios.put(`${URL}/api/posts/${state.id}`, {
-            tokenValue,
+      (state || editId)
+        ? await axios.put(`${URL}/api/posts/${state?.id || editId}`, {
             title,
             desc: value,
             cat,
             img: file ? imgUrl : "",
+            draft: isDraft,
+            scheduled_publish_date: scheduledDate || null,
+            tags: tags,
+            featured: featured,
+          }, {
+            headers: {
+              Authorization: `Bearer ${tokenValue}`
+            }
           })
         : await axios.post(`${URL}/api/posts/`, {
             tokenValue,
@@ -80,11 +126,32 @@ const Write = () => {
             cat,
             img: file ? imgUrl : "",
             date: moment(Date.now()).format("YYYY-MM-DD HH:mm:ss"),
+            draft: isDraft,
+            scheduled_publish_date: scheduledDate || null,
+            tags: tags,
+            featured: featured,
           });
       navigate("/");
     } catch (err) {
       console.log(err);
     }
+  };
+
+  const handleSaveDraft = async (e) => {
+    e.preventDefault();
+    handleClick(e, true);
+  };
+
+  const handleAddTag = (e) => {
+    e.preventDefault();
+    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
+      setTags([...tags, tagInput.trim()]);
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
   return (
@@ -118,6 +185,62 @@ const Write = () => {
           <span className={theme === "dark" ? " dark" : ""}>
             <b>Visibility: </b> Public
           </span>
+          <div className="item">
+            <label className={theme === "dark" ? " dark" : ""}>
+              <b>Schedule Post: </b>
+            </label>
+            <input
+              type="datetime-local"
+              value={scheduledDate}
+              onChange={(e) => setScheduledDate(e.target.value)}
+              className={theme === "dark" ? " dark" : ""}
+            />
+          </div>
+          <div className="item">
+            <label className={theme === "dark" ? " dark" : ""}>
+              <b>Featured Post: </b>
+            </label>
+            <div>
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => setFeatured(e.target.checked)}
+                id="featured"
+              />
+              <label htmlFor="featured" className={theme === "dark" ? " dark" : ""}>
+                Mark as featured
+              </label>
+            </div>
+          </div>
+          <div className="item">
+            <label className={theme === "dark" ? " dark" : ""}>
+              <b>Tags: </b>
+            </label>
+            <div className="tags-container">
+              {tags.map((tag, index) => (
+                <span key={index} className="tag">
+                  {tag}
+                  <button 
+                    type="button" 
+                    onClick={() => handleRemoveTag(tag)}
+                    className="remove-tag-btn"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <form onSubmit={handleAddTag} className="tag-input-form">
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="Add a tag"
+                className={theme === "dark" ? " dark" : ""}
+              />
+              <button type="submit" className="btn-grad">Add</button>
+            </form>
+          </div>
           <input
             style={{ display: "none" }}
             type="file"
@@ -132,7 +255,9 @@ const Write = () => {
             Upload Image
           </label>
           <div className="buttons">
-            <button className="btn-grad">Save as a draft</button>
+            <button className="btn-grad" onClick={handleSaveDraft}>
+              Save as a draft
+            </button>
             <button onClick={handleClick} className="btn-grad">
               Publish
             </button>
