@@ -4,16 +4,16 @@ import { Link } from "react-router-dom";
 import { AuthContext } from "../AuthContext/authContext";
 import { useThemeContext } from "../Context/theme";
 
-const Drafts = () => {
+const Scheduled = () => {
   const [posts, setPosts] = useState([]);
   const { currentUser } = useContext(AuthContext);
   const { theme } = useThemeContext();
 
   useEffect(() => {
-    const fetchDrafts = async () => {
+    const fetchScheduledPosts = async () => {
       try {
         const res = await axios.get(
-          `${import.meta.env.VITE_BASE_URL}/api/posts/drafts/user`,
+          `${import.meta.env.VITE_BASE_URL}/api/posts/scheduled/user`,
           {
             headers: {
               Authorization: `Bearer ${currentUser?.token}`,
@@ -25,7 +25,7 @@ const Drafts = () => {
         console.log(err);
       }
     };
-    fetchDrafts();
+    fetchScheduledPosts();
   }, [currentUser]);
 
   const handleDelete = async (id) => {
@@ -41,13 +41,14 @@ const Drafts = () => {
     }
   };
 
-  const handlePublish = async (id) => {
+  const handlePublishNow = async (id) => {
     try {
       await axios.put(
         `${import.meta.env.VITE_BASE_URL}/api/posts/${id}`,
         {
           tokenValue: currentUser?.token,
-          draft: false, // Set draft to false to publish
+          draft: false, // Set draft to false
+          scheduled_publish_date: null // Remove scheduled date to publish immediately
         },
         {
           headers: {
@@ -55,7 +56,7 @@ const Drafts = () => {
           }
         }
       );
-      // Remove from drafts list after publishing
+      // Remove from scheduled list after publishing
       setPosts(posts.filter((post) => post.id !== id));
     } catch (err) {
       console.log(err);
@@ -116,7 +117,7 @@ const Drafts = () => {
       <div className="home">
         <div className="no-posts">
           <p className={theme === "dark" ? "text dark" : "text"}>
-            Please log in to view your drafts
+            Please log in to view your scheduled posts
           </p>
         </div>
       </div>
@@ -126,7 +127,7 @@ const Drafts = () => {
   return (
     <div className="home">
       <div className="posts">
-        <h1 className={theme === "dark" ? "text dark" : "text"}>Your Drafts</h1>
+        <h1 className={theme === "dark" ? "text dark" : "text"}>Your Scheduled Posts</h1>
         {posts && posts.length > 0 ? (
           posts.map((post) => (
             <div className="post" key={post.id}>
@@ -142,23 +143,23 @@ const Drafts = () => {
                 <p className={theme === "dark" ? "text dark" : "text"}>
                   {getText(post.desc)}
                 </p>
-                {post.scheduled_publish_date && (
-                  <div className="details">
-                    <p className={`countdown ${getTimeRemaining(post.scheduled_publish_date).colorClass}`}>
-                      <strong>Scheduled for:</strong> {new Date(post.scheduled_publish_date).toLocaleString()}<br/>
-                      <strong>Time remaining:</strong> {getTimeRemaining(post.scheduled_publish_date).formatted}
-                    </p>
-                  </div>
-                )}
+                <div className="details">
+                  <p className={theme === "dark" ? "text dark" : "text"}>
+                    <strong>Scheduled for:</strong> {new Date(post.scheduled_publish_date).toLocaleString()}
+                  </p>
+                  <p className={`countdown ${getTimeRemaining(post.scheduled_publish_date).colorClass}`}>
+                    <strong>Time remaining:</strong> {getTimeRemaining(post.scheduled_publish_date).formatted}
+                  </p>
+                </div>
                 <div className="actions">
                   <Link className="link" to={`/write?edit=${post.id}`}>
                     <button className="btn-grad">Edit</button>
                   </Link>
                   <button 
                     className="btn-grad" 
-                    onClick={() => handlePublish(post.id)}
+                    onClick={() => handlePublishNow(post.id)}
                   >
-                    Publish
+                    Publish Now
                   </button>
                   <button 
                     className="btn-grad delete" 
@@ -173,7 +174,7 @@ const Drafts = () => {
         ) : (
           <div className="no-posts">
             <p className={theme === "dark" ? "text dark" : "text"}>
-              No drafts yet. Saved drafts will appear here.
+              No scheduled posts. Posts scheduled for future publication will appear here.
             </p>
           </div>
         )}
@@ -182,4 +183,4 @@ const Drafts = () => {
   );
 };
 
-export default Drafts;
+export default Scheduled;

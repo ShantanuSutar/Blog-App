@@ -7,26 +7,27 @@ export const getPosts = async (req, res) => {
   try {
     let query;
     let params;
-    
+        
     if (req.query.cat) {
-      query = "SELECT * FROM posts WHERE cat=$1 AND draft=false AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= NOW())";
+      query = "SELECT * FROM posts WHERE cat=$1 AND draft=false AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))";
       params = [req.query.cat];
     } else {
-      query = "SELECT * FROM posts WHERE draft=false AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= NOW())";
+      query = "SELECT * FROM posts WHERE draft=false AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))";
       params = [];
     }
-    
+        
     const result = await db.query(query, params);
     return res.status(200).json(result.rows);
   } catch (err) {
-    return res.status(500).json(err);
+    console.error('Error in getPosts:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 export const getSinglePost = async (req, res) => {
   try {
     const query =
-      "SELECT p.id, username, title, \"desc\", p.img, u.img AS userImg, cat, date FROM users u JOIN posts p ON u.id = p.uid WHERE p.id = $1 AND p.draft = false AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= NOW())";
+      "SELECT p.id, username, title, \"desc\", p.img, u.img AS userImg, cat, date FROM users u JOIN posts p ON u.id = p.uid WHERE p.id = $1 AND p.draft = false AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))";
     
     const result = await db.query(query, [req.params.id]);
     
@@ -36,7 +37,8 @@ export const getSinglePost = async (req, res) => {
     
     return res.status(200).json(result.rows[0]);
   } catch (err) {
-    return res.status(500).json(err);
+    console.error('Error in getSinglePost:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -61,7 +63,8 @@ export const getPostForEditing = async (req, res) => {
       
       return res.status(200).json(result.rows[0]);
     } catch (err) {
-      return res.status(500).json(err);
+      console.error('Error in getPostForEditing:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 };
@@ -94,7 +97,8 @@ export const addPost = async (req, res) => {
       await db.query(query, values);
       return res.json("Post has been created.");
     } catch (err) {
-      return res.status(500).json(err);
+      console.error('Error in addPost:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 };
@@ -120,7 +124,8 @@ export const deletePost = async (req, res) => {
       
       return res.json("Post has been deleted!");
     } catch (err) {
-      return res.status(500).json(err);
+      console.error('Error in deletePost:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 };
@@ -205,7 +210,8 @@ export const updatePost = async (req, res) => {
       
       return res.json("Post has been updated.");
     } catch (err) {
-      return res.status(500).json(err);
+      console.error('Error in updatePost:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 };
@@ -231,7 +237,8 @@ export const getUserDrafts = async (req, res) => {
       
       return res.status(200).json(result.rows);
     } catch (err) {
-      return res.status(500).json(err);
+      console.error('Error in getUserDrafts:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 };
@@ -246,13 +253,14 @@ export const getUserScheduledPosts = async (req, res) => {
     if (err) return res.status(403).json("Token is not valid!");
 
     try {
-      const query = "SELECT * FROM posts WHERE uid = $1 AND draft = false AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > NOW() ORDER BY scheduled_publish_date ASC";
+      const query = "SELECT * FROM posts WHERE uid = $1 AND draft = false AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > timezone('UTC', now()) ORDER BY scheduled_publish_date ASC";
       
       const result = await db.query(query, [userInfo.id]);
       
       return res.status(200).json(result.rows);
     } catch (err) {
-      return res.status(500).json(err);
+      console.error('Error in getUserScheduledPosts:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 };
@@ -261,24 +269,31 @@ export const getPostsByTag = async (req, res) => {
   try {
     const tag = req.params.tag;
     
-    const query = "SELECT * FROM posts WHERE draft = false AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= NOW()) AND tags ? $1";
+    // Convert tag to proper JSON format for PostgreSQL query
+    const tagJson = JSON.stringify([tag]);
     
-    const result = await db.query(query, [tag]);
+    // Use PostgreSQL JSONB operators to find posts with the specified tag
+    const query = "SELECT * FROM posts WHERE draft = false AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now())) AND tags::text ILIKE $1";
+    
+    // Search for the tag within the JSON structure
+    const result = await db.query(query, [`%${tag}%`]);
     
     return res.status(200).json(result.rows);
   } catch (err) {
-    return res.status(500).json(err);
+    console.error('Error in getPostsByTag:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 export const getFeaturedPosts = async (req, res) => {
   try {
-    const query = "SELECT * FROM posts WHERE draft = false AND featured = true AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= NOW()) ORDER BY date DESC LIMIT 5";
+    const query = "SELECT * FROM posts WHERE draft = false AND featured = true AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now())) ORDER BY date DESC LIMIT 5";
     
     const result = await db.query(query);
     
     return res.status(200).json(result.rows);
   } catch (err) {
-    return res.status(500).json(err);
+    console.error('Error in getFeaturedPosts:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };

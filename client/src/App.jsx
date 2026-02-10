@@ -8,11 +8,14 @@ import Footer from "./Components/Footer";
 import Single from "./Pages/Single";
 import Write from "./Pages/Write";
 import Drafts from "./Pages/Drafts";
+import Scheduled from "./Pages/Scheduled";
 import { useThemeContext } from "./Context/theme";
 
 const Layout = () => {
+  const { theme } = useThemeContext();
+
   return (
-    <div className="layout">
+    <div className={theme === "dark" ? "layout dark" : "layout"}>
       <Navbar />
       <Outlet />
       <Footer />
@@ -41,23 +44,29 @@ const router = createBrowserRouter([
         path: "/drafts",
         element: <Drafts />,
       },
+      {
+        path: "/scheduled",
+        element: <Scheduled />,
+      },
+      {
+        path: "/tag/:tag",
+        element: <Home />,
+      },
     ],
-  },
-  {
-    path: "/login",
-    element: <Login />,
   },
   {
     path: "/register",
     element: <Register />,
   },
+  {
+    path: "/login",
+    element: <Login />,
+  },
 ]);
 
 function App() {
-  const { theme, setTheme } = useThemeContext();
-
   return (
-    <div className={theme === "dark" ? "app dark" : "app"}>
+    <div className="app">
       <div className="container">
         <RouterProvider router={router} />
       </div>

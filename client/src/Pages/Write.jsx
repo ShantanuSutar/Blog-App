@@ -154,6 +154,50 @@ const Write = () => {
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
+  const getTimeRemaining = (scheduledDate) => {
+    const now = new Date();
+    const scheduled = new Date(scheduledDate);
+    const difference = scheduled.getTime() - now.getTime();
+
+    if (difference <= 0) {
+      return {
+        formatted: "Published!",
+        colorClass: "published"
+      };
+    }
+
+    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+    let formatted = "";
+    if (days > 0) {
+      formatted = `${days}d ${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+      formatted = `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+      formatted = `${minutes}m ${seconds}s`;
+    } else {
+      formatted = `${seconds}s`;
+    }
+
+    // Determine color based on time remaining
+    let colorClass = "";
+    if (days === 0 && hours === 0 && minutes <= 30) {
+      colorClass = "urgent"; // Less than 30 minutes - red
+    } else if (days === 0 && hours <= 2) {
+      colorClass = "warning"; // Less than 2 hours - orange
+    } else {
+      colorClass = "normal"; // More than 2 hours - green
+    }
+
+    return {
+      formatted,
+      colorClass
+    };
+  };
+
   return (
     <div className="add">
       <div className="content">
@@ -195,6 +239,13 @@ const Write = () => {
               onChange={(e) => setScheduledDate(e.target.value)}
               className={theme === "dark" ? " dark" : ""}
             />
+            {scheduledDate && (
+              <div className="countdown-display">
+                <p className={`countdown ${getTimeRemaining(scheduledDate).colorClass}`}>
+                  <strong>Time remaining:</strong> {getTimeRemaining(scheduledDate).formatted}
+                </p>
+              </div>
+            )}
           </div>
           <div className="item">
             <label className={theme === "dark" ? " dark" : ""}>

@@ -11,7 +11,10 @@ const Menu = ({ cat }) => {
   const navigate = useNavigate();
   const URL = import.meta.env.VITE_BASE_URL;
 
-  const [postId, setPostId] = useState(location.pathname.split("/")[2]);
+  const [postId, setPostId] = useState(() => {
+    const pathSegments = location.pathname.split("/");
+    return pathSegments[2] || null;
+  });
   function shuffle(array) {
     let currentIndex = array.length,
       randomIndex;
@@ -35,13 +38,17 @@ const Menu = ({ cat }) => {
     setPosts((prev) => shuffle(prev));
   };
   useEffect(() => {
+    console.log('Menu useEffect triggered with cat:', cat);
     const fetchData = async () => {
       try {
+        console.log('Menu fetching data with URL:', URL, 'and cat:', cat);
         const res = await axios.get(`${URL}/api/posts/?cat=${cat}`);
+        console.log('Menu fetched posts:', res.data);
         setPosts(res.data);
         // console.log(res);
       } catch (error) {
-        console.log(error);
+        console.error('Menu error:', error);
+        console.error('Menu error response:', error.response);
       }
     };
 
