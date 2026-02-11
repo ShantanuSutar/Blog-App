@@ -16,9 +16,11 @@ const Layout = () => {
   const { theme } = useThemeContext();
 
   return (
-    <div className={theme === "dark" ? "layout dark" : "layout"}>
+    <div className={theme === "dark" ? "page-container dark" : "page-container"}>
       <Navbar />
-      <Outlet />
+      <main className="main-content-wrapper">
+        <Outlet />
+      </main>
       <Footer />
     </div>
   );

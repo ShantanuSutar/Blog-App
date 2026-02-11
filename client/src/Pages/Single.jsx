@@ -248,7 +248,9 @@ const Single = () => {
           })}
         </div>
       </div>
-      <Menu cat={post.cat} />
+      <div className="sidebar-content">
+        <Menu cat={post.cat} />
+      </div>
     </div>
   );
 };

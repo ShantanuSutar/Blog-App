@@ -3,7 +3,7 @@ import api from "../api/axios";
 import { useEffect, useState, useContext } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useThemeContext } from "../Context/theme";
-import { BiBookmark, BiSolidBookmark } from "react-icons/bi";
+import { BiBookmark, BiSolidBookmark, BiSearch } from "react-icons/bi";
 import { AuthContext } from "../AuthContext/authContext";
 import Tilt from "react-parallax-tilt";
 import Menu from "../Components/Menu";
@@ -19,6 +19,7 @@ const Home = () => {
   const [filteredTags, setFilteredTags] = useState([]);
   const [selectedTag, setSelectedTag] = useState(null);
   const [tagSearch, setTagSearch] = useState('');
+  const [postsSearchQuery, setPostsSearchQuery] = useState('');
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -230,62 +231,125 @@ const Home = () => {
     <div className={theme === "dark" ? "home dark" : "home"}>
       <div className="main-content">
         <div className="filter-section">
-          <div className="tag-filter">
-            <div className="custom-tag-dropdown">
-              <div
-                className={`dropdown-header ${theme === "dark" ? "dark" : ""} ${isDropdownOpen ? "open" : ""}`}
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              >
-                <span>{selectedTag || "Filter by Tag"}</span>
-                <span className="dropdown-arrow">▼</span>
+          <div className="filters-container" style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="tag-filter">
+              <div className="custom-tag-dropdown">
+                <div
+                  className={`dropdown-header ${theme === "dark" ? "dark" : ""} ${isDropdownOpen ? "open" : ""}`}
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
+                  <span>{selectedTag || "Filter by Tag"}</span>
+                  <span className="dropdown-arrow">▼</span>
+                </div>
+
+                {isDropdownOpen && (
+                  <div className={`dropdown-content ${theme === "dark" ? "dark" : ""}`}>
+                    <div className="search-container">
+                      <input
+                        type="text"
+                        placeholder="Search tags..."
+                        value={tagSearch}
+                        onChange={(e) => setTagSearch(e.target.value)}
+                        className={theme === "dark" ? "tag-search-input dark" : "tag-search-input"}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="tags-list">
+                      {filteredTags.length > 0 ? (
+                        filteredTags.map((tag, index) => (
+                          <div
+                            key={index}
+                            className="tag-option"
+                            onClick={() => {
+                              setSelectedTag(tag);
+                              setIsDropdownOpen(false);
+                              navigate(`/tag/${tag}`);
+                            }}
+                          >
+                            {tag}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="no-tags">No tags found</div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {isDropdownOpen && (
-                <div className={`dropdown-content ${theme === "dark" ? "dark" : ""}`}>
-                  <div className="search-container">
-                    <input
-                      type="text"
-                      placeholder="Search tags..."
-                      value={tagSearch}
-                      onChange={(e) => setTagSearch(e.target.value)}
-                      className={theme === "dark" ? "tag-search-input dark" : "tag-search-input"}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="tags-list">
-                    {filteredTags.length > 0 ? (
-                      filteredTags.map((tag, index) => (
-                        <div
-                          key={index}
-                          className="tag-option"
-                          onClick={() => {
-                            setSelectedTag(tag);
-                            setIsDropdownOpen(false);
-                            navigate(`/tag/${tag}`);
-                          }}
-                        >
-                          {tag}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="no-tags">No tags found</div>
-                    )}
-                  </div>
-                </div>
+              {selectedTag && (
+                <button
+                  onClick={clearFilter}
+                  className="btn-grad"
+                  style={{ marginLeft: '10px' }}
+                >
+                  Clear Filter
+                </button>
               )}
             </div>
 
-            {selectedTag && (
+            <div className="post-search-filter">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (postsSearchQuery.trim()) {
+                  navigate(`/?search=${postsSearchQuery}`);
+                } else {
+                  navigate('/');
+                }
+              }} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="Search posts..."
+                  value={postsSearchQuery}
+                  onChange={(e) => setPostsSearchQuery(e.target.value)}
+                  className={theme === "dark" ? "post-search-input dark" : "post-search-input"}
+                  style={{
+                    padding: '8px 35px 8px 15px',
+                    borderRadius: '20px',
+                    border: '1px solid #ccc',
+                    backgroundColor: theme === 'dark' ? '#333' : '#f9f9f9',
+                    color: theme === 'dark' ? '#fff' : '#333',
+                    outline: 'none',
+                    width: '250px',
+                    transition: 'all 0.3s'
+                  }}
+                />
+                <BiSearch
+                  onClick={() => {
+                    if (postsSearchQuery.trim()) {
+                      navigate(`/?search=${postsSearchQuery}`);
+                    } else {
+                      navigate('/');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    cursor: 'pointer',
+                    fontSize: '20px',
+                    color: theme === 'dark' ? '#ccc' : '#555'
+                  }}
+                />
+              </form>
+            </div>
+
+            {search && (
               <button
-                onClick={clearFilter}
+                onClick={() => {
+                  setPostsSearchQuery('');
+                  navigate('/');
+                }}
                 className="btn-grad clear-btn"
               >
-                Clear Filter
+                Clear Search
               </button>
             )}
           </div>
           {selectedTag && (
-            <h2 className={theme === "dark" ? "text dark" : "text"}>Posts tagged with: <span className="highlight-tag">{selectedTag}</span></h2>
+            <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginTop: '20px' }}>Posts tagged with: <span className="highlight-tag">{selectedTag}</span></h2>
+          )}
+          {search && (
+            <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginTop: '20px' }}>Search results for: <span className="highlight-tag">{search}</span></h2>
           )}
         </div>
         <div className="posts">
@@ -304,7 +368,7 @@ const Home = () => {
                       {post.title}
                     </h1>
                   </Link>
-                  <p className={theme === "dark" ? "text dark" : "text"}>
+                  <p className={theme === "dark" ? "dark" : ""}>
                     {getText(post.desc)}
                   </p>
                   <div className="post-tags">
@@ -328,21 +392,21 @@ const Home = () => {
                       </>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
+                  <div className="post-actions">
                     {currentUser && (
                       <div
+                        className="bookmark-icon"
                         onClick={(e) => handleBookmark(e, post.id)}
-                        style={{ cursor: 'pointer', fontSize: '24px' }}
                         title={bookmarkedPosts.includes(post.id) ? "Remove Bookmark" : "Bookmark"}
                       >
                         {bookmarkedPosts.includes(post.id) ? (
-                          <BiSolidBookmark style={{ color: '#ec1257' }} />
+                          <BiSolidBookmark />
                         ) : (
-                          <BiBookmark style={{ color: theme === 'dark' ? '#ccc' : '#555' }} />
+                          <BiBookmark />
                         )}
                       </div>
                     )}
-                    <Link className="" to={`/post/${post.id}`}>
+                    <Link to={`/post/${post.id}`}>
                       <button className="btn-grad">Read More</button>
                     </Link>
                   </div>

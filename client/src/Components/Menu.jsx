@@ -62,16 +62,17 @@ const Menu = ({ cat }) => {
       </h1>
       {Array.isArray(posts) && posts.length > 0 ? (
         posts.map((post) => (
-          <div className="post" key={post.id}>
-            <img src={post?.img} alt="" />
-            <h2 className={theme === "dark" ? "dark" : ""}>{post.title}</h2>
-            <Link className="" to={`/post/${post.id}`}>
-              <button className="btn-grad" onClick={handleClick}>
-                Read More
-              </button>
-            </Link>
-          </div>
-        ))) : (
+          <Link className="post" key={post.id} to={`/post/${post.id}`} onClick={handleClick}>
+            <div className="img-container">
+              <img src={post?.img} alt="" />
+            </div>
+            <div className="post-info">
+              <h2 className={theme === "dark" ? "dark" : ""}>{post.title}</h2>
+              <span className="read-more-link">Read More</span>
+            </div>
+          </Link>
+        ))
+      ) : (
         <p>No related posts.</p>
       )}
     </div>

@@ -4,29 +4,33 @@ import { AuthContext } from "../AuthContext/authContext.jsx";
 import Dark from "../img/icons/dark-mode.gif";
 import Light from "../img/icons/light-mode.gif";
 import Profile from "../img/icons/profile.gif";
-import { BiSearch } from "react-icons/bi";
-
-import { useContext, useState } from "react";
+import { useContext, useState, useRef, useEffect } from "react";
 import { useThemeContext } from "../Context/theme";
 
 const Navbar = () => {
   const { theme, setTheme } = useThemeContext();
   const { currentUser, logout } = useContext(AuthContext);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
   const navigate = useNavigate();
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/?search=${searchQuery}`);
-      setSearchQuery(""); // Clear search after submitting
-    }
-  };
 
   const handleTheme = () => {
     if (theme === "dark") setTheme("light");
     else setTheme("dark");
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className={theme === "dark" ? "navbar dark" : "navbar"}>
@@ -36,93 +40,58 @@ const Navbar = () => {
             <img src={Logo} alt="Logo" />
           </Link>
         </div>
-        <div className="search-bar">
-          <form onSubmit={handleSearch} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <input
-              type="text"
-              placeholder="Search posts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={theme === "dark" ? "search-input dark" : "search-input"}
-              style={{ paddingRight: '35px' }}
-            />
-            <BiSearch
-              className={theme === "dark" ? "search-icon dark" : "search-icon"}
-              onClick={handleSearch}
-              style={{
-                position: 'absolute',
-                right: '10px',
-                cursor: 'pointer',
-                fontSize: '20px',
-                color: theme === 'dark' ? '#ccc' : '#555'
-              }}
-            />
-          </form>
-        </div>
+
         <div className="links">
-          <Link className="link" to={"/?cat=art"}>
-            <h6 className={theme === "dark" ? "text dark" : "text"}>Art</h6>
-          </Link>
-          <Link className="link" to={"/?cat=scitech"}>
-            <h6 className={theme === "dark" ? "text dark" : "text"}>
-              Sci-Tech
-            </h6>
-          </Link>
-          <Link className="link" to={"/?cat=sports"}>
-            <h6 className={theme === "dark" ? "text dark" : "text"}>Sports</h6>
-          </Link>
-          <Link className="link" to={"/?cat=cinema"}>
-            <h6 className={theme === "dark" ? "text dark" : "text"}>Cinema</h6>
-          </Link>
-          <Link className="link" to={"/?cat=food"}>
-            <h6 className={theme === "dark" ? "text dark" : "text"}>Food</h6>
-          </Link>
-          <Link className="link" to={"/?cat=travel"}>
-            <h6 className={theme === "dark" ? "text dark" : "text"}>Travel</h6>
-          </Link>
-          {currentUser && (
-            <div className="tooltip user">
-              <img src={Profile} alt="" />
-              <span className="tooltip-text">{currentUser.username}</span>
-            </div>
-          )}
-          {currentUser ? (
-            <span
-              className={theme === "dark" ? "text dark" : "text"}
-              onClick={logout}
-            >
-              Logout
-            </span>
-          ) : (
-            <Link className="btn-grad" to="/login">
-              Login
+          <div className="category-links">
+            <Link className="link" to={"/?cat=art"}>
+              <span className={theme === "dark" ? "text dark" : "text"}>Art</span>
             </Link>
-          )}
-          {currentUser && (
-            <Link to="/write" className="write">
-              <span className="writelink">Write</span>
+            <Link className="link" to={"/?cat=scitech"}>
+              <span className={theme === "dark" ? "text dark" : "text"}> Sci-Tech </span>
             </Link>
-          )}
-          {currentUser && (
-            <Link to="/drafts" className="write">
-              <span className="writelink">Drafts</span>
+            <Link className="link" to={"/?cat=sports"}>
+              <span className={theme === "dark" ? "text dark" : "text"}>Sports</span>
             </Link>
-          )}
-          {currentUser && (
-            <Link to="/scheduled" className="write">
-              <span className="writelink">Scheduled</span>
+            <Link className="link" to={"/?cat=cinema"}>
+              <span className={theme === "dark" ? "text dark" : "text"}>Cinema</span>
             </Link>
-          )}
-          {currentUser && (
-            <Link to="/bookmarks" className="write">
-              <span className="writelink">Bookmarks</span>
+            <Link className="link" to={"/?cat=food"}>
+              <span className={theme === "dark" ? "text dark" : "text"}>Food</span>
             </Link>
-          )}
-          <span onClick={handleTheme}>
-            {theme === "dark" ? (
-              <img src={Light} alt="" />
+            <Link className="link" to={"/?cat=travel"}>
+              <span className={theme === "dark" ? "text dark" : "text"}>Travel</span>
+            </Link>
+          </div>
+
+          <div className="user-menu-container" ref={menuRef}>
+            {currentUser ? (
+              <div className={theme === "dark" ? "user-profile dark" : "user-profile"} onClick={() => setMenuOpen(!menuOpen)}>
+                <img src={Profile} alt="Profile" />
+                <span className={theme === "dark" ? "username dark" : "username"}>{currentUser.username}</span>
+
+                {menuOpen && (
+                  <div className={theme === "dark" ? "profile-dropdown dark" : "profile-dropdown"}>
+                    <Link className={theme === "dark" ? "dark" : ""} to="/write" onClick={() => setMenuOpen(false)}>Write</Link>
+                    <Link className={theme === "dark" ? "dark" : ""} to="/drafts" onClick={() => setMenuOpen(false)}>Drafts</Link>
+                    <Link className={theme === "dark" ? "dark" : ""} to="/scheduled" onClick={() => setMenuOpen(false)}>Scheduled</Link>
+                    <Link className={theme === "dark" ? "dark" : ""} to="/bookmarks" onClick={() => setMenuOpen(false)}>Bookmarks</Link>
+                    <hr className={theme === "dark" ? "dark" : ""} />
+                    <span className={theme === "dark" ? "dark" : ""} onClick={() => { logout(); setMenuOpen(false); }}>Logout</span>
+                  </div>
+                )}
+              </div>
             ) : (
-              <img src={Dark} alt="" />
+              <Link className="btn-grad" to="/login">
+                Login
+              </Link>
+            )}
+          </div>
+
+          <span className="theme-toggle" onClick={handleTheme}>
+            {theme === "dark" ? (
+              <img src={Light} alt="Light Mode" />
+            ) : (
+              <img src={Dark} alt="Dark Mode" />
             )}
           </span>
         </div>
