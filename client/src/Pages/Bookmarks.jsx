@@ -36,34 +36,36 @@ const Bookmarks = () => {
     };
 
     return (
-        <div className="home">
-            <div className="posts">
-                <h1 className={theme === "dark" ? "text dark" : "text"}>Your Bookmarks</h1>
-                {posts.length > 0 ? (
-                    posts.map((post) => (
-                        <div className="post" key={post.id}>
-                            <div className="img">
-                                <img src={post.img} alt="" />
-                            </div>
-                            <div className="content">
-                                <Link className="link" to={`/post/${post.id}`}>
-                                    <h1>{post.title}</h1>
-                                </Link>
-                                <p>{getText(post.desc)}</p>
-                                <div className="actions">
-                                    <button className="btn-grad" onClick={() => removeBookmark(post.id)}>Remove Bookmark</button>
+        <div className={theme === "dark" ? "home dark" : "home"}>
+            <div className="main-content">
+                <div className="posts">
+                    <h1 className={theme === "dark" ? "text dark" : "text"} style={{ marginBottom: '30px' }}>Your Bookmarks</h1>
+                    {posts.length > 0 ? (
+                        posts.map((post) => (
+                            <div className="post" key={post.id}>
+                                <div className={theme === "dark" ? "img dark" : "img"}>
+                                    <img src={post.img} alt="" />
+                                </div>
+                                <div className="content">
                                     <Link className="link" to={`/post/${post.id}`}>
-                                        <button className="btn-grad">Read More</button>
+                                        <h1 className={theme === "dark" ? "text dark" : "text"}>{post.title}</h1>
                                     </Link>
+                                    <p className={theme === "dark" ? "dark" : ""}>{getText(post.desc)}</p>
+                                    <div className="post-actions">
+                                        <button className="btn-grad delete" onClick={() => removeBookmark(post.id)}>Remove</button>
+                                        <Link className="link" to={`/post/${post.id}`}>
+                                            <button className="btn-grad">Read More</button>
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
+                        ))
+                    ) : (
+                        <div className="no-posts">
+                            <p className={theme === "dark" ? "text dark" : "text"}>No bookmarks found.</p>
                         </div>
-                    ))
-                ) : (
-                    <div className="no-posts">
-                        <p className={theme === "dark" ? "text dark" : "text"}>No bookmarks found.</p>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </div>
     );

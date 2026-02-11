@@ -229,9 +229,9 @@ const Home = () => {
 
   return (
     <div className={theme === "dark" ? "home dark" : "home"}>
-      <div className="main-content">
-        <div className="filter-section">
-          <div className="filters-container" style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className={`main-content ${theme === "dark" ? "dark" : ""}`}>
+        <div className={`filter-section ${theme === "dark" ? "dark" : ""}`}>
+          <div className="filters-container">
             <div className="tag-filter">
               <div className="custom-tag-dropdown">
                 <div
@@ -281,7 +281,6 @@ const Home = () => {
                 <button
                   onClick={clearFilter}
                   className="btn-grad"
-                  style={{ marginLeft: '10px' }}
                 >
                   Clear Filter
                 </button>
@@ -296,38 +295,22 @@ const Home = () => {
                 } else {
                   navigate('/');
                 }
-              }} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              }}>
                 <input
                   type="text"
                   placeholder="Search posts..."
                   value={postsSearchQuery}
                   onChange={(e) => setPostsSearchQuery(e.target.value)}
                   className={theme === "dark" ? "post-search-input dark" : "post-search-input"}
-                  style={{
-                    padding: '8px 35px 8px 15px',
-                    borderRadius: '20px',
-                    border: '1px solid #ccc',
-                    backgroundColor: theme === 'dark' ? '#333' : '#f9f9f9',
-                    color: theme === 'dark' ? '#fff' : '#333',
-                    outline: 'none',
-                    width: '250px',
-                    transition: 'all 0.3s'
-                  }}
                 />
                 <BiSearch
+                  className={theme === "dark" ? "dark" : ""}
                   onClick={() => {
                     if (postsSearchQuery.trim()) {
                       navigate(`/?search=${postsSearchQuery}`);
                     } else {
                       navigate('/');
                     }
-                  }}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    cursor: 'pointer',
-                    fontSize: '20px',
-                    color: theme === 'dark' ? '#ccc' : '#555'
                   }}
                 />
               </form>

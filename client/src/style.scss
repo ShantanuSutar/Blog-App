@@ -63,26 +63,40 @@ $lessdark: #151a23;
 }
 
 .btn-grad {
-  background-image: linear-gradient(to right,
-      #7b0866 0%,
-      #ec1257 51%,
-      #7b0866 100%);
-  margin: 10px;
-  padding: 15px 25px;
+  background-image: linear-gradient(to right, #7b0866 0%, #ec1257 51%, #7b0866 100%);
+  padding: 12px 25px;
+  margin: 5px; // Restored margin for spacing
   text-align: center;
-  transition: 0.5s;
+  transition: all 0.4s ease;
   background-size: 200% auto;
   color: white;
-  // box-shadow: 0 0 10px #eee;
-  border-radius: 10px;
-  display: block;
-}
+  border-radius: 30px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 15px rgba(123, 8, 102, 0.2);
+  display: inline-block;
 
-.btn-grad:hover {
-  background-position: right center;
-  /* change the direction of the change here */
-  color: #fff;
-  text-decoration: none;
+  &:hover {
+    background-position: right center;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(123, 8, 102, 0.4);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &.delete {
+    background-image: linear-gradient(to right, #ff416c 0%, #ff4b2b 51%, #ff416c 100%);
+    box-shadow: 0 4px 15px rgba(255, 65, 108, 0.2);
+
+    &:hover {
+      box-shadow: 0 6px 20px rgba(255, 65, 108, 0.4);
+    }
+  }
 }
 
 .text {
@@ -533,25 +547,6 @@ footer {
     display: flex;
     flex-direction: column;
     gap: 30px;
-  }
-
-  .posts {
-    margin-top: 50px;
-    display: flex;
-    flex-direction: column;
-    gap: 150px;
-
-    .no-posts {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 60vh;
-
-      p {
-        font-size: 24px;
-        text-align: center;
-      }
-    }
 
     .filter-section {
       margin-top: 20px;
@@ -562,8 +557,9 @@ footer {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
       &.dark {
-        background-color: #1a1a1a;
+        background-color: #1e2533;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.05);
       }
 
       .filters-container {
@@ -579,13 +575,47 @@ footer {
       }
 
       .post-search-filter {
-        .post-search-input {
-          transition: all 0.3s ease;
+        form {
+          position: relative;
+          display: flex;
+          align-items: center;
 
-          &:focus {
-            border-color: #ec1257 !important;
-            box-shadow: 0 0 0 3px rgba(236, 18, 87, 0.1);
-            width: 300px !important;
+          .post-search-input {
+            padding: 8px 35px 8px 15px;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            color: #333;
+            outline: none;
+            width: 250px;
+            transition: all 0.3s ease;
+
+            &.dark {
+              background-color: #333 !important;
+              color: #fff !important;
+              border-color: #555 !important;
+            }
+
+            &:focus {
+              border-color: #ec1257 !important;
+            }
+          }
+
+          svg {
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+            font-size: 20px;
+            color: #555;
+            transition: all 0.3s ease;
+
+            &.dark {
+              color: #ccc;
+            }
+
+            &:hover {
+              color: #ec1257;
+            }
           }
         }
       }
@@ -605,190 +635,185 @@ footer {
       }
     }
 
-    .post-tags {
-      margin: 10px 0;
-
-      .tag {
-        display: inline-block;
-        background-color: #ec1257;
-        color: white;
-        padding: 3px 8px;
-        margin: 0 5px 5px 0;
-        border-radius: 15px;
-        font-size: 12px;
-        cursor: pointer;
-
-        &:hover {
-          background-color: #7b0866;
-        }
-      }
-    }
-
-    .actions {
+    .posts {
       display: flex;
-      gap: 10px;
-      margin-top: 15px;
+      flex-direction: column;
+      gap: 150px;
 
-      .btn-grad.delete {
-        background: linear-gradient(90deg, #ff416c, #ff4b2b);
-      }
-    }
-
-    .countdown {
-      margin-top: 5px;
-      font-weight: bold;
-
-      &.normal {
-        color: #4caf50; // Green for plenty of time
-      }
-
-      &.warning {
-        color: #ff9800; // Orange for approaching deadline
-      }
-
-      &.urgent {
-        color: #f44336; // Red for urgent
-        animation: pulse 1s infinite;
-      }
-
-      &.published {
-        color: #2196f3; // Blue for published
-        font-weight: bold;
-      }
-    }
-
-    @keyframes pulse {
-      0% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.5;
-      }
-
-      100% {
-        opacity: 1;
-      }
-    }
-
-    .post {
-      display: flex;
-      gap: 100px;
-
-      &:nth-child(2n + 1) {
-        flex-direction: row-reverse;
-      }
-
-      .img.dark {
-        background-color: $lessdark;
-
-        img {
-          box-shadow: rgba(255, 255, 255, 0.1) 0px 4px 12px;
-        }
-      }
-
-      .img {
-        flex: 2;
-        position: relative;
-        background-color: white;
-
-        &::after {
-          content: "";
-          width: 100%;
-          height: 100%;
-          position: absolute;
-          top: 20px;
-          left: -20px;
-          z-index: -1;
-        }
-
-        img {
-          width: 23rem;
-          object-fit: cover;
-          height: 25rem;
-          border-radius: 1rem;
-          box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
-        }
-      }
-
-      .content {
-        flex: 3;
+      .no-posts {
         display: flex;
-        flex-direction: column;
         justify-content: center;
-        gap: 20px;
-
-        h1.text {
-          font-size: 40px;
-          line-height: 1.2;
-          margin: 0;
-          cursor: pointer;
-        }
+        align-items: center;
+        min-height: 60vh;
 
         p {
-          font-size: 16px;
-          line-height: 1.6;
-          color: #666;
-          margin: 0;
-          display: -webkit-box;
-          -webkit-line-clamp: 4;
-          line-clamp: 4;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          font-size: 24px;
+          text-align: center;
+        }
+      }
+
+      .post-tags {
+        margin: 10px 0;
+
+        .tag {
+          display: inline-block;
+          background-color: #ec1257;
+          color: white;
+          padding: 3px 8px;
+          margin: 0 5px 5px 0;
+          border-radius: 15px;
+          font-size: 12px;
+          cursor: pointer;
+
+          &:hover {
+            background-color: #7b0866;
+          }
+        }
+      }
+
+      .actions,
+      .post-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 15px;
+        align-items: center;
+      }
+
+      .countdown {
+        margin-top: 5px;
+        font-weight: bold;
+
+        &.normal {
+          color: #4caf50;
+        }
+
+        &.warning {
+          color: #ff9800;
+        }
+
+        &.urgent {
+          color: #f44336;
+          animation: pulse 1s infinite;
+        }
+
+        &.published {
+          color: #2196f3;
+          font-weight: bold;
+        }
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0.5;
+        }
+
+        100% {
+          opacity: 1;
+        }
+      }
+
+      .post {
+        display: flex;
+        gap: 100px;
+
+        &:nth-child(2n + 1) {
+          flex-direction: row-reverse;
+        }
+
+        .img {
+          flex: 2;
+          position: relative;
+          background-color: white;
 
           &.dark {
-            color: #ccc;
+            background-color: $lessdark;
+
+            img {
+              box-shadow: rgba(255, 255, 255, 0.1) 0px 4px 12px;
+            }
+          }
+
+          img {
+            width: 23rem;
+            object-fit: cover;
+            height: 25rem;
+            border-radius: 1rem;
+            box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
           }
         }
 
-        .post-tags {
-          margin: 0;
+        .content {
+          flex: 3;
           display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          align-items: center;
+          flex-direction: column;
+          justify-content: center;
+          gap: 20px;
 
-          strong {
-            font-size: 14px;
-          }
-        }
-
-        .post-actions {
-          display: flex;
-          gap: 15px;
-          align-items: center;
-          margin-top: 10px;
-
-          .bookmark-icon {
+          h1.text {
+            font-size: 40px;
+            line-height: 1.2;
+            margin: 0;
             cursor: pointer;
-            font-size: 24px;
-            display: flex;
-            align-items: center;
-            color: #555;
-            transition: all 0.2s ease;
+          }
 
-            &:hover {
-              transform: scale(1.1);
-            }
+          p {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #666;
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
 
-            svg {
-
-              &[fill="#ec1257"],
-              &.bi-bookmark-solid {
-                // Assuming class or checking color
-                color: #ec1257;
-              }
-            }
-
-            .dark & {
+            &.dark {
               color: #ccc;
             }
+          }
 
-            // Specific targeting for active state if needed, but since we use icons
-            svg:first-child {
-              // BiSolidBookmark
-              color: #ec1257;
+          .post-tags {
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+
+            strong {
+              font-size: 14px;
+            }
+          }
+
+          .post-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-top: 10px;
+
+            .bookmark-icon {
+              cursor: pointer;
+              font-size: 24px;
+              display: flex;
+              align-items: center;
+              color: #555;
+              transition: all 0.2s ease;
+
+              &:hover {
+                transform: scale(1.1);
+              }
+
+              &.dark {
+                color: #ccc;
+              }
+
+              svg:first-child {
+                color: #ec1257;
+              }
             }
           }
         }
