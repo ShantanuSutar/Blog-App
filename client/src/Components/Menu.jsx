@@ -41,14 +41,14 @@ const Menu = ({ cat }) => {
     console.log('Menu useEffect triggered with cat:', cat);
     const fetchData = async () => {
       try {
-        console.log('Menu fetching data with URL:', URL, 'and cat:', cat);
         const res = await axios.get(`${URL}/api/posts/?cat=${cat}`);
-        console.log('Menu fetched posts:', res.data);
-        setPosts(res.data);
-        // console.log(res);
+        if (res.data.posts) {
+          setPosts(res.data.posts);
+        } else {
+          setPosts(Array.isArray(res.data) ? res.data : []);
+        }
       } catch (error) {
         console.error('Menu error:', error);
-        console.error('Menu error response:', error.response);
       }
     };
 
@@ -60,17 +60,20 @@ const Menu = ({ cat }) => {
       <h1 className={theme === "dark" ? "dark" : ""}>
         Other posts you may like
       </h1>
-      {posts.map((post) => (
-        <div className="post" key={post.id}>
-          <img src={post?.img} alt="" />
-          <h2 className={theme === "dark" ? "dark" : ""}>{post.title}</h2>
-          <Link className="" to={`/post/${post.id}`}>
-            <button className="btn-grad" onClick={handleClick}>
-              Read More
-            </button>
-          </Link>
-        </div>
-      ))}
+      {Array.isArray(posts) && posts.length > 0 ? (
+        posts.map((post) => (
+          <div className="post" key={post.id}>
+            <img src={post?.img} alt="" />
+            <h2 className={theme === "dark" ? "dark" : ""}>{post.title}</h2>
+            <Link className="" to={`/post/${post.id}`}>
+              <button className="btn-grad" onClick={handleClick}>
+                Read More
+              </button>
+            </Link>
+          </div>
+        ))) : (
+        <p>No related posts.</p>
+      )}
     </div>
   );
 };

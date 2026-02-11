@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from "react";
-import { BiSolidEdit } from "react-icons/bi";
+import React, { useEffect, useState, useContext } from "react";
+import { BiSolidEdit, BiBookmark, BiSolidBookmark, BiShareAlt } from "react-icons/bi";
+import { FaTwitter, FaFacebook, FaLinkedin } from "react-icons/fa";
 import { AiFillDelete } from "react-icons/ai";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Menu from "../Components/Menu.jsx";
 import axios from "axios";
+import api from "../api/axios";
 import moment from "moment";
-import { useContext } from "react";
+
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import Comment from "../Components/Comment.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
@@ -22,6 +24,53 @@ const Single = () => {
 
   const postId = location.pathname.split("/")[2];
   const { currentUser } = useContext(AuthContext);
+  const [bookmarked, setBookmarked] = useState(false);
+
+  // Reading time helper
+  const calculateReadingTime = (text) => {
+    // Strip HTML tags for word count
+    const plainText = text ? text.replace(/<[^>]+>/g, '') : '';
+    const wordsPerMinute = 200;
+    const words = plainText.split(/\s+/).length;
+    const minutes = Math.ceil(words / wordsPerMinute);
+    return `${minutes} min read`;
+  };
+
+  const handleBookmark = async () => {
+    if (!currentUser) return navigate('/login');
+    try {
+      if (bookmarked) {
+        await api.delete(`/api/bookmarks/${postId}`);
+        setBookmarked(false);
+      } else {
+        await api.post(`/api/bookmarks`, { postId });
+        setBookmarked(true);
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const handleShare = (platform) => {
+    const url = window.location.href;
+    const text = `Check out this post: ${post.title}`;
+    let shareUrl = "";
+
+    switch (platform) {
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+        break;
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        break;
+      case 'linkedin':
+        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+        break;
+      default:
+        return;
+    }
+    window.open(shareUrl, '_blank');
+  };
 
   const fetchComments = async () => {
     try {
@@ -43,7 +92,18 @@ const Single = () => {
 
     fetchData();
     fetchComments();
-  }, [postId]);
+
+    const checkBookmark = async () => {
+      if (!currentUser) return;
+      try {
+        const res = await api.get(`/api/bookmarks/check/${postId}`);
+        setBookmarked(res.data);
+      } catch (err) {
+        console.log(err);
+      }
+    };
+    checkBookmark();
+  }, [postId, currentUser, URL]);
 
   const handleDelete = async (e) => {
     e.preventDefault();
@@ -118,8 +178,23 @@ const Single = () => {
               {post.username}
             </span>
             <p className={theme === "dark" ? "dark" : ""}>
-              Posted {moment(post.date).fromNow()}
+              Posted {moment(post.date).fromNow()} • {calculateReadingTime(post.desc)}
             </p>
+          </div>
+          <div className="user-actions">
+            {currentUser && (
+              <div className="icon" onClick={handleBookmark} title={bookmarked ? "Remove Bookmark" : "Bookmark"}>
+                {bookmarked ? <BiSolidBookmark className={theme === "dark" ? "dark" : ""} /> : <BiBookmark className={theme === "dark" ? "dark" : ""} />}
+              </div>
+            )}
+            <div className="icon share-icon">
+              <BiShareAlt className={theme === "dark" ? "dark" : ""} />
+              <div className="share-menu">
+                <FaTwitter onClick={() => handleShare('twitter')} className="share-btn twitter" />
+                <FaFacebook onClick={() => handleShare('facebook')} className="share-btn facebook" />
+                <FaLinkedin onClick={() => handleShare('linkedin')} className="share-btn linkedin" />
+              </div>
+            </div>
           </div>
           {currentUser?.username === post?.username && (
             <div className="edit">

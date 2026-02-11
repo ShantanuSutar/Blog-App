@@ -9,6 +9,7 @@ import Single from "./Pages/Single";
 import Write from "./Pages/Write";
 import Drafts from "./Pages/Drafts";
 import Scheduled from "./Pages/Scheduled";
+import Bookmarks from "./Pages/Bookmarks";
 import { useThemeContext } from "./Context/theme";
 
 const Layout = () => {
@@ -47,6 +48,10 @@ const router = createBrowserRouter([
       {
         path: "/scheduled",
         element: <Scheduled />,
+      },
+      {
+        path: "/bookmarks",
+        element: <Bookmarks />,
       },
       {
         path: "/tag/:tag",
