@@ -113,7 +113,7 @@ const Drafts = () => {
 
   if (!currentUser) {
     return (
-      <div className="home">
+      <div className={theme === "dark" ? "home dark" : "home"}>
         <div className="no-posts">
           <p className={theme === "dark" ? "text dark" : "text"}>
             Please log in to view your drafts
@@ -145,7 +145,7 @@ const Drafts = () => {
                 {post.scheduled_publish_date && (
                   <div className="details">
                     <p className={`countdown ${getTimeRemaining(post.scheduled_publish_date).colorClass}`}>
-                      <strong>Scheduled for:</strong> {new Date(post.scheduled_publish_date).toLocaleString()}<br/>
+                      <strong>Scheduled for:</strong> {new Date(post.scheduled_publish_date).toLocaleString()}<br />
                       <strong>Time remaining:</strong> {getTimeRemaining(post.scheduled_publish_date).formatted}
                     </p>
                   </div>
@@ -154,14 +154,14 @@ const Drafts = () => {
                   <Link className="link" to={`/write?edit=${post.id}`}>
                     <button className="btn-grad">Edit</button>
                   </Link>
-                  <button 
-                    className="btn-grad" 
+                  <button
+                    className="btn-grad"
                     onClick={() => handlePublish(post.id)}
                   >
                     Publish
                   </button>
-                  <button 
-                    className="btn-grad delete" 
+                  <button
+                    className="btn-grad delete"
                     onClick={() => handleDelete(post.id)}
                   >
                     Delete

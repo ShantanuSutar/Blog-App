@@ -259,7 +259,7 @@ const Home = () => {
                         filteredTags.map((tag, index) => (
                           <div
                             key={index}
-                            className="tag-option"
+                            className={`tag-option ${theme === 'dark' ? 'dark' : ''}`}
                             onClick={() => {
                               setSelectedTag(tag);
                               setIsDropdownOpen(false);
@@ -270,7 +270,7 @@ const Home = () => {
                           </div>
                         ))
                       ) : (
-                        <div className="no-tags">No tags found</div>
+                        <div className={`no-tags ${theme === 'dark' ? 'dark' : ''}`}>No tags found</div>
                       )}
                     </div>
                   </div>
@@ -357,7 +357,7 @@ const Home = () => {
                   <div className="post-tags">
                     {post.tags && (
                       <>
-                        <strong>Tags:</strong>
+                        <strong className={theme === 'dark' ? 'dark' : ''}>Tags:</strong>
                         {(typeof post.tags === 'string' ? JSON.parse(post.tags) : post.tags)
                           .map((tag, idx) => (
                             <span
@@ -402,16 +402,63 @@ const Home = () => {
             </div>
           )}
         </div>
-        <div className="pagination">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-grad">Prev</button>
-          <span>Page {page} of {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn-grad">Next</button>
+        <div className={`pagination ${theme === "dark" ? "dark" : ""}`}>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="btn-grad page-nav"
+          >
+            Prev
+          </button>
+
+          <div className="page-numbers">
+            {(() => {
+              const pages = [];
+              const maxVisible = 7;
+
+              if (totalPages <= maxVisible) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+              } else {
+                pages.push(1);
+
+                if (page > 4) pages.push("...");
+
+                const start = Math.max(2, page - 2);
+                const end = Math.min(totalPages - 1, page + 2);
+
+                for (let i = start; i <= end; i++) {
+                  if (!pages.includes(i)) pages.push(i);
+                }
+
+                if (page < totalPages - 3) pages.push("...");
+                if (!pages.includes(totalPages)) pages.push(totalPages);
+              }
+
+              return pages.map((p, index) => (
+                <button
+                  key={index}
+                  onClick={() => typeof p === 'number' && setPage(p)}
+                  className={`page-number ${p === page ? 'active' : ''} ${p === '...' ? 'dots' : ''}`}
+                >
+                  {p}
+                </button>
+              ));
+            })()}
+          </div>
+
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="btn-grad page-nav"
+          >
+            Next
+          </button>
         </div>
       </div>
       <div className="sidebar-content">
         <Menu cat={catParam} />
         <Newsletter />
-      </div>
+      </div >
     </div >
   );
 };

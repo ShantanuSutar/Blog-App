@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
 import "./style.scss";
 import Register from "./Pages/Register";
@@ -72,8 +73,18 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
+  const { theme } = useThemeContext();
+
+  useEffect(() => {
+    if (theme === "dark") {
+      document.body.classList.add("dark");
+    } else {
+      document.body.classList.remove("dark");
+    }
+  }, [theme]);
+
   return (
-    <div className="app">
+    <div className={`app ${theme === "dark" ? "dark" : ""}`}>
       <div className="container">
         <RouterProvider router={router} />
       </div>

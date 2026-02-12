@@ -158,7 +158,7 @@ const Single = () => {
   };
 
   return (
-    <div className="single">
+    <div className={`single ${theme === "dark" ? "dark" : ""}`}>
       <div className="content">
         <img src={post?.img} alt="" />
         <div className="user">

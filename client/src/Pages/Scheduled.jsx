@@ -114,7 +114,7 @@ const Scheduled = () => {
 
   if (!currentUser) {
     return (
-      <div className="home">
+      <div className={theme === "dark" ? "home dark" : "home"}>
         <div className="no-posts">
           <p className={theme === "dark" ? "text dark" : "text"}>
             Please log in to view your scheduled posts
@@ -155,14 +155,14 @@ const Scheduled = () => {
                   <Link className="link" to={`/write?edit=${post.id}`}>
                     <button className="btn-grad">Edit</button>
                   </Link>
-                  <button 
-                    className="btn-grad" 
+                  <button
+                    className="btn-grad"
                     onClick={() => handlePublishNow(post.id)}
                   >
                     Publish Now
                   </button>
-                  <button 
-                    className="btn-grad delete" 
+                  <button
+                    className="btn-grad delete"
                     onClick={() => handleDelete(post.id)}
                   >
                     Delete
