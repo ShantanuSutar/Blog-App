@@ -509,19 +509,20 @@ body {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 8px;
+        // padding: 8px;
         border-radius: 50%;
         background: rgba(0, 0, 0, 0.03);
         transition: all 0.3s ease;
 
         &:hover {
           background: rgba(0, 0, 0, 0.08);
-          transform: rotate(15deg);
+          // transform: rotate(15deg);
         }
 
         img {
-          width: 24px;
-          height: 24px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
         }
       }
     }
