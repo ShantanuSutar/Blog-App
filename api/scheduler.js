@@ -46,7 +46,7 @@ export const schedulePostPublisher = () => {
           const subscriberEmails = subscribersResult.rows.map(row => row.email);
           
           if (subscriberEmails.length > 0) {
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const frontendUrl = process.env.FRONTEND_URL || 'https://unsaid-stories-and-more.vercel.app';
             
             for (const post of result.rows) {
               const postUrl = `${frontendUrl}/post/${post.id}`;

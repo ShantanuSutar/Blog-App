@@ -60,7 +60,7 @@ export const sendWelcomeEmail = async (email) => {
                   <li>🎁 Special offers and announcements</li>
                 </ul>
                 <p style="margin-top: 30px;">
-                  <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" class="button">Visit Our Blog</a>
+                  <a href="${process.env.FRONTEND_URL || 'https://unsaid-stories-and-more.vercel.app'}" class="button">Visit Our Blog</a>
                 </p>
                 <p style="margin-top: 30px;">Best regards,<br>The Blog App Team</p>
               </div>

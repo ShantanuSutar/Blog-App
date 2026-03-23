@@ -131,7 +131,7 @@ export const addPost = async (req, res) => {
           const subscriberEmails = subscribersResult.rows.map(row => row.email);
           
           if (subscriberEmails.length > 0) {
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const frontendUrl = process.env.FRONTEND_URL || 'https://unsaid-stories-and-more.vercel.app';
             const postUrl = `${frontendUrl}/post/${postId}`;
             
             // Send notification in background (don't wait for it)
