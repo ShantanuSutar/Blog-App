@@ -12,6 +12,8 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  connectionTimeout: 5000, // 5 seconds timeout
+  socketTimeout: 10000, // 10 seconds socket timeout
 });
 
 // Verify transporter configuration
@@ -72,11 +74,21 @@ export const sendWelcomeEmail = async (email) => {
       `,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Welcome email sent successfully:', info.messageId);
+    // Set timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Email sending timeout - 15 seconds')), 15000);
+    });
+
+    // Race between sending email and timeout
+    const info = await Promise.race([
+      transporter.sendMail(mailOptions),
+      timeoutPromise
+    ]);
+    
+    console.log('[Email Service] Welcome email sent successfully:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending welcome email:', error);
+    console.error('[Email Service] Error sending welcome email:', error.message);
     return { success: false, error: error.message };
   }
 };
@@ -131,11 +143,21 @@ export const sendNewPostNotification = async (subscribers, postTitle, postUrl) =
       `,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('New post notification sent successfully:', info.messageId);
+    // Set timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Email sending timeout - 15 seconds')), 15000);
+    });
+
+    // Race between sending email and timeout
+    const info = await Promise.race([
+      transporter.sendMail(mailOptions),
+      timeoutPromise
+    ]);
+    
+    console.log('[Email Service] New post notification sent successfully:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending new post notification:', error);
+    console.error('[Email Service] Error sending new post notification:', error.message);
     return { success: false, error: error.message };
   }
 };

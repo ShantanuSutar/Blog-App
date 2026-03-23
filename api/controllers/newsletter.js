@@ -4,22 +4,29 @@ import { sendWelcomeEmail } from "../utils/email.js";
 export const subscribe = async (req, res) => {
     const q = "INSERT INTO subscribers(email) VALUES ($1)";
     try {
+        // Save subscription to database
         await db.query(q, [req.body.email]);
 
         console.log(`\n📧 New subscriber: ${req.body.email}`);
-        console.log('Sending welcome email...');
         
-        // Send welcome email
-        const emailResult = await sendWelcomeEmail(req.body.email);
+        // Send welcome email in background (non-blocking)
+        // Don't wait for this to complete before responding
+        sendWelcomeEmail(req.body.email)
+            .then(emailResult => {
+                if (emailResult.success) {
+                    console.log('✅ Welcome email sent successfully to:', req.body.email);
+                    console.log('Message ID:', emailResult.messageId);
+                } else {
+                    console.warn('❌ Failed to send welcome email:', emailResult.error);
+                }
+            })
+            .catch(err => {
+                console.error('❌ Email send error:', err.message);
+            });
         
-        if (emailResult.success) {
-            console.log('✅ Welcome email sent successfully!');
-            console.log('Message ID:', emailResult.messageId);
-        } else {
-            console.warn('❌ Failed to send welcome email:', emailResult.error);
-            console.log('Note: Subscription saved, but email failed to send');
-        }
-
+        console.log('Subscription saved, returning response immediately...');
+        
+        // Return success immediately without waiting for email
         return res.status(200).json("Subscribed successfully!");
     } catch (err) {
         console.error('❌ Error in subscribe:', err);
