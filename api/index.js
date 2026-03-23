@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser";
 import multer from "multer";
 import dotenv from "dotenv";
 import cors from "cors";
+import { schedulePostPublisher } from "./scheduler.js";
 
 dotenv.config();
 const port = process.env.PORT || 8800;
@@ -70,4 +71,7 @@ app.use("/", (req, res) => {
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  
+  // Initialize scheduled post publisher
+  schedulePostPublisher();
 });

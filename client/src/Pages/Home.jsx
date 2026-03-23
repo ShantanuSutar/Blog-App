@@ -40,6 +40,9 @@ const Home = () => {
   // Bookmarking
   const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
 
+  // Featured posts
+  const [featuredPosts, setFeaturedPosts] = useState([]);
+
   // Reading time helper
   const calculateReadingTime = (text) => {
     const wordsPerMinute = 200;
@@ -79,6 +82,19 @@ const Home = () => {
       }
     };
     fetchBookmarks();
+  }, [URL]);
+
+  // Fetch featured posts
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      try {
+        const res = await axios.get(`${URL}/api/posts/featured`);
+        setFeaturedPosts(res.data);
+      } catch (err) {
+        console.log('Error fetching featured posts:', err);
+      }
+    };
+    fetchFeatured();
   }, [URL]);
 
   // Extract tag from URL path (for /tag/:tag routes)
@@ -335,6 +351,78 @@ const Home = () => {
             <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginTop: '20px' }}>Search results for: <span className="highlight-tag">{search}</span></h2>
           )}
         </div>
+
+        {/* Featured Posts Section */}
+        {featuredPosts.length > 0 && !selectedTag && !search && !cat && (
+          <div className="featured-section" style={{ marginBottom: '40px' }}>
+            <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginBottom: '25px', color: '#ec1257' }}>
+              ⭐ Featured Posts
+            </h2>
+            <div className="posts featured-posts">
+              {featuredPosts.map((post) => (
+                <div className="post featured-post" key={post.id}>
+                  {post?.img ? (
+                    <div className={theme === "dark" ? "img dark" : "img"}>
+                      <Tilt>
+                        <img 
+                          src={post.img} 
+                          alt={post.title}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      </Tilt>
+                    </div>
+                  ) : (
+                    <div className="no-image-placeholder">
+                      <div className="placeholder-content">
+                        <span className="placeholder-icon">⭐</span>
+                        <span className="placeholder-text">Featured Post</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="content">
+                    <Link className="link" to={`/post/${post.id}`}>
+                      <h1 className={theme === "dark" ? "text dark" : "text"}>{post.title}</h1>
+                    </Link>
+                    <p className={theme === "dark" ? "dark" : ""}>
+                      {getText(post.desc)?.substring(0, 150)}...
+                    </p>
+                    <div className="post-meta">
+                      <span className="date">
+                        {new Date(post.date).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </span>
+                      <span className="reading-time">
+                        📖 {calculateReadingTime(post.desc)}
+                      </span>
+                    </div>
+                    <div className="post-actions">
+                      {currentUser && (
+                        <button
+                          className="btn-grad bookmark-btn"
+                          onClick={(e) => handleBookmark(e, post.id)}
+                        >
+                          {bookmarkedPosts.includes(post.id) ? (
+                            <BiSolidBookmark />
+                          ) : (
+                            <BiBookmark />
+                          )}
+                        </button>
+                      )}
+                      <Link className="link" to={`/post/${post.id}`}>
+                        <button className="btn-grad">Read More</button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="posts">
           {console.log('Rendering posts, count:', posts ? posts.length : 0)}
           {posts && posts.length > 0 ? (

@@ -1,6 +1,7 @@
 import { db } from "../db.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { sendNewPostNotification } from "../utils/email.js";
 dotenv.config();
 
 export const getPosts = async (req, res) => {
@@ -118,7 +119,40 @@ export const addPost = async (req, res) => {
     ];
 
     try {
-      await db.query(query, values);
+      const result = await db.query(query, values);
+      const postId = result.rows[0].id;
+      
+      // If post is published (not draft), send notifications to subscribers
+      if (!req.body.draft) {
+        try {
+          // Get all subscriber emails
+          const subscribersQuery = "SELECT email FROM subscribers";
+          const subscribersResult = await db.query(subscribersQuery);
+          const subscriberEmails = subscribersResult.rows.map(row => row.email);
+          
+          if (subscriberEmails.length > 0) {
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const postUrl = `${frontendUrl}/post/${postId}`;
+            
+            // Send notification in background (don't wait for it)
+            sendNewPostNotification(subscriberEmails, req.body.title, postUrl)
+              .then(emailResult => {
+                if (emailResult.success) {
+                  console.log(`Notified ${subscriberEmails.length} subscribers about new post: ${req.body.title}`);
+                } else {
+                  console.warn('Failed to send new post notification:', emailResult.error);
+                }
+              })
+              .catch(err => {
+                console.error('Error sending new post notification:', err);
+              });
+          }
+        } catch (notifErr) {
+          // Don't fail the request if notification fails
+          console.error('Error preparing new post notification:', notifErr);
+        }
+      }
+      
       return res.json("Post has been created.");
     } catch (err) {
       console.error('Error in addPost:', err);
