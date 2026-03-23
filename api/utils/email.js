@@ -14,6 +14,7 @@ const transporter = nodemailer.createTransport({
   },
   connectionTimeout: 5000, // 5 seconds timeout
   socketTimeout: 10000, // 10 seconds socket timeout
+  ipFamily: 4, // Force IPv4 to avoid ENETUNREACH errors on cloud hosting
 });
 
 // Verify transporter configuration
