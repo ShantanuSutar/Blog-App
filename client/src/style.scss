@@ -159,6 +159,11 @@ body {
   color: rgba(255, 255, 255, 0);
 }
 
+// Dark mode heading underline in posts
+.home.dark .post .content h1.text::after {
+  background: linear-gradient(to right, #ec1257, #ff4b2b);
+}
+
 //NOTE : if u want the text gradient without the hover i.e.  always  add "color: rgba(0, 0, 0, 0);" to the element css
 
 // .text:hover {
@@ -756,21 +761,85 @@ footer {
           flex: 2;
           position: relative;
           background-color: white;
-
+          overflow: hidden;
+          border-radius: 1rem;
+        
           &.dark {
             background-color: $dark; // Match the Unified Deep Space background
-
+        
             img {
               box-shadow: rgba(255, 255, 255, 0.05) 0px 4px 20px;
             }
           }
-
+        
           img {
             width: 23rem;
             object-fit: cover;
             height: 25rem;
             border-radius: 1rem;
             box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        
+            &:hover {
+              transform: scale(1.02);
+              box-shadow: rgba(0, 0, 0, 0.15) 0px 8px 24px;
+            }
+          }
+        }
+        
+        .no-image-placeholder {
+          flex: 2;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 25rem;
+          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+          border-radius: 1rem;
+          position: relative;
+          overflow: hidden;
+        
+          &::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(236, 18, 87, 0.1) 0%, transparent 70%);
+            animation: pulse 8s ease-in-out infinite;
+          }
+        
+          .placeholder-content {
+            text-align: center;
+            z-index: 1;
+            position: relative;
+        
+            .placeholder-icon {
+              font-size: 80px;
+              display: block;
+              margin-bottom: 20px;
+              filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+            }
+        
+            .placeholder-text {
+              font-size: 24px;
+              font-weight: 600;
+              color: #555;
+              letter-spacing: 1px;
+              text-transform: uppercase;
+            }
+          }
+        
+          &.dark {
+            background: linear-gradient(135deg, $dark 0%, $lessdark 100%);
+        
+            &::before {
+              background: radial-gradient(circle, rgba(236, 18, 87, 0.15) 0%, transparent 70%);
+            }
+        
+            .placeholder-text {
+              color: $dark-text-main;
+            }
           }
         }
 
@@ -784,8 +853,27 @@ footer {
           h1.text {
             font-size: 40px;
             line-height: 1.2;
-            margin: 0;
+            margin: 0 0 5px 0;
             cursor: pointer;
+            position: relative;
+            display: inline-block;
+            padding-bottom: 8px;
+            
+            &::after {
+              content: '';
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              width: 60px;
+              height: 3px;
+              background: linear-gradient(to right, #ec1257, #7b0866);
+              border-radius: 2px;
+              transition: width 0.3s ease;
+            }
+            
+            &:hover::after {
+              width: 100%;
+            }
           }
 
           p {

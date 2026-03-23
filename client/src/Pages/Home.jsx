@@ -340,11 +340,26 @@ const Home = () => {
           {posts && posts.length > 0 ? (
             posts.map((post) => (
               <div className="post" key={post.id}>
-                <div className={theme === "dark" ? "img dark" : "img"}>
-                  <Tilt>
-                    <img src={post?.img} alt="" />
-                  </Tilt>
-                </div>
+                {post?.img ? (
+                  <div className={theme === "dark" ? "img dark" : "img"}>
+                    <Tilt>
+                      <img 
+                        src={post.img} 
+                        alt={post.title}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </Tilt>
+                  </div>
+                ) : (
+                  <div className="no-image-placeholder">
+                    <div className="placeholder-content">
+                      <span className="placeholder-icon">📝</span>
+                      <span className="placeholder-text">Featured Post</span>
+                    </div>
+                  </div>
+                )}
                 <div className="content">
                   <Link className="link" to={`/post/${post.id}`}>
                     <h1 className={theme === "dark" ? "text dark" : "text"}>
