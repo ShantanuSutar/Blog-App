@@ -8,7 +8,11 @@ export const db = new Pool({
   connectionString,
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  // Connection pool settings for better performance
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+  connectionTimeoutMillis: 5000, // How long to wait when connecting a new client
 });
 
 // Add error handling for database connection

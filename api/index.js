@@ -5,11 +5,12 @@ import userRoutes from "./routes/users.js";
 import commentRoutes from "./routes/comment.js";
 import bookmarkRoutes from "./routes/bookmarks.js";
 import newsletterRoutes from "./routes/newsletter.js";
+import healthRoutes from "./routes/health.js";
+import { schedulePostPublisher } from "./scheduler.js";
 import cookieParser from "cookie-parser";
 import multer from "multer";
 import dotenv from "dotenv";
 import cors from "cors";
-import { schedulePostPublisher } from "./scheduler.js";
 
 dotenv.config();
 const port = process.env.PORT || 8800;
@@ -64,6 +65,7 @@ app.use(`/api/posts`, postRoutes);
 app.use(`/api/comments`, commentRoutes);
 app.use(`/api/bookmarks`, bookmarkRoutes);
 app.use(`/api/newsletter`, newsletterRoutes);
+app.use(`/api/health`, healthRoutes);
 
 app.use("/", (req, res) => {
   res.send("Hello to homepage");
