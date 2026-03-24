@@ -3,7 +3,7 @@ import api from "../api/axios";
 import { useEffect, useState, useContext, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useThemeContext } from "../Context/theme";
-import { BiBookmark, BiSolidBookmark, BiSearch } from "react-icons/bi";
+import { BiBookmark, BiSolidBookmark, BiSearch, BiShow } from "react-icons/bi";
 import { AuthContext } from "../AuthContext/authContext";
 import Tilt from "react-parallax-tilt";
 import Menu from "../Components/Menu";
@@ -588,6 +588,9 @@ const Home = () => {
                     )}
                   </div>
                   <div className="post-actions">
+                    <span className="view-count" title="Views">
+                      👁️ {formatCount(post.views || 0)}
+                    </span>
                     {currentUser && (
                       <>
                         <div

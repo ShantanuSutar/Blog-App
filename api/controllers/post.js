@@ -51,6 +51,9 @@ export const getPosts = async (req, res) => {
 
 export const getSinglePost = async (req, res) => {
   try {
+    // Increment view count
+    await db.query('UPDATE posts SET views = views + 1 WHERE id = $1', [req.params.id]);
+
     const query =
       "SELECT p.id, username, title, \"desc\", p.img, u.img AS userImg, cat, date FROM users u JOIN posts p ON u.id = p.uid WHERE p.id = $1 AND p.draft = false AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))";
 
@@ -352,6 +355,21 @@ export const getFeaturedPosts = async (req, res) => {
     return res.status(200).json(result.rows);
   } catch (err) {
     console.error('Error in getFeaturedPosts:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getPopularPosts = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    
+    const query = "SELECT * FROM posts WHERE draft = false AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now())) ORDER BY views DESC LIMIT $1";
+
+    const result = await db.query(query, [limit]);
+
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Error in getPopularPosts:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

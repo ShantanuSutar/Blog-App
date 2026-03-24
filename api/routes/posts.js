@@ -10,6 +10,7 @@ import {
   getPostsByTag,
   getFeaturedPosts,
   getPostForEditing,
+  getPopularPosts,
 } from "../controllers/post.js";
 
 const router = express.Router();
@@ -17,6 +18,7 @@ const router = express.Router();
 router.get("/drafts/user", getUserDrafts);
 router.get("/scheduled/user", getUserScheduledPosts);
 router.get("/featured", getFeaturedPosts);
+router.get("/popular", getPopularPosts);
 router.get("/tag/:tag", getPostsByTag);
 router.get("/", getPosts);
 router.get("/:id", getSinglePost);

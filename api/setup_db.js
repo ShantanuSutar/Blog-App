@@ -26,6 +26,12 @@ const setupDatabase = async () => {
     `);
         console.log("Subscribers table created.");
 
+        console.log("Adding views column to posts table...");
+        await db.query(`
+      ALTER TABLE posts ADD COLUMN IF NOT EXISTS views INTEGER DEFAULT 0;
+    `);
+        console.log("Posts table updated with views column.");
+
         console.log("Database setup complete.");
         process.exit(0);
     } catch (err) {

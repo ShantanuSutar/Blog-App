@@ -916,6 +916,23 @@ footer {
             align-items: center;
             margin-top: 10px;
 
+            .view-count {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 14px;
+              color: #666;
+              padding: 2px 8px;
+              background-color: rgba(52, 152, 219, 0.1);
+              border-radius: 12px;
+              font-weight: 500;
+
+              &.dark {
+                color: #aaa;
+                background-color: rgba(52, 152, 219, 0.2);
+              }
+            }
+
             .bookmark-icon {
               cursor: pointer;
               font-size: 24px;
@@ -934,6 +951,28 @@ footer {
 
               svg:first-child {
                 color: #ec1257;
+              }
+            }
+
+            .view-count {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 14px;
+              color: #666;
+              margin-left: 8px;
+              padding: 2px 8px;
+              background-color: rgba(52, 152, 219, 0.1);
+              border-radius: 12px;
+              font-weight: 500;
+
+              svg {
+                color: #3498db;
+              }
+
+              &.dark {
+                color: #aaa;
+                background-color: rgba(52, 152, 219, 0.2);
               }
             }
 
