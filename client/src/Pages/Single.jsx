@@ -11,6 +11,7 @@ import moment from "moment";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import Comment from "../Components/Comment.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
+import { calculateReadingTime } from "../utils/readingTime";
 
 const Single = () => {
   const { theme, setTheme } = useThemeContext();
@@ -26,15 +27,8 @@ const Single = () => {
   const { currentUser } = useContext(AuthContext);
   const [bookmarked, setBookmarked] = useState(false);
 
-  // Reading time helper
-  const calculateReadingTime = (text) => {
-    // Strip HTML tags for word count
-    const plainText = text ? text.replace(/<[^>]+>/g, '') : '';
-    const wordsPerMinute = 200;
-    const words = plainText.split(/\s+/).length;
-    const minutes = Math.ceil(words / wordsPerMinute);
-    return `${minutes} min read`;
-  };
+  // Reading time helper (using centralized utility with configurable WPM)
+  // Default is 200 WPM, but you can customize per post category if needed
 
   const handleBookmark = async () => {
     if (!currentUser) return navigate('/login');

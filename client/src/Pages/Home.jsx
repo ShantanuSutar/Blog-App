@@ -8,6 +8,7 @@ import { AuthContext } from "../AuthContext/authContext";
 import Tilt from "react-parallax-tilt";
 import Menu from "../Components/Menu";
 import Newsletter from "../Components/Newsletter";
+import { calculateReadingTime } from "../utils/readingTime";
 
 const Home = () => {
   console.log('Home component rendering...');
@@ -43,13 +44,8 @@ const Home = () => {
   // Featured posts
   const [featuredPosts, setFeaturedPosts] = useState([]);
 
-  // Reading time helper
-  const calculateReadingTime = (text) => {
-    const wordsPerMinute = 200;
-    const words = text ? text.split(/\s+/).length : 0;
-    const minutes = Math.ceil(words / wordsPerMinute);
-    return `${minutes} min read`;
-  };
+  // Reading time helper (now using centralized utility)
+  // You can pass custom WPM if needed: calculateReadingTime(text, 150) for technical content
 
   const handleBookmark = async (e, postId) => {
     e.preventDefault();
