@@ -1021,6 +1021,31 @@ footer {
         }
       }
 
+      // Load More Button Styling (for infinite scroll mode)
+      .load-more-btn {
+        background-image: linear-gradient(to right, #7b0866 0%, #ec1257 51%, #7b0866 100%);
+        color: white;
+        border: none;
+        border-radius: 30px;
+        padding: 12px 40px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(236, 18, 87, 0.3);
+        
+        &:hover:not(:disabled) {
+          transform: translateY(-3px);
+          box-shadow: 0 6px 20px rgba(236, 18, 87, 0.4);
+        }
+        
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+      }
+
       &.dark {
         .page-number {
           background-color: $lessdark;
@@ -1046,6 +1071,14 @@ footer {
         button.page-nav:disabled {
           background-color: #1e293b !important;
           color: #475569 !important;
+        }
+
+        .load-more-btn {
+          box-shadow: 0 4px 15px rgba(236, 18, 87, 0.2);
+          
+          &:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(236, 18, 87, 0.3);
+          }
         }
       }
     }
@@ -1903,6 +1936,16 @@ footer {
           20% { opacity: 1; transform: translateX(-50%) translateY(0); }
           80% { opacity: 1; transform: translateX(-50%) translateY(0); }
           100% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+        }
+        
+        // Infinite Scroll Loading Spinner
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
         }
       }
     }

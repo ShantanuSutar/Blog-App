@@ -25,6 +25,7 @@ const Home = () => {
   // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Reset page on filter change
 
@@ -102,6 +103,37 @@ const Home = () => {
     setPage(1);
   }, [cat, search, selectedTag, urlTag]);
 
+  // Infinite Scroll - Auto load more posts when reaching bottom
+  useEffect(() => {
+    const handleLoadMore = () => {
+      if (!isLoadingMore && page < totalPages) {
+        setPage(prevPage => prevPage + 1);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (firstEntry.isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '200px' // Increased trigger zone for smoother experience
+      }
+    );
+
+    let sentinelElement = document.getElementById('sentinel');
+    if (sentinelElement) {
+      observer.observe(sentinelElement);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [page, totalPages, isLoadingMore]);
+
   console.log('Home component state:', { theme, loading, posts: posts.length, allTags: allTags.length, filteredTags: filteredTags.length, selectedTag, tagSearch, cat, urlTag, URL });
 
   // Filter tags based on search input
@@ -119,11 +151,11 @@ const Home = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
+      // Only show full screen loading on initial page load (page 1)
+      if (page === 1) {
+        setLoading(true);
+      }
       try {
-        // Reset page if category or search changes (need separate effect or logic, but for now simple)
-        // Note: In a real app we'd separate page change from filter change
-
         let apiUrl;
 
         if (urlTag) {
@@ -140,15 +172,19 @@ const Home = () => {
 
           if (search) apiUrl += `&search=${search}`;
 
-          apiUrl += `&page=${page}&limit=5`;
+          apiUrl += `&page=${page}&limit=10`; // Increased from 5 to 10 for better UX
         }
 
         const res = await axios.get(apiUrl);
 
         if (res.data.posts) {
-          setPosts(res.data.posts);
+          if (page === 1) {
+            setPosts(res.data.posts);
+          } else {
+            // For infinite scroll, append new posts
+            setPosts(prevPosts => [...prevPosts, ...res.data.posts]);
+          }
           setTotalPages(res.data.totalPages);
-          // setPage(res.data.currentPage); // Don't override local page request
         } else {
           // Fallback for tags calls that return direct array
           setPosts(Array.isArray(res.data) ? res.data : []);
@@ -158,7 +194,9 @@ const Home = () => {
         console.error('Error fetching data:', error);
         setPosts([]);
       } finally {
-        setLoading(false);
+        if (page === 1) {
+          setLoading(false);
+        }
       }
     };
     fetchData();
@@ -343,7 +381,7 @@ const Home = () => {
           {selectedTag && (
             <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginTop: '20px' }}>Posts tagged with: <span className="highlight-tag">{selectedTag}</span></h2>
           )}
-          {search && (
+        {search && (
             <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginTop: '20px' }}>Search results for: <span className="highlight-tag">{search}</span></h2>
           )}
         </div>
@@ -501,58 +539,45 @@ const Home = () => {
             </div>
           )}
         </div>
-        <div className={`pagination ${theme === "dark" ? "dark" : ""}`}>
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="btn-grad page-nav"
-          >
-            Prev
-          </button>
 
-          <div className="page-numbers">
-            {(() => {
-              const pages = [];
-              const maxVisible = 7;
-
-              if (totalPages <= maxVisible) {
-                for (let i = 1; i <= totalPages; i++) pages.push(i);
-              } else {
-                pages.push(1);
-
-                if (page > 4) pages.push("...");
-
-                const start = Math.max(2, page - 2);
-                const end = Math.min(totalPages - 1, page + 2);
-
-                for (let i = start; i <= end; i++) {
-                  if (!pages.includes(i)) pages.push(i);
-                }
-
-                if (page < totalPages - 3) pages.push("...");
-                if (!pages.includes(totalPages)) pages.push(totalPages);
-              }
-
-              return pages.map((p, index) => (
-                <button
-                  key={index}
-                  onClick={() => typeof p === 'number' && setPage(p)}
-                  className={`page-number ${p === page ? 'active' : ''} ${p === '...' ? 'dots' : ''}`}
-                >
-                  {p}
-                </button>
-              ));
-            })()}
+        {/* Infinite Scroll Sentinel - Triggers auto-load when visible */}
+        <div id="sentinel" style={{ height: '100px', margin: '20px 0' }}></div>
+        
+        {/* Loading Indicator for Infinite Scroll - Subtle spinner at bottom */}
+        {isLoadingMore && (
+          <div className="infinite-scroll-loading" style={{ 
+            textAlign: 'center', 
+            padding: '20px',
+            marginTop: '20px',
+            marginBottom: '20px'
+          }}>
+            <div style={{
+              display: 'inline-block',
+              width: '40px',
+              height: '40px',
+              border: '4px solid #f3f3f3',
+              borderTop: '4px solid #ec1257',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }} />
+            <p className={theme === "dark" ? "text dark" : "text"} style={{ 
+              fontSize: '14px',
+              marginTop: '10px',
+              color: '#888'
+            }}>
+              Loading more posts...
+            </p>
           </div>
-
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="btn-grad page-nav"
-          >
-            Next
-          </button>
-        </div>
+        )}
+        
+        {/* End of Posts Message */}
+        {page >= totalPages && posts.length > 0 && !isLoadingMore && (
+          <div className="end-of-posts" style={{ textAlign: 'center', padding: '40px 20px', marginTop: '30px' }}>
+            <p className={theme === "dark" ? "text dark" : "text"} style={{ color: '#888', fontSize: '16px' }}>
+              🎉 You've reached the end!
+            </p>
+          </div>
+        )}
       </div>
       <div className="sidebar-content">
         <Menu cat={catParam} />
