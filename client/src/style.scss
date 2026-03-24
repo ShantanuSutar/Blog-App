@@ -1876,6 +1876,34 @@ footer {
         &.linkedin {
           color: #0077b5;
         }
+
+        &.copy-link {
+          color: #10b981;
+          font-size: 20px;
+        }
+      }
+
+      .copy-success-toast {
+        position: absolute;
+        bottom: -35px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #10b981;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        animation: fadeInOut 2s ease-in-out;
+        z-index: 11;
+
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+          20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+          80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+          100% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+        }
       }
     }
   }

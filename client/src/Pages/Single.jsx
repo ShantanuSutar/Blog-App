@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { BiSolidEdit, BiBookmark, BiSolidBookmark, BiShareAlt } from "react-icons/bi";
+import { BiSolidEdit, BiBookmark, BiSolidBookmark, BiShareAlt, BiCopy } from "react-icons/bi";
 import { FaTwitter, FaFacebook, FaLinkedin } from "react-icons/fa";
 import { AiFillDelete } from "react-icons/ai";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -51,6 +51,8 @@ const Single = () => {
     }
   };
 
+  const [copySuccess, setCopySuccess] = useState(false);
+
   const handleShare = (platform) => {
     const url = window.location.href;
     const text = `Check out this post: ${post.title}`;
@@ -70,6 +72,24 @@ const Single = () => {
         return;
     }
     window.open(shareUrl, '_blank');
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = window.location.href;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
   };
 
   const fetchComments = async () => {
@@ -190,9 +210,11 @@ const Single = () => {
             <div className="icon share-icon">
               <BiShareAlt className={theme === "dark" ? "dark" : ""} />
               <div className="share-menu">
+                <BiCopy onClick={handleCopyLink} className="share-btn copy-link" title="Copy link" />
                 <FaTwitter onClick={() => handleShare('twitter')} className="share-btn twitter" />
                 <FaFacebook onClick={() => handleShare('facebook')} className="share-btn facebook" />
                 <FaLinkedin onClick={() => handleShare('linkedin')} className="share-btn linkedin" />
+                {copySuccess && <span className="copy-success-toast">Link copied!</span>}
               </div>
             </div>
           </div>
