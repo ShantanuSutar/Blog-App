@@ -936,6 +936,24 @@ footer {
                 color: #ec1257;
               }
             }
+
+            .bookmark-count {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 14px;
+              color: #666;
+              margin-left: 8px;
+              padding: 2px 8px;
+              background-color: rgba(236, 18, 87, 0.1);
+              border-radius: 12px;
+              font-weight: 500;
+
+              &.dark {
+                color: #aaa;
+                background-color: rgba(236, 18, 87, 0.2);
+              }
+            }
           }
         }
       }

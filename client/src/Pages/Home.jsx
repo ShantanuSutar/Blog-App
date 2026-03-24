@@ -1,6 +1,6 @@
 import axios from "axios";
 import api from "../api/axios";
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useThemeContext } from "../Context/theme";
 import { BiBookmark, BiSolidBookmark, BiSearch } from "react-icons/bi";
@@ -41,6 +41,8 @@ const Home = () => {
 
   // Bookmarking
   const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
+  const [bookmarkCounts, setBookmarkCounts] = useState({});
+  const isProcessingBookmark = useRef(false);
 
   // Featured posts
   const [featuredPosts, setFeaturedPosts] = useState([]);
@@ -51,19 +53,55 @@ const Home = () => {
   const handleBookmark = async (e, postId) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Prevent action if already processing
+    if (isProcessingBookmark.current) return;
+    isProcessingBookmark.current = true;
+    
     try {
-      if (bookmarkedPosts.includes(postId)) {
-        await api.delete(`/api/bookmarks/${postId}`);
-        setBookmarkedPosts(prev => prev.filter(id => id !== postId));
+      const isBookmarked = bookmarkedPosts.includes(postId);
+      
+      if (isBookmarked) {
+        const res = await api.delete(`/api/bookmarks/${postId}`);
+        
+        // Only update local state if API call succeeded
+        if (res.status === 200) {
+          setBookmarkedPosts(prev => prev.filter(id => id !== postId));
+          // Update bookmark count instantly
+          setBookmarkCounts(prev => ({
+            ...prev,
+            [postId]: Math.max(0, (prev[postId] || 0) - 1)
+          }));
+        } else {
+          console.error('Failed to remove bookmark, status:', res.status);
+        }
       } else {
-        await api.post(`/api/bookmarks`, { postId });
-        setBookmarkedPosts(prev => [...prev, postId]);
+        const res = await api.post(`/api/bookmarks`, { postId });
+        // Only update if successful (not already bookmarked)
+        if (res.status === 200) {
+          setBookmarkedPosts(prev => [...prev, postId]);
+          // Update bookmark count instantly
+          setBookmarkCounts(prev => ({
+            ...prev,
+            [postId]: (prev[postId] || 0) + 1
+          }));
+        }
       }
     } catch (err) {
-      console.error(err);
+      // If already bookmarked (409), sync state but don't show error
+      if (err.response?.status === 409) {
+        if (!bookmarkedPosts.includes(postId)) {
+          setBookmarkedPosts(prev => [...prev, postId]);
+        }
+        return;
+      }
       if (err.response?.status === 401) {
         navigate('/login');
       }
+    } finally {
+      setTimeout(() => {
+        isProcessingBookmark.current = false;
+      }, 300); // Debounce to prevent rapid clicks
     }
   };
 
@@ -80,6 +118,25 @@ const Home = () => {
     };
     fetchBookmarks();
   }, [URL]);
+
+  // Fetch bookmark counts for visible posts
+  useEffect(() => {
+    const fetchBookmarkCounts = async () => {
+      if (posts.length === 0) return;
+      
+      try {
+        const postIds = posts.map(post => post.id);
+        const res = await api.post(`/api/bookmarks/counts`, { postIds });
+        setBookmarkCounts(prevCounts => ({
+          ...prevCounts,
+          ...res.data
+        }));
+      } catch (err) {
+        console.error('Error fetching bookmark counts:', err);
+      }
+    };
+    fetchBookmarkCounts();
+  }, [posts, URL]);
 
   // Fetch featured posts
   useEffect(() => {
@@ -237,7 +294,19 @@ const Home = () => {
     return doc.body.textContent;
   };
 
-
+  // Format large numbers (e.g., 1.2K, 3.5M, 1.0B)
+  const formatCount = (count) => {
+    if (count >= 1000000000) {
+      return (count / 1000000000).toFixed(1) + 'B';
+    }
+    if (count >= 1000000) {
+      return (count / 1000000).toFixed(1) + 'M';
+    }
+    if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'K';
+    }
+    return count.toString();
+  };
 
   const handleTagChange = (e) => {
     const tag = e.target.value;
@@ -436,21 +505,27 @@ const Home = () => {
                     </div>
                     <div className="post-actions">
                       {currentUser && (
-                        <button
-                          className="btn-grad bookmark-btn"
-                          onClick={(e) => handleBookmark(e, post.id)}
-                        >
-                          {bookmarkedPosts.includes(post.id) ? (
-                            <BiSolidBookmark />
-                          ) : (
-                            <BiBookmark />
-                          )}
-                        </button>
+                        <>
+                          <button
+                            className="btn-grad bookmark-btn"
+                            onClick={(e) => handleBookmark(e, post.id)}
+                          >
+                            {bookmarkedPosts.includes(post.id) ? (
+                              <BiSolidBookmark />
+                            ) : (
+                              <BiBookmark />
+                            )}
+                          </button>
+                          <span className="bookmark-count" title="Bookmarks">
+                            🔖 {formatCount(bookmarkCounts[post.id] || 0)}
+                          </span>
+                        </>
                       )}
                       <Link className="link" to={`/post/${post.id}`}>
                         <button className="btn-grad">Read More</button>
                       </Link>
                     </div>
+
                   </div>
                 </div>
               ))}
@@ -514,17 +589,22 @@ const Home = () => {
                   </div>
                   <div className="post-actions">
                     {currentUser && (
-                      <div
-                        className="bookmark-icon"
-                        onClick={(e) => handleBookmark(e, post.id)}
-                        title={bookmarkedPosts.includes(post.id) ? "Remove Bookmark" : "Bookmark"}
-                      >
-                        {bookmarkedPosts.includes(post.id) ? (
-                          <BiSolidBookmark />
-                        ) : (
-                          <BiBookmark />
-                        )}
-                      </div>
+                      <>
+                        <div
+                          className="bookmark-icon"
+                          onClick={(e) => handleBookmark(e, post.id)}
+                          title={bookmarkedPosts.includes(post.id) ? "Remove Bookmark" : "Bookmark"}
+                        >
+                          {bookmarkedPosts.includes(post.id) ? (
+                            <BiSolidBookmark />
+                          ) : (
+                            <BiBookmark />
+                          )}
+                        </div>
+                        <span className="bookmark-count" title="Bookmarks">
+                          🔖 {formatCount(bookmarkCounts[post.id] || 0)}
+                        </span>
+                      </>
                     )}
                     <Link to={`/post/${post.id}`}>
                       <button className="btn-grad">Read More</button>
