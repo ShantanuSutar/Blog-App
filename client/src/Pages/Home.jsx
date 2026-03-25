@@ -340,8 +340,9 @@ const Home = () => {
 
   if (loading) {
     return (
-      <div className={`${theme === "dark" ? "text dark" : "text"} loading`}>
-        Loading...
+      <div className={`${theme === "dark" ? "dark" : ""} loading-container`}>
+        <div className="loader"></div>
+        <p className={`${theme === "dark" ? "text dark" : "text"}`}>Loading stories...</p>
       </div>
     );
   }
