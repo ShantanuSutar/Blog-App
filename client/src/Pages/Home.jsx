@@ -3,12 +3,14 @@ import api from "../api/axios";
 import { useEffect, useState, useContext, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useThemeContext } from "../Context/theme";
-import { BiBookmark, BiSolidBookmark, BiSearch, BiShow } from "react-icons/bi";
+import { BiSearch, BiShow } from "react-icons/bi";
 import { AuthContext } from "../AuthContext/authContext";
 import Tilt from "react-parallax-tilt";
 import Menu from "../Components/Menu";
 import Newsletter from "../Components/Newsletter";
 import { calculateReadingTime } from "../utils/readingTime";
+import ReactionButtons from "../Components/ReactionButtons.jsx";
+import BookmarkButton from "../Components/BookmarkButton.jsx";
 
 const Home = () => {
   console.log('Home component rendering...');
@@ -39,104 +41,13 @@ const Home = () => {
 
   const URL = import.meta.env.VITE_BASE_URL;
 
-  // Bookmarking
-  const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
-  const [bookmarkCounts, setBookmarkCounts] = useState({});
-  const isProcessingBookmark = useRef(false);
+
 
   // Featured posts
   const [featuredPosts, setFeaturedPosts] = useState([]);
 
   // Reading time helper (now using centralized utility)
   // You can pass custom WPM if needed: calculateReadingTime(text, 150) for technical content
-
-  const handleBookmark = async (e, postId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Prevent action if already processing
-    if (isProcessingBookmark.current) return;
-    isProcessingBookmark.current = true;
-    
-    try {
-      const isBookmarked = bookmarkedPosts.includes(postId);
-      
-      if (isBookmarked) {
-        const res = await api.delete(`/api/bookmarks/${postId}`);
-        
-        // Only update local state if API call succeeded
-        if (res.status === 200) {
-          setBookmarkedPosts(prev => prev.filter(id => id !== postId));
-          // Update bookmark count instantly
-          setBookmarkCounts(prev => ({
-            ...prev,
-            [postId]: Math.max(0, (prev[postId] || 0) - 1)
-          }));
-        } else {
-          console.error('Failed to remove bookmark, status:', res.status);
-        }
-      } else {
-        const res = await api.post(`/api/bookmarks`, { postId });
-        // Only update if successful (not already bookmarked)
-        if (res.status === 200) {
-          setBookmarkedPosts(prev => [...prev, postId]);
-          // Update bookmark count instantly
-          setBookmarkCounts(prev => ({
-            ...prev,
-            [postId]: (prev[postId] || 0) + 1
-          }));
-        }
-      }
-    } catch (err) {
-      // If already bookmarked (409), sync state but don't show error
-      if (err.response?.status === 409) {
-        if (!bookmarkedPosts.includes(postId)) {
-          setBookmarkedPosts(prev => [...prev, postId]);
-        }
-        return;
-      }
-      if (err.response?.status === 401) {
-        navigate('/login');
-      }
-    } finally {
-      setTimeout(() => {
-        isProcessingBookmark.current = false;
-      }, 300); // Debounce to prevent rapid clicks
-    }
-  };
-
-  // Effect to fetch user bookmarks
-  useEffect(() => {
-    const fetchBookmarks = async () => {
-      try {
-        const res = await api.get(`/api/bookmarks`);
-        // Assuming API returns array of posts, we map to IDs
-        setBookmarkedPosts(res.data.map(item => item.id));
-      } catch (err) {
-        // User likely not logged in
-      }
-    };
-    fetchBookmarks();
-  }, [URL]);
-
-  // Fetch bookmark counts for visible posts
-  useEffect(() => {
-    const fetchBookmarkCounts = async () => {
-      if (posts.length === 0) return;
-      
-      try {
-        const postIds = posts.map(post => post.id);
-        const res = await api.post(`/api/bookmarks/counts`, { postIds });
-        setBookmarkCounts(prevCounts => ({
-          ...prevCounts,
-          ...res.data
-        }));
-      } catch (err) {
-        console.error('Error fetching bookmark counts:', err);
-      }
-    };
-    fetchBookmarkCounts();
-  }, [posts, URL]);
 
   // Fetch featured posts
   useEffect(() => {
@@ -505,23 +416,7 @@ const Home = () => {
                       </span>
                     </div>
                     <div className="post-actions">
-                      {currentUser && (
-                        <>
-                          <button
-                            className="btn-grad bookmark-btn"
-                            onClick={(e) => handleBookmark(e, post.id)}
-                          >
-                            {bookmarkedPosts.includes(post.id) ? (
-                              <BiSolidBookmark />
-                            ) : (
-                              <BiBookmark />
-                            )}
-                          </button>
-                          <span className="bookmark-count" title="Bookmarks">
-                            🔖 {formatCount(bookmarkCounts[post.id] || 0)}
-                          </span>
-                        </>
-                      )}
+                      <BookmarkButton postId={post.id} theme={theme} />
                       <Link className="link" to={`/post/${post.id}`}>
                         <button className="btn-grad">Read More</button>
                       </Link>
@@ -589,31 +484,21 @@ const Home = () => {
                     )}
                   </div>
                   <div className="post-actions">
-                    <span className="view-count" title="Views">
-                      👁️ {formatCount(post.views || 0)}
-                    </span>
-                    {currentUser && (
-                      <>
-                        <div
-                          className="bookmark-icon"
-                          onClick={(e) => handleBookmark(e, post.id)}
-                          title={bookmarkedPosts.includes(post.id) ? "Remove Bookmark" : "Bookmark"}
-                        >
-                          {bookmarkedPosts.includes(post.id) ? (
-                            <BiSolidBookmark />
-                          ) : (
-                            <BiBookmark />
-                          )}
-                        </div>
-                        <span className="bookmark-count" title="Bookmarks">
-                          🔖 {formatCount(bookmarkCounts[post.id] || 0)}
-                        </span>
-                      </>
+                    {/* Reaction and Bookmark Buttons */}
+                    <ReactionButtons postId={post.id} theme={theme} />
+                    <BookmarkButton postId={post.id} theme={theme} />
+                    
+                    {post.views > 0 && (
+                      <div className="view-count" title="Views">
+                        <span className="view-icon">👁️</span>
+                        <span className="view-count-value">{formatCount(post.views)}</span>
+                      </div>
                     )}
                     <Link to={`/post/${post.id}`}>
                       <button className="btn-grad">Read More</button>
                     </Link>
                   </div>
+
                 </div>
               </div>
             ))

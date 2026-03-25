@@ -6,6 +6,7 @@ import commentRoutes from "./routes/comment.js";
 import bookmarkRoutes from "./routes/bookmarks.js";
 import newsletterRoutes from "./routes/newsletter.js";
 import healthRoutes from "./routes/health.js";
+import reactionRoutes from "./routes/reactions.js";
 import { schedulePostPublisher } from "./scheduler.js";
 import cookieParser from "cookie-parser";
 import multer from "multer";
@@ -66,6 +67,7 @@ app.use(`/api/comments`, commentRoutes);
 app.use(`/api/bookmarks`, bookmarkRoutes);
 app.use(`/api/newsletter`, newsletterRoutes);
 app.use(`/api/health`, healthRoutes);
+app.use(`/api/reactions`, reactionRoutes);
 
 app.use("/", (req, res) => {
   res.send("Hello to homepage");

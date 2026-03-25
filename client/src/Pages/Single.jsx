@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { BiSolidEdit, BiBookmark, BiSolidBookmark, BiShareAlt, BiCopy } from "react-icons/bi";
+import { BiSolidEdit, BiShareAlt, BiCopy } from "react-icons/bi";
 import { FaTwitter, FaFacebook, FaLinkedin } from "react-icons/fa";
 import { AiFillDelete } from "react-icons/ai";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -12,6 +12,8 @@ import { AuthContext } from "../AuthContext/authContext.jsx";
 import Comment from "../Components/Comment.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
 import { calculateReadingTime } from "../utils/readingTime";
+import ReactionButtons from "../Components/ReactionButtons.jsx";
+import BookmarkButton from "../Components/BookmarkButton.jsx";
 
 const Single = () => {
   const { theme, setTheme } = useThemeContext();
@@ -25,25 +27,9 @@ const Single = () => {
 
   const postId = location.pathname.split("/")[2];
   const { currentUser } = useContext(AuthContext);
-  const [bookmarked, setBookmarked] = useState(false);
 
   // Reading time helper (using centralized utility with configurable WPM)
   // Default is 200 WPM, but you can customize per post category if needed
-
-  const handleBookmark = async () => {
-    if (!currentUser) return navigate('/login');
-    try {
-      if (bookmarked) {
-        await api.delete(`/api/bookmarks/${postId}`);
-        setBookmarked(false);
-      } else {
-        await api.post(`/api/bookmarks`, { postId });
-        setBookmarked(true);
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
 
   const [copySuccess, setCopySuccess] = useState(false);
 
@@ -196,11 +182,9 @@ const Single = () => {
             </p>
           </div>
           <div className="user-actions">
-            {currentUser && (
-              <div className="icon" onClick={handleBookmark} title={bookmarked ? "Remove Bookmark" : "Bookmark"}>
-                {bookmarked ? <BiSolidBookmark className={theme === "dark" ? "dark" : ""} /> : <BiBookmark className={theme === "dark" ? "dark" : ""} />}
-              </div>
-            )}
+            {/* Reaction and Bookmark Buttons */}
+            <ReactionButtons postId={postId} theme={theme} />
+            <BookmarkButton postId={postId} theme={theme} />
             <div className="icon share-icon">
               <BiShareAlt className={theme === "dark" ? "dark" : ""} />
               <div className="share-menu">

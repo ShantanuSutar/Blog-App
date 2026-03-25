@@ -32,6 +32,23 @@ const setupDatabase = async () => {
     `);
         console.log("Posts table updated with views column.");
 
+        console.log("Creating reactions table...");
+        await db.query(`
+      CREATE TABLE IF NOT EXISTS reactions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        post_id INTEGER,
+        comment_id INTEGER,
+        reaction_type VARCHAR(50) NOT NULL DEFAULT 'like',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, post_id, comment_id, reaction_type),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+        FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE
+      );
+    `);
+        console.log("Reactions table created.");
+
         console.log("Database setup complete.");
         process.exit(0);
     } catch (err) {
