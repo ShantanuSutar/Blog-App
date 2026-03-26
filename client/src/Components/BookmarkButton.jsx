@@ -30,17 +30,16 @@ const BookmarkButton = ({ postId, theme }) => {
 
   const fetchBookmarkData = async () => {
     try {
-      // Fetch count
+      // Fetch count for the post (all users)
       const countRes = await api.post('/api/bookmarks/counts', { 
         postIds: [postId] 
       });
       setBookmarkCount(countRes.data[postId] || 0);
 
-      // Fetch user's bookmark status if logged in
+      // Fetch user's bookmark status for this specific post
       if (currentUser) {
-        const userRes = await api.get('/api/bookmarks');
-        const userBookmarks = userRes.data.map(item => item.id);
-        setIsBookmarked(userBookmarks.includes(postId));
+        const statusRes = await api.get(`/api/bookmarks/check/${postId}`);
+        setIsBookmarked(statusRes.data);
       }
     } catch (err) {
       console.error('Error fetching bookmark data:', err);
@@ -72,13 +71,19 @@ const BookmarkButton = ({ postId, theme }) => {
         // Add bookmark
         const res = await api.post('/api/bookmarks', { postId });
         
-        if (res.status === 200) {
+        // Handle both 200 and 201 status codes
+        if (res.status === 200 || res.status === 201) {
           setIsBookmarked(true);
           setBookmarkCount(prev => prev + 1);
         }
       }
     } catch (err) {
       console.error('Bookmark error:', err);
+      // If 409 conflict (already bookmarked), treat as success
+      if (err.response?.status === 409) {
+        setIsBookmarked(true);
+        return;
+      }
       if (err.response?.status === 401) {
         navigate('/login');
       }

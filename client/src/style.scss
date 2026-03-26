@@ -1268,49 +1268,55 @@ footer {
                 flex-direction: column;
                 align-items: center;
                 gap: 6px;
+                position: relative;
+                z-index: 1;
+                pointer-events: auto;
+              }
 
-                .bookmark-btn {
-                  background: #f0f0f0 !important;
-                  border: 2px solid transparent !important;
-                  padding: 0;
-                  width: 40px;
-                  height: 40px;
-                  border-radius: 50%;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  cursor: pointer;
-                  transition: all 0.3s ease;
-                  color: #666;
-                  font-size: 24px;
+              .bookmark-btn {
+                background: #f0f0f0 !important;
+                border: 2px solid transparent !important;
+                padding: 0;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                color: #666;
+                font-size: 24px;
+                position: relative;
+                z-index: 1;
+                pointer-events: auto;
 
-                  &:hover {
-                    transform: scale(1.15);
-                    background-color: #e0e0e0;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-                  }
-
-                  &.active {
-                    animation: reactionPop 0.3s ease;
-                    color: #ec1257;
-                    
-                    svg {
-                      fill: #ec1257;
-                    }
-                  }
+                &:hover {
+                  transform: scale(1.15);
+                  background-color: #e0e0e0;
+                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
                 }
 
-                .bookmark-count {
-                  font-size: 13px;
-                  color: #666;
-                  font-weight: 500;
-                  text-align: center;
-                  padding: 2px 8px;
-                  line-height: 1;
-
-                  :global(.dark-mode) & {
-                    color: #bbb;
+                &.active {
+                  animation: reactionPop 0.3s ease;
+                  color: #ec1257;
+      
+                  svg {
+                    fill: #ec1257;
                   }
+                }
+              }
+
+              .bookmark-count {
+                font-size: 13px;
+                color: #666;
+                font-weight: 500;
+                text-align: center;
+                padding: 2px 8px;
+                line-height: 1;
+
+                :global(.dark-mode) & {
+                  color: #bbb;
                 }
               }
             }
@@ -2262,9 +2268,143 @@ footer {
 // SHARE ICONS
 .user-actions {
   display: flex;
-  gap: 15px;
+  gap: 10px;
   align-items: center;
   margin-top: 5px;
+  flex-wrap: nowrap;
+
+  // Apply same styling as post-actions for consistency
+  .reaction-container,
+  .bookmark-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    min-width: 40px;
+
+    &:hover {
+      transform: translateY(-2px);
+    }
+
+    :global(.dark-mode) & {
+      &:hover {
+        transform: translateY(-2px);
+      }
+    }
+  }
+
+  // Reaction button specific styling
+  .reaction-container .reaction-main-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .reaction-container .reaction-main-wrapper .reaction-main {
+    background: #f0f0f0 !important;
+    border: 2px solid transparent !important;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #666;
+    font-size: 24px;
+
+    &:hover {
+      transform: scale(1.15);
+      background-color: #e0e0e0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    &.active {
+      animation: reactionPop 0.3s ease;
+      border-color: currentColor;
+    }
+
+    span {
+      line-height: 1;
+    }
+  }
+
+  // Bookmark button specific styling
+  .bookmark-container .bookmark-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
+  }
+
+  .bookmark-container .bookmark-content-wrapper .bookmark-btn {
+    background: #f0f0f0 !important;
+    border: 2px solid transparent !important;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #666;
+    font-size: 24px;
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
+
+    &:hover {
+      transform: scale(1.15);
+      background-color: #e0e0e0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    &.active {
+      animation: reactionPop 0.3s ease;
+      color: #ec1257;
+      
+      svg {
+        fill: #ec1257;
+      }
+    }
+  }
+
+  .bookmark-container .bookmark-content-wrapper .bookmark-count {
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+    text-align: center;
+    padding: 2px 8px;
+    line-height: 1;
+
+    :global(.dark-mode) & {
+      color: #bbb;
+    }
+  }
+
+  // Count styling for both
+  .reaction-container .reaction-count,
+  .bookmark-container .bookmark-count {
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+    text-align: center;
+    padding: 2px 8px;
+  }
 
   .icon {
     font-size: 20px;

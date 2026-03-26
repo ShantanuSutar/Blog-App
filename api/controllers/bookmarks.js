@@ -19,7 +19,8 @@ export const addBookmark = async (req, res) => {
         try {
             const existing = await db.query(checkQuery, [userInfo.id, req.body.postId]);
             if (existing.rows.length > 0) {
-                return res.status(409).json("Already bookmarked");
+                // Return 200 instead of 409 - already bookmarked is OK
+                return res.status(200).json("Already bookmarked");
             }
             
             const q = "INSERT INTO bookmarks(uid, pid) VALUES ($1, $2)";
@@ -36,7 +37,7 @@ export const addBookmark = async (req, res) => {
             
             return res.status(200).json("Post has been bookmarked.");
         } catch (err) {
-            if (err.code === '23505') return res.status(409).json("Post already bookmarked.");
+            if (err.code === '23505') return res.status(200).json("Post already bookmarked.");
             return res.status(500).json(err);
         }
     });
