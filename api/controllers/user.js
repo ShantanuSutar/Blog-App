@@ -75,9 +75,37 @@ export const getProfile = async (req, res) => {
     `;
     const recentPostsResult = await db.query(recentPostsQuery, [user.id]);
     
+    // Get follow counts
+    const followersQuery = "SELECT COUNT(*) FROM follows WHERE following_id = $1";
+    const followingQuery = "SELECT COUNT(*) FROM follows WHERE follower_id = $1";
+    const [followersResult, followingResult] = await Promise.all([
+      db.query(followersQuery, [user.id]),
+      db.query(followingQuery, [user.id])
+    ]);
+    
+    // Check if current user follows this profile (if authenticated)
+    let isFollowing = false;
+    const token = req.cookies.access_token;
+    if (token) {
+      try {
+        jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
+          if (!err) {
+            const followCheckQuery = "SELECT * FROM follows WHERE follower_id = $1 AND following_id = $2";
+            const followCheck = await db.query(followCheckQuery, [userInfo.id, user.id]);
+            isFollowing = followCheck.rows.length > 0;
+          }
+        });
+      } catch (authErr) {
+        // Not authenticated or invalid token - that's OK
+      }
+    }
+    
     res.status(200).json({
       ...user,
       postsCount,
+      followerCount: parseInt(followersResult.rows[0].count),
+      followingCount: parseInt(followingResult.rows[0].count),
+      isFollowing,
       recentPosts: recentPostsResult.rows
     });
   } catch (err) {

@@ -49,6 +49,28 @@ const setupDatabase = async () => {
     `);
         console.log("Reactions table created.");
 
+        console.log("Creating follows table...");
+        await db.query(`
+      CREATE TABLE IF NOT EXISTS follows (
+        id SERIAL PRIMARY KEY,
+        follower_id INTEGER NOT NULL,
+        following_id INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(follower_id, following_id),
+        FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE,
+        CHECK (follower_id != following_id)
+      );
+    `);
+        console.log("Follows table created.");
+
+        console.log("Adding indexes for follows table...");
+        await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_follower ON follows(follower_id);
+      CREATE INDEX IF NOT EXISTS idx_following ON follows(following_id);
+    `);
+        console.log("Follows indexes created.");
+
         console.log("Adding profile columns to users table...");
         await db.query(`
       ALTER TABLE users 

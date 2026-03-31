@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import moment from "moment";
+import FollowButton from "../Components/FollowButton.jsx";
 
 const Profile = () => {
   const { username } = useParams();
@@ -72,6 +73,15 @@ const Profile = () => {
           <div className="profile-info">
             <h1 className="profile-username">@{user.username}</h1>
             {user.bio && <p className="profile-bio">{user.bio}</p>}
+            
+            {/* Follow Button - Only show if not own profile */}
+            {!isOwnProfile && (
+              <FollowButton 
+                userId={user.id} 
+                username={user.username}
+                initialFollowing={user.isFollowing || false}
+              />
+            )}
             
             <div className="profile-meta">
               <span className="member-since">
