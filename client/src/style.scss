@@ -24,6 +24,8 @@ $dark-text-main: #f1f5f9; // Off-white for comfort
 $dark-text-muted: #94a3b8; // De-emphasized slate
 $dark-text-subtle: #64748b;
 
+@import "profile"; // User profile styles - must be after variable definitions
+
 html,
 body {
   background-color: white;

@@ -69,6 +69,9 @@ app.use(`/api/newsletter`, newsletterRoutes);
 app.use(`/api/health`, healthRoutes);
 app.use(`/api/reactions`, reactionRoutes);
 
+// Serve static files for avatars
+app.use("/api/uploads", express.static("uploads"));
+
 app.use("/", (req, res) => {
   res.send("Hello to homepage");
 });

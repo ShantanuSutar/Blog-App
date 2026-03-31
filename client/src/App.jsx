@@ -11,6 +11,8 @@ import Write from "./Pages/Write";
 import Drafts from "./Pages/Drafts";
 import Scheduled from "./Pages/Scheduled";
 import Bookmarks from "./Pages/Bookmarks";
+import Profile from "./Pages/Profile";
+import ProfileEdit from "./Components/ProfileEdit";
 import { useThemeContext } from "./Context/theme";
 
 const Layout = () => {
@@ -55,6 +57,14 @@ const router = createBrowserRouter([
       {
         path: "/bookmarks",
         element: <Bookmarks />,
+      },
+      {
+        path: "/profile/:username",
+        element: <Profile />,
+      },
+      {
+        path: "/profile/:username/edit",
+        element: <ProfileEdit />,
       },
       {
         path: "/tag/:tag",

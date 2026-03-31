@@ -415,6 +415,22 @@ const Home = () => {
                         📖 {calculateReadingTime(post.desc)}
                       </span>
                     </div>
+                    <div className="post-author-preview">
+                      <Link to={`/profile/${post.username}`} className="author-avatar-link">
+                        {post.userAvatar ? (
+                          <img 
+                            src={`${URL}${post.userAvatar}`} 
+                            alt={post.username}
+                            className="post-author-avatar"
+                          />
+                        ) : (
+                          <div className="post-author-avatar-placeholder">
+                            {post.username?.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </Link>
+                      <span className="author-name">@{post.username}</span>
+                    </div>
                     <div className="post-actions">
                       <BookmarkButton postId={post.id} theme={theme} />
                       <Link className="link" to={`/post/${post.id}`}>

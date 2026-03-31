@@ -49,6 +49,15 @@ const setupDatabase = async () => {
     `);
         console.log("Reactions table created.");
 
+        console.log("Adding profile columns to users table...");
+        await db.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    `);
+        console.log("Users table updated with profile columns.");
+
         console.log("Database setup complete.");
         process.exit(0);
     } catch (err) {

@@ -162,21 +162,30 @@ const Single = () => {
       <div className="content">
         <img src={post?.img} alt="" />
         <div className="user">
-          {post.userImg ? (
-            <img src={post.userImg} alt="" />
-          ) : (
-            <img
-              src="https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg"
-              alt=""
-            />
-          )}
+          <Link to={`/profile/${post.username}`} className="author-link">
+            {post.userAvatar ? (
+              <img 
+                src={`${URL}${post.userAvatar}`} 
+                alt={post.username}
+                className="author-avatar"
+              />
+            ) : (
+              <img
+                src="https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg"
+                alt=""
+                className="author-avatar"
+              />
+            )}
+          </Link>
 
           {/* user image or random image */}
 
           <div className="info">
-            <span className={theme === "dark" ? "dark" : ""}>
-              {post.username}
-            </span>
+            <Link to={`/profile/${post.username}`} className="author-name-link">
+              <span className={theme === "dark" ? "dark" : ""}>
+                {post.username}
+              </span>
+            </Link>
             <p className={theme === "dark" ? "dark" : ""}>
               Posted {moment(post.date).fromNow()} • {calculateReadingTime(post.desc)}
             </p>

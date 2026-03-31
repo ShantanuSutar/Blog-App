@@ -32,6 +32,8 @@ const Navbar = () => {
     };
   }, []);
 
+  const URL = import.meta.env.VITE_BASE_URL;
+
   return (
     <div className={theme === "dark" ? "navbar dark" : "navbar"}>
       <div className="container">
@@ -66,11 +68,22 @@ const Navbar = () => {
           <div className="user-menu-container" ref={menuRef}>
             {currentUser ? (
               <div className={theme === "dark" ? "user-profile dark" : "user-profile"} onClick={() => setMenuOpen(!menuOpen)}>
-                <img src={Profile} alt="Profile" />
-                <span className={theme === "dark" ? "username dark" : "username"}>{currentUser.username}</span>
+                {currentUser.avatar ? (
+                  <img 
+                    src={`${URL}${currentUser.avatar}`} 
+                    alt={currentUser.username}
+                    className="user-avatar"
+                  />
+                ) : (
+                  <>
+                    <img src={Profile} alt="Profile" />
+                    <span className={theme === "dark" ? "username dark" : "username"}>{currentUser.username}</span>
+                  </>
+                )}
 
                 {menuOpen && (
                   <div className={theme === "dark" ? "profile-dropdown dark" : "profile-dropdown"}>
+                    <Link className={theme === "dark" ? "dark" : ""} to={`/profile/${currentUser.username}`} onClick={() => setMenuOpen(false)}>My Profile</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to="/write" onClick={() => setMenuOpen(false)}>Write</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to="/drafts" onClick={() => setMenuOpen(false)}>Drafts</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to="/scheduled" onClick={() => setMenuOpen(false)}>Scheduled</Link>
