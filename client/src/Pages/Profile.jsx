@@ -4,6 +4,7 @@ import axios from "axios";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import moment from "moment";
 import FollowButton from "../Components/FollowButton.jsx";
+import FollowersModal from "../Components/FollowersModal.jsx";
 
 const Profile = () => {
   const { username } = useParams();
@@ -12,6 +13,10 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const { currentUser } = useContext(AuthContext);
   const URL = import.meta.env.VITE_BASE_URL;
+
+  // Modal states
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
 
   const isOwnProfile = currentUser && currentUser.username === username;
 
@@ -83,6 +88,7 @@ const Profile = () => {
               />
             )}
             
+            {/* Follower/Following Counts - Clickable on own profile */}
             <div className="profile-meta">
               <span className="member-since">
                 Member since {moment(user.created_at).format("MMMM YYYY")}
@@ -90,6 +96,28 @@ const Profile = () => {
               <span className="posts-count">
                 {user.postsCount} {user.postsCount === 1 ? 'post' : 'posts'}
               </span>
+              {(user.followerCount !== undefined || user.followingCount !== undefined) && (
+                <div className="follow-stats">
+                  {user.followerCount !== undefined && (
+                    <button 
+                      className="stat-button"
+                      onClick={() => isOwnProfile && setShowFollowersModal(true)}
+                      style={{ cursor: isOwnProfile ? 'pointer' : 'default' }}
+                    >
+                      <strong>{user.followerCount}</strong> Followers
+                    </button>
+                  )}
+                  {user.followingCount !== undefined && (
+                    <button 
+                      className="stat-button"
+                      onClick={() => isOwnProfile && setShowFollowingModal(true)}
+                      style={{ cursor: isOwnProfile ? 'pointer' : 'default' }}
+                    >
+                      <strong>{user.followingCount}</strong> Following
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {isOwnProfile && (
@@ -99,6 +127,24 @@ const Profile = () => {
             )}
           </div>
         </div>
+
+        {/* Modals for followers/following */}
+        {user && (
+          <>
+            <FollowersModal
+              userId={user.id}
+              isOpen={showFollowersModal}
+              onClose={() => setShowFollowersModal(false)}
+              type="followers"
+            />
+            <FollowersModal
+              userId={user.id}
+              isOpen={showFollowingModal}
+              onClose={() => setShowFollowingModal(false)}
+              type="following"
+            />
+          </>
+        )}
 
         {/* User's Posts */}
         {user.recentPosts && user.recentPosts.length > 0 && (
