@@ -129,7 +129,7 @@ const ActivityCard = ({ activity }) => {
         </div>
         
         <div className="activity-timestamp">
-          {moment(activity.created_at).fromNow()}
+          {moment.utc(activity.created_at).local().fromNow()}
         </div>
       </div>
 
