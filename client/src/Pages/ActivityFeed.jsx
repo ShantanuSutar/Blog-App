@@ -88,6 +88,12 @@ const ActivityFeed = () => {
           Comments
         </button>
         <button 
+          className={getFilterClass('reactions')}
+          onClick={() => { setFilter('reactions'); setPage(1); }}
+        >
+          Reactions
+        </button>
+        <button 
           className={getFilterClass('follows')}
           onClick={() => { setFilter('follows'); setPage(1); }}
         >

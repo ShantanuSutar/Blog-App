@@ -50,7 +50,8 @@ export const getActivityFeed = async (req, res) => {
       const activityFilter = filterMap[filter] || filter;
 
       // Build WHERE clause based on filter
-      let whereClause = "WHERE f.follower_id = $1";
+      // Show activities from followed users OR activities targeting the current user
+      let whereClause = `WHERE (f.follower_id = $1 OR a.target_user_id = $1)`;
       let paramIndex = 2;
       let params = [userInfo.id];
       
@@ -65,7 +66,7 @@ export const getActivityFeed = async (req, res) => {
       const offsetParamIndex = paramIndex + 1;
       params.push(Number(limit), Number(offset));
 
-      // Main query - get activities from followed users
+      // Main query - get activities from followed users OR targeting current user
       const query = `
         SELECT 
           a.*,
@@ -81,12 +82,16 @@ export const getActivityFeed = async (req, res) => {
         LEFT JOIN posts p ON a.post_id = p.id
         LEFT JOIN comments c ON a.comment_id = c.id
         LEFT JOIN users tu ON a.target_user_id = tu.id
-        LEFT JOIN reactions r ON a.comment_id = r.id AND r.user_id = a.user_id
-        JOIN follows f ON a.user_id = f.following_id
+        LEFT JOIN reactions r ON (a.post_id IS NOT NULL AND r.post_id = a.post_id AND r.user_id = a.user_id) 
+                               OR (a.comment_id IS NOT NULL AND r.comment_id = a.comment_id AND r.user_id = a.user_id)
+        LEFT JOIN follows f ON a.user_id = f.following_id
         ${whereClause}
         ORDER BY a.created_at DESC
         LIMIT CAST($${limitParamIndex} AS INTEGER) OFFSET CAST($${offsetParamIndex} AS BIGINT)
       `;
+
+      console.log('Executing activity feed query with params:', params);
+      console.log('Where clause:', whereClause);
 
       const result = await db.query(query, params);
 
@@ -94,11 +99,12 @@ export const getActivityFeed = async (req, res) => {
       const countQuery = `
         SELECT COUNT(*) 
         FROM activities a
-        JOIN follows f ON a.user_id = f.following_id
-        ${filter !== 'all' ? 'WHERE a.activity_type = $1' : ''}
+        LEFT JOIN follows f ON a.user_id = f.following_id
+        WHERE (f.follower_id = $1 OR a.target_user_id = $1)
+        ${filter !== 'all' ? 'AND a.activity_type = $2' : ''}
       `;
       
-      const countParams = filter !== 'all' ? [filter] : [];
+      const countParams = filter !== 'all' ? [userInfo.id, activityFilter] : [userInfo.id];
       const countResult = await db.query(countQuery, countParams);
       const totalCount = parseInt(countResult.rows[0].count);
 

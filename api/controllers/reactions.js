@@ -40,6 +40,8 @@ export const addReaction = async (req, res) => {
           const deleteQuery = "DELETE FROM reactions WHERE id = $1";
           await db.query(deleteQuery, [existingId]);
           
+          // Remove from activities? Optional - we keep it for history
+          
           return res.status(200).json({ 
             message: "Reaction removed", 
             action: "removed",
@@ -54,6 +56,27 @@ export const addReaction = async (req, res) => {
             RETURNING id
           `;
           const result = await db.query(updateQuery, [reactionType || 'like', existingId]);
+          
+          // Track reaction activity when updating to a different type
+          // Get post/comment owner for target_user_id
+          let targetUserId = null;
+          if (postId) {
+            const postOwnerQuery = "SELECT uid FROM posts WHERE id = $1";
+            const postOwner = await db.query(postOwnerQuery, [postId]);
+            targetUserId = postOwner.rows[0]?.uid;
+          } else if (commentId) {
+            const commentOwnerQuery = "SELECT Cuserid FROM comments WHERE id = $1";
+            const commentOwner = await db.query(commentOwnerQuery, [commentId]);
+            targetUserId = commentOwner.rows[0]?.Cuserid;
+          }
+          
+          if (targetUserId && targetUserId !== userInfo.id) {
+            const trackQuery = `
+              INSERT INTO activities (user_id, activity_type, post_id, comment_id, target_user_id)
+              VALUES ($1, 'reaction', $2, $3, $4)
+            `;
+            await db.query(trackQuery, [userInfo.id, postId || null, commentId || null, targetUserId]);
+          }
           
           return res.status(200).json({ 
             message: "Reaction updated", 
@@ -74,6 +97,38 @@ export const addReaction = async (req, res) => {
           commentId || null, 
           reactionType || 'like'
         ]);
+
+        // Track reaction activity
+        // Need to get the post/comment owner to set as target_user_id
+        let targetUserId = null;
+        if (postId) {
+          const postOwnerQuery = "SELECT uid FROM posts WHERE id = $1";
+          const postOwner = await db.query(postOwnerQuery, [postId]);
+          targetUserId = postOwner.rows[0]?.uid;
+          console.log('Post owner found:', targetUserId);
+        } else if (commentId) {
+          const commentOwnerQuery = "SELECT Cuserid FROM comments WHERE id = $1";
+          const commentOwner = await db.query(commentOwnerQuery, [commentId]);
+          targetUserId = commentOwner.rows[0]?.Cuserid;
+          console.log('Comment owner found:', targetUserId);
+        }
+        
+        console.log('Tracking reaction - User:', userInfo.id, 'Target:', targetUserId, 'Post:', postId, 'Comment:', commentId);
+        
+        if (targetUserId && targetUserId !== userInfo.id) {
+          try {
+            const trackQuery = `
+              INSERT INTO activities (user_id, activity_type, post_id, comment_id, target_user_id)
+              VALUES ($1, 'reaction', $2, $3, $4)
+            `;
+            const activityResult = await db.query(trackQuery, [userInfo.id, postId || null, commentId || null, targetUserId]);
+            console.log('Activity created successfully:', activityResult.rows[0]);
+          } catch (trackErr) {
+            console.error('Error creating activity:', trackErr);
+          }
+        } else {
+          console.log('Skipping activity tracking - self-reaction or no target');
+        }
 
         return res.status(200).json({ 
           message: "Reaction added", 
