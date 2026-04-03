@@ -8,6 +8,7 @@ import newsletterRoutes from "./routes/newsletter.js";
 import healthRoutes from "./routes/health.js";
 import reactionRoutes from "./routes/reactions.js";
 import followRoutes from "./routes/follows.js";
+import activityRoutes from "./routes/activity.js";
 import { schedulePostPublisher } from "./scheduler.js";
 import cookieParser from "cookie-parser";
 import multer from "multer";
@@ -70,6 +71,7 @@ app.use(`/api/newsletter`, newsletterRoutes);
 app.use(`/api/health`, healthRoutes);
 app.use(`/api/reactions`, reactionRoutes);
 app.use(`/api/follows`, followRoutes);
+app.use(`/api/activity`, activityRoutes);
 
 // Serve static files for avatars
 app.use("/api/uploads", express.static("uploads"));

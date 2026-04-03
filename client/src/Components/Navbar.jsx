@@ -83,6 +83,7 @@ const Navbar = () => {
 
                 {menuOpen && (
                   <div className={theme === "dark" ? "profile-dropdown dark" : "profile-dropdown"}>
+                    <Link className={theme === "dark" ? "dark" : ""} to="/feed" onClick={() => setMenuOpen(false)}>Activity Feed</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to={`/profile/${currentUser.username}`} onClick={() => setMenuOpen(false)}>My Profile</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to="/write" onClick={() => setMenuOpen(false)}>Write</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to="/drafts" onClick={() => setMenuOpen(false)}>Drafts</Link>

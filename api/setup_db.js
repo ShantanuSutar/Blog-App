@@ -80,6 +80,32 @@ const setupDatabase = async () => {
     `);
         console.log("Users table updated with profile columns.");
 
+        console.log("Creating activities table...");
+        await db.query(`
+      CREATE TABLE IF NOT EXISTS activities (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        activity_type VARCHAR(50) NOT NULL,
+        post_id INTEGER,
+        comment_id INTEGER,
+        target_user_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+        FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+        FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `);
+        console.log("Activities table created.");
+
+        console.log("Adding indexes for activities table...");
+        await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_activities_user ON activities(user_id);
+      CREATE INDEX IF NOT EXISTS idx_activities_type ON activities(activity_type);
+      CREATE INDEX IF NOT EXISTS idx_activities_created ON activities(created_at DESC);
+    `);
+        console.log("Activities indexes created.");
+
         console.log("Database setup complete.");
         process.exit(0);
     } catch (err) {

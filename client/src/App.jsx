@@ -13,6 +13,7 @@ import Scheduled from "./Pages/Scheduled";
 import Bookmarks from "./Pages/Bookmarks";
 import Profile from "./Pages/Profile";
 import ProfileEdit from "./Components/ProfileEdit";
+import ActivityFeed from "./Pages/ActivityFeed";
 import { useThemeContext } from "./Context/theme";
 
 const Layout = () => {
@@ -57,6 +58,10 @@ const router = createBrowserRouter([
       {
         path: "/bookmarks",
         element: <Bookmarks />,
+      },
+      {
+        path: "/feed",
+        element: <ActivityFeed />,
       },
       {
         path: "/profile/:username",

@@ -48,6 +48,13 @@ export const toggleFollow = async (req, res) => {
         const insertQuery = "INSERT INTO follows(follower_id, following_id) VALUES ($1, $2)";
         await db.query(insertQuery, [userInfo.id, targetUserId]);
 
+        // Track follow activity
+        const trackQuery = `
+          INSERT INTO activities (user_id, activity_type, target_user_id)
+          VALUES ($1, 'follow', $2)
+        `;
+        await db.query(trackQuery, [userInfo.id, targetUserId]);
+
         return res.status(200).json({ 
           message: "Successfully followed user",
           action: "follow",

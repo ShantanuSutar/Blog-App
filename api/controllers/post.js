@@ -125,6 +125,15 @@ export const addPost = async (req, res) => {
       const result = await db.query(query, values);
       const postId = result.rows[0].id;
       
+      // Track activity for new post
+      if (!req.body.draft) {
+        const trackQuery = `
+          INSERT INTO activities (user_id, activity_type, post_id)
+          VALUES ($1, 'post', $2)
+        `;
+        await db.query(trackQuery, [userInfo.id, postId]);
+      }
+      
       // If post is published (not draft), send notifications to subscribers
       if (!req.body.draft) {
         try {
