@@ -14,6 +14,7 @@ import { useThemeContext } from "../Context/theme.jsx";
 import { calculateReadingTime } from "../utils/readingTime";
 import ReactionButtons from "../Components/ReactionButtons.jsx";
 import BookmarkButton from "../Components/BookmarkButton.jsx";
+import MentionInput from "../Components/MentionInput.jsx";
 
 const Single = () => {
   const { theme, setTheme } = useThemeContext();
@@ -228,12 +229,10 @@ const Single = () => {
           <h2 className={theme === "dark" ? "dark" : ""}>Comments</h2>
           {currentUser ? (
             <div className="addComment">
-              <input
-                className={theme === "dark" ? "text dark" : "text"}
-                type="text"
-                placeholder="Type Here..."
+              <MentionInput
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={setComment}
+                placeholder="Type Here... Use @ to mention someone"
               />
               <button className="btn-grad" onClick={handleAddComment}>
                 {loading ? "Please wait ..." : "Comment"}

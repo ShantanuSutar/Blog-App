@@ -3047,3 +3047,94 @@ footer {
     }
   }
 }
+
+// Mention Autocomplete Styles
+.mention-input-container {
+  position: relative;
+  width: 100%;
+  
+  textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+    font-size: 14px;
+    
+    &:focus {
+      outline: none;
+      border-color: #ec1257;
+    }
+    
+    .dark & {
+      background: $lessdark;
+      border-color: $dark-border;
+      color: $dark-text-main;
+    }
+  }
+}
+
+.mention-autocomplete {
+  position: absolute;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  min-width: 200px;
+  
+  .dark & {
+    background: $lessdark;
+    border-color: $dark-border;
+  }
+  
+  .mention-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    
+    &:hover, &.selected {
+      background: #f1f5f9;
+      
+      .dark & {
+        background: $dark-hover;
+      }
+    }
+    
+    img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    
+    span {
+      font-size: 14px;
+      color: #334155;
+      
+      .dark & {
+        color: $dark-text-main;
+      }
+    }
+  }
+}
+
+// Mention Link Styles
+.mention-link {
+  color: #ec1257;
+  text-decoration: none;
+  font-weight: 600;
+  transition: opacity 0.2s ease;
+  
+  &:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+  }
+}

@@ -1,7 +1,10 @@
 import express from "express";
-import { getProfile, updateProfile, uploadAvatar, deleteAvatar, upload } from "../controllers/user.js";
+import { getProfile, updateProfile, uploadAvatar, deleteAvatar, searchUsers, upload } from "../controllers/user.js";
 
 const router = express.Router();
+
+// Search users for @mentions (must be before /:username route)
+router.get("/search", searchUsers);
 
 // Public route - get user profile
 router.get("/:username", getProfile);

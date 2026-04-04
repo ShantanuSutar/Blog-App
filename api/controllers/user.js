@@ -239,3 +239,25 @@ export const deleteAvatar = async (req, res) => {
     return res.status(500).json({ message: "Internal server error", error: err.message });
   }
 };
+
+// Search users by username prefix (for @mentions)
+export const searchUsers = async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query || query.length < 1) {
+      return res.status(400).json("Query parameter required");
+    }
+    
+    // Search for usernames starting with query (case-insensitive)
+    const result = await db.query(
+      "SELECT id, username, avatar FROM users WHERE username ILIKE $1 LIMIT 3",
+      [`${query}%`]
+    );
+    
+    return res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Error searching users:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
