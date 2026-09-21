@@ -168,7 +168,7 @@ const Profile = () => {
                     <h3 className="post-title">{post.title}</h3>
                     <div className="post-meta">
                       <span className="post-date">
-                        {moment(post.created_at).format("MMM D, YYYY")}
+                        {moment(post.date).format("MMM D, YYYY")}
                       </span>
                       {post.views !== undefined && (
                         <span className="post-views">

@@ -1,5 +1,4 @@
 import { db } from "../db.js";
-import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -61,7 +60,12 @@ export const getProfile = async (req, res) => {
     const user = result.rows[0];
     
     // Get user's posts count
-    const postsQuery = "SELECT COUNT(*) FROM posts WHERE uid = $1";
+    const postsQuery = `
+      SELECT COUNT(*) FROM posts
+      WHERE uid = $1
+        AND draft = false
+        AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))
+    `;
     const postsResult = await db.query(postsQuery, [user.id]);
     const postsCount = parseInt(postsResult.rows[0].count);
     
@@ -69,7 +73,9 @@ export const getProfile = async (req, res) => {
     const recentPostsQuery = `
       SELECT p.id, p.title, p.img, p.views, p.date 
       FROM posts p 
-      WHERE p.uid = $1 
+      WHERE p.uid = $1
+        AND p.draft = false
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
       ORDER BY p.date DESC 
       LIMIT 6
     `;
@@ -85,19 +91,10 @@ export const getProfile = async (req, res) => {
     
     // Check if current user follows this profile (if authenticated)
     let isFollowing = false;
-    const token = req.cookies.access_token;
-    if (token) {
-      try {
-        jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
-          if (!err) {
-            const followCheckQuery = "SELECT * FROM follows WHERE follower_id = $1 AND following_id = $2";
-            const followCheck = await db.query(followCheckQuery, [userInfo.id, user.id]);
-            isFollowing = followCheck.rows.length > 0;
-          }
-        });
-      } catch (authErr) {
-        // Not authenticated or invalid token - that's OK
-      }
+    if (req.user) {
+      const followCheckQuery = "SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2";
+      const followCheck = await db.query(followCheckQuery, [req.user.id, user.id]);
+      isFollowing = followCheck.rows.length > 0;
     }
     
     res.status(200).json({
@@ -117,17 +114,7 @@ export const getProfile = async (req, res) => {
 // Update user profile (bio)
 export const updateProfile = async (req, res) => {
   try {
-    const token = req.cookies.access_token;
-    if (!token) {
-      return res.status(401).json("Unauthorized");
-    }
-
-    jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
-      if (err) {
-        return res.status(403).json("Invalid token");
-      }
-
-      const userId = userInfo.id;
+      const userId = req.user.id;
       const { bio } = req.body;
 
       // Check if user is updating their own profile
@@ -138,8 +125,7 @@ export const updateProfile = async (req, res) => {
       const query = "UPDATE users SET bio = $1 WHERE id = $2 RETURNING id, username, avatar, bio";
       const result = await db.query(query, [bio, userId]);
       
-      res.status(200).json(result.rows[0]);
-    });
+    return res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error("Update profile error:", err);
     return res.status(500).json({ message: "Internal server error", error: err.message });
@@ -149,17 +135,7 @@ export const updateProfile = async (req, res) => {
 // Upload avatar
 export const uploadAvatar = async (req, res) => {
   try {
-    const token = req.cookies.access_token;
-    if (!token) {
-      return res.status(401).json("Unauthorized");
-    }
-
-    jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
-      if (err) {
-        return res.status(403).json("Invalid token");
-      }
-
-      const userId = userInfo.id;
+      const userId = req.user.id;
 
       // Check if user is updating their own avatar
       if (userId !== parseInt(req.params.id)) {
@@ -186,12 +162,11 @@ export const uploadAvatar = async (req, res) => {
       const query = "UPDATE users SET avatar = $1 WHERE id = $2 RETURNING id, username, avatar";
       const result = await db.query(query, [avatarPath, userId]);
       
-      res.status(200).json({
+    return res.status(200).json({
         message: "Avatar uploaded successfully",
         avatar: avatarPath,
         user: result.rows[0]
       });
-    });
   } catch (err) {
     console.error("Upload avatar error:", err);
     return res.status(500).json({ message: "Internal server error", error: err.message });
@@ -201,17 +176,7 @@ export const uploadAvatar = async (req, res) => {
 // Delete avatar
 export const deleteAvatar = async (req, res) => {
   try {
-    const token = req.cookies.access_token;
-    if (!token) {
-      return res.status(401).json("Unauthorized");
-    }
-
-    jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
-      if (err) {
-        return res.status(403).json("Invalid token");
-      }
-
-      const userId = userInfo.id;
+      const userId = req.user.id;
 
       if (userId !== parseInt(req.params.id)) {
         return res.status(403).json("You can only delete your own avatar");
@@ -232,8 +197,7 @@ export const deleteAvatar = async (req, res) => {
       const query = "UPDATE users SET avatar = NULL WHERE id = $1 RETURNING id, username";
       const result = await db.query(query, [userId]);
       
-      res.status(200).json({ message: "Avatar deleted successfully", user: result.rows[0] });
-    });
+    return res.status(200).json({ message: "Avatar deleted successfully", user: result.rows[0] });
   } catch (err) {
     console.error("Delete avatar error:", err);
     return res.status(500).json({ message: "Internal server error", error: err.message });

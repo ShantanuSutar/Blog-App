@@ -1,7 +1,20 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
+import { escapeHtml, sanitizePlainText } from './content.js';
+import { jwtSecret } from '../middleware/auth.js';
 
 dotenv.config();
+
+const createUnsubscribeUrl = (email) => {
+  const token = jwt.sign(
+    { email, purpose: 'newsletter-unsubscribe' },
+    jwtSecret(),
+    { expiresIn: '365d' }
+  );
+  const apiUrl = process.env.API_PUBLIC_URL || `http://localhost:${process.env.PORT || 8800}`;
+  return `${apiUrl}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;
+};
 
 // Create a transporter object using SMTP transport
 const transporter = nodemailer.createTransport({
@@ -29,6 +42,7 @@ transporter.verify((error, success) => {
 // Function to send welcome email to new subscribers
 export const sendWelcomeEmail = async (email) => {
   try {
+    const unsubscribeUrl = createUnsubscribeUrl(email);
     const mailOptions = {
       from: `"Blog App" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
       to: email,
@@ -67,6 +81,7 @@ export const sendWelcomeEmail = async (email) => {
               </div>
               <div class="footer">
                 <p>You received this email because you subscribed to our newsletter.</p>
+                <p><a href="${unsubscribeUrl}">Unsubscribe</a></p>
                 <p>&copy; ${new Date().getFullYear()} Blog App. All rights reserved.</p>
               </div>
             </div>
@@ -102,11 +117,18 @@ export const sendNewPostNotification = async (subscribers, postTitle, postUrl) =
       return { success: false, error: 'No subscribers' };
     }
 
-    const mailOptions = {
-      from: `"Blog App" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
-      to: subscribers.join(', '),
-      subject: `New Post Published: ${postTitle} 📝`,
-      html: `
+    const safePostTitle = escapeHtml(sanitizePlainText(postTitle));
+    const sendToSubscriber = (email) => {
+      const unsubscribeUrl = createUnsubscribeUrl(email);
+      return transporter.sendMail({
+        from: `"Blog App" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+        to: email,
+        subject: `New Post Published: ${safePostTitle} 📝`,
+        headers: {
+          'List-Unsubscribe': `<${unsubscribeUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+        html: `
         <!DOCTYPE html>
         <html>
           <head>
@@ -127,7 +149,7 @@ export const sendNewPostNotification = async (subscribers, postTitle, postUrl) =
               <div class="content">
                 <p>Hi there,</p>
                 <p>We've just published a new post that we think you'll love!</p>
-                <h2 style="color: #f5576c; margin-top: 25px;">${postTitle}</h2>
+                <h2 style="color: #f5576c; margin-top: 25px;">${safePostTitle}</h2>
                 <p>Click the button below to read it now:</p>
                 <p style="margin-top: 30px;">
                   <a href="${postUrl}" class="button">Read Now →</a>
@@ -136,27 +158,26 @@ export const sendNewPostNotification = async (subscribers, postTitle, postUrl) =
               </div>
               <div class="footer">
                 <p>You received this email because you subscribed to our newsletter.</p>
+                <p><a href="${unsubscribeUrl}">Unsubscribe</a></p>
                 <p>&copy; ${new Date().getFullYear()} Blog App. All rights reserved.</p>
               </div>
             </div>
           </body>
         </html>
-      `,
+        `,
+      });
     };
 
-    // Set timeout promise
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Email sending timeout - 15 seconds')), 15000);
-    });
+    let sent = 0;
+    const batchSize = 10;
+    for (let index = 0; index < subscribers.length; index += batchSize) {
+      const batch = subscribers.slice(index, index + batchSize);
+      const results = await Promise.allSettled(batch.map(sendToSubscriber));
+      sent += results.filter((result) => result.status === 'fulfilled').length;
+    }
 
-    // Race between sending email and timeout
-    const info = await Promise.race([
-      transporter.sendMail(mailOptions),
-      timeoutPromise
-    ]);
-    
-    console.log('[Email Service] New post notification sent successfully:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    console.log(`[Email Service] New post notification delivered to ${sent} subscriber(s)`);
+    return { success: sent === subscribers.length, sent, failed: subscribers.length - sent };
   } catch (error) {
     console.error('[Email Service] Error sending new post notification:', error.message);
     return { success: false, error: error.message };

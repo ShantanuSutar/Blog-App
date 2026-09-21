@@ -1,13 +1,21 @@
 import { useState, useEffect } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import axios from "axios";
+import api from "../api/axios.js";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import moment from "moment";
 import { useThemeContext } from "../Context/theme";
 
 const cloudname = import.meta.env.VITE_CLOUD_NAME;
 const cloudUploadPreset = import.meta.env.VITE_CLOUD_UPLOAD_PRESET;
+
+const toDateTimeLocalValue = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+};
 
 const Write = () => {
   const state = useLocation().state;
@@ -18,37 +26,23 @@ const Write = () => {
   const [title, setTitle] = useState(state?.title || "");
   const [file, setFile] = useState(null);
   const [cat, setCat] = useState(state?.cat || "");
-  const [scheduledDate, setScheduledDate] = useState(state?.scheduled_publish_date || "");
+  const [scheduledDate, setScheduledDate] = useState(toDateTimeLocalValue(state?.scheduled_publish_date));
   const [tags, setTags] = useState(state?.tags || []);
   const [tagInput, setTagInput] = useState("");
   const [featured, setFeatured] = useState(state?.featured || false);
   const navigate = useNavigate();
-  const URL = import.meta.env.VITE_BASE_URL;
 
   // Fetch post data when editing
   useEffect(() => {
     if (editId) {
       const fetchPost = async () => {
         try {
-          // Get token from cookie
-          const getCookie = (name) => {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return parts.pop().split(';').shift();
-          };
-          
-          const token = getCookie('access_token');
-          
-          const res = await axios.get(`${URL}/api/posts/${editId}/edit`, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
+          const res = await api.get(`/api/posts/${editId}/edit`);
           const post = res.data;
           setTitle(post.title);
           setValue(post.desc);
           setCat(post.cat || "");
-          setScheduledDate(post.scheduled_publish_date || "");
+          setScheduledDate(toDateTimeLocalValue(post.scheduled_publish_date));
           setTags(Array.isArray(post.tags) ? post.tags : JSON.parse(post.tags || "[]"));
           setFeatured(post.featured || false);
         } catch (err) {
@@ -57,7 +51,7 @@ const Write = () => {
       };
       fetchPost();
     }
-  }, [editId, URL]);
+  }, [editId]);
 
   const upload = async () => {
     try {
@@ -83,51 +77,33 @@ const Write = () => {
     }
   };
 
-  const handleClick = async (e, isDraft = false) => {
+  const handleClick = async (e, isDraft = false, keepSchedule = true) => {
     e.preventDefault();
     const imgUrl = file ? await upload() : "";
-
-    function getCookie(cookieName) {
-      const name = cookieName + "=";
-      const decodedCookie = decodeURIComponent(document.cookie);
-      const cookieArray = decodedCookie.split(";");
-
-      for (let i = 0; i < cookieArray.length; i++) {
-        let cookie = cookieArray[i].trim();
-        if (cookie.indexOf(name) === 0) {
-          return cookie.substring(name.length, cookie.length);
-        }
-      }
-
-      return null; // Return null if the cookie is not found
-    }
-    const tokenValue = getCookie("access_token");
+    const scheduledPublishDate = keepSchedule && scheduledDate
+      ? new Date(scheduledDate).toISOString()
+      : null;
 
     try {
       (state || editId)
-        ? await axios.put(`${URL}/api/posts/${state?.id || editId}`, {
+        ? await api.put(`/api/posts/${state?.id || editId}`, {
             title,
             desc: value,
             cat,
             img: file ? imgUrl : "",
             draft: isDraft,
-            scheduled_publish_date: scheduledDate || null,
+            scheduled_publish_date: scheduledPublishDate,
             tags: tags,
             featured: featured,
-          }, {
-            headers: {
-              Authorization: `Bearer ${tokenValue}`
-            }
           })
-        : await axios.post(`${URL}/api/posts/`, {
-            tokenValue,
+        : await api.post(`/api/posts/`, {
             title,
             desc: value,
             cat,
             img: file ? imgUrl : "",
             date: moment(Date.now()).format("YYYY-MM-DD HH:mm:ss"),
             draft: isDraft,
-            scheduled_publish_date: scheduledDate || null,
+            scheduled_publish_date: scheduledPublishDate,
             tags: tags,
             featured: featured,
           });
@@ -139,7 +115,7 @@ const Write = () => {
 
   const handleSaveDraft = async (e) => {
     e.preventDefault();
-    handleClick(e, true);
+    handleClick(e, true, false);
   };
 
   const handleAddTag = (e) => {
@@ -310,7 +286,7 @@ const Write = () => {
               Save as a draft
             </button>
             <button onClick={handleClick} className="btn-grad">
-              Publish
+              {scheduledDate ? "Schedule" : "Publish"}
             </button>
           </div>
         </div>

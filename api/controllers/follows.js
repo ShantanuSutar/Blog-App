@@ -1,26 +1,17 @@
 import { db } from "../db.js";
-import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 // Toggle follow/unfollow status
 export const toggleFollow = async (req, res) => {
-  const token = req.cookies.access_token;
-  
-  if (!token) return res.status(401).json("Not authenticated!");
+  const targetUserId = parseInt(req.params.userId);
 
-  jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
-    if (err) return res.status(403).json("Token is not valid!");
+  if (req.user.id === targetUserId) {
+    return res.status(403).json("You cannot follow yourself");
+  }
 
-    const targetUserId = parseInt(req.params.userId);
-
-    // Prevent self-following
-    if (userInfo.id === targetUserId) {
-      return res.status(403).json("You cannot follow yourself");
-    }
-
-    try {
+  try {
       // Check if target user exists
       const userCheckQuery = "SELECT id FROM users WHERE id = $1";
       const userCheck = await db.query(userCheckQuery, [targetUserId]);
@@ -31,12 +22,12 @@ export const toggleFollow = async (req, res) => {
 
       // Check if already following
       const checkQuery = "SELECT * FROM follows WHERE follower_id = $1 AND following_id = $2";
-      const existingFollow = await db.query(checkQuery, [userInfo.id, targetUserId]);
+      const existingFollow = await db.query(checkQuery, [req.user.id, targetUserId]);
 
       if (existingFollow.rows.length > 0) {
         // Unfollow - remove the follow record
         const deleteQuery = "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2";
-        await db.query(deleteQuery, [userInfo.id, targetUserId]);
+        await db.query(deleteQuery, [req.user.id, targetUserId]);
 
         return res.status(200).json({ 
           message: "Successfully unfollowed user",
@@ -46,14 +37,14 @@ export const toggleFollow = async (req, res) => {
       } else {
         // Follow - create new follow record
         const insertQuery = "INSERT INTO follows(follower_id, following_id) VALUES ($1, $2)";
-        await db.query(insertQuery, [userInfo.id, targetUserId]);
+        await db.query(insertQuery, [req.user.id, targetUserId]);
 
         // Track follow activity
         const trackQuery = `
           INSERT INTO activities (user_id, activity_type, target_user_id)
           VALUES ($1, 'follow', $2)
         `;
-        await db.query(trackQuery, [userInfo.id, targetUserId]);
+        await db.query(trackQuery, [req.user.id, targetUserId]);
 
         return res.status(200).json({ 
           message: "Successfully followed user",
@@ -61,11 +52,10 @@ export const toggleFollow = async (req, res) => {
           following: true 
         });
       }
-    } catch (err) {
-      console.error('Error in toggleFollow:', err);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  });
+  } catch (err) {
+    console.error('Error in toggleFollow:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 };
 
 // Get list of followers for a user
@@ -140,25 +130,17 @@ export const getFollowing = async (req, res) => {
 
 // Check if current user follows a specific user
 export const getFollowStatus = async (req, res) => {
-  const token = req.cookies.access_token;
-  
-  if (!token) return res.json({ following: false });
-
-  jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
-    if (err) return res.json({ following: false });
-
-    try {
+  try {
       const targetUserId = parseInt(req.params.userId);
 
       const query = "SELECT * FROM follows WHERE follower_id = $1 AND following_id = $2";
-      const result = await db.query(query, [userInfo.id, targetUserId]);
+      const result = await db.query(query, [req.user.id, targetUserId]);
 
       return res.status(200).json({ following: result.rows.length > 0 });
-    } catch (err) {
-      console.error('Error in getFollowStatus:', err);
-      return res.status(200).json({ following: false });
-    }
-  });
+  } catch (err) {
+    console.error('Error in getFollowStatus:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 };
 
 // Get follow counts for a user
@@ -223,18 +205,10 @@ export const getFollowInfo = async (req, res) => {
     };
 
     // Check if current user follows this user (if authenticated)
-    const token = req.cookies.access_token;
-    if (token) {
-      try {
-        // Use promise-based JWT verification instead of callback
-        const userInfo = jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret");
-        const statusQuery = "SELECT * FROM follows WHERE follower_id = $1 AND following_id = $2";
-        const statusResult = await db.query(statusQuery, [userInfo.id, userId]);
-        response.following = statusResult.rows.length > 0;
-      } catch (authErr) {
-        // Not authenticated or invalid token - that's OK
-        console.log('Auth error in getFollowInfo:', authErr.message);
-      }
+    if (req.user) {
+      const statusQuery = "SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2";
+      const statusResult = await db.query(statusQuery, [req.user.id, userId]);
+      response.following = statusResult.rows.length > 0;
     }
 
     return res.status(200).json(response);

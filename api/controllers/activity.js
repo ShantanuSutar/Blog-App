@@ -1,5 +1,6 @@
 import { db } from "../db.js";
 import jwt from "jsonwebtoken";
+import { jwtSecret } from "../middleware/auth.js";
 
 // Helper function to track activity
 export const trackActivity = async (userId, activityType, postId = null, commentId = null, targetUserId = null) => {
@@ -23,13 +24,13 @@ export const getActivityFeed = async (req, res) => {
   try {
     // Get authenticated user
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : req.cookies.access_token;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
     
     if (!token) {
       return res.status(401).json("Not authenticated!");
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
+    jwt.verify(token, jwtSecret(), async (err, userInfo) => {
       if (err) {
         return res.status(403).json("Invalid token!");
       }
@@ -214,13 +215,13 @@ export const getUserActivities = async (req, res) => {
 export const createActivity = async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : req.cookies.access_token;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
     
     if (!token) {
       return res.status(401).json("Not authenticated!");
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
+    jwt.verify(token, jwtSecret(), async (err, userInfo) => {
       if (err) {
         return res.status(403).json("Invalid token!");
       }

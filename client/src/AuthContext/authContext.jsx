@@ -1,6 +1,5 @@
-import axios from "axios";
 import { createContext, useEffect, useState } from "react";
-const URL = import.meta.env.VITE_BASE_URL;
+import api from "../api/axios.js";
 export const AuthContext = createContext();
 export const AuthContextProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(
@@ -8,22 +7,26 @@ export const AuthContextProvider = ({ children }) => {
   );
 
   const login = async (inputs) => {
-    const res = await axios.post(`${URL}/api/auth/login`, inputs);
+    const res = await api.post(`/api/auth/login`, inputs);
     const token = res.data.token;
-    document.cookie = `access_token=${token}; path=/;`;
     setCurrentUser({ ...res.data.other, token });
     return res;
   };
 
   const logout = async () => {
-    await axios.post(`${URL}/api/auth/logout`);
-    document.cookie = "access_token=; path=/;";
+    await api.post(`/api/auth/logout`);
     setCurrentUser(null);
   };
 
   useEffect(() => {
     localStorage.setItem("user", JSON.stringify(currentUser));
   }, [currentUser]);
+
+  useEffect(() => {
+    const handleExpiredSession = () => setCurrentUser(null);
+    window.addEventListener("auth:expired", handleExpiredSession);
+    return () => window.removeEventListener("auth:expired", handleExpiredSession);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ currentUser, login, logout }}>

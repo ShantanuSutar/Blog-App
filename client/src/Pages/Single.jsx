@@ -94,40 +94,12 @@ const Single = () => {
     fetchData();
     fetchComments();
 
-    const checkBookmark = async () => {
-      if (!currentUser) return;
-      try {
-        const res = await api.get(`/api/bookmarks/check/${postId}`);
-        setBookmarked(res.data);
-      } catch (err) {
-        console.log(err);
-      }
-    };
-    checkBookmark();
   }, [postId, currentUser, URL]);
 
   const handleDelete = async (e) => {
     e.preventDefault();
-    function getCookie(cookieName) {
-      const name = cookieName + "=";
-      const decodedCookie = decodeURIComponent(document.cookie);
-      const cookieArray = decodedCookie.split(";");
-
-      for (let i = 0; i < cookieArray.length; i++) {
-        let cookie = cookieArray[i].trim();
-        if (cookie.indexOf(name) === 0) {
-          return cookie.substring(name.length, cookie.length);
-        }
-      }
-
-      return null; // Return null if the cookie is not found
-    }
-    const tokenValue = getCookie("access_token");
-
     try {
-      await axios.delete(
-        `${URL}/api/posts/${postId}?data=${JSON.stringify(tokenValue)}`
-      );
+      await api.delete(`/api/posts/${postId}`);
       navigate("/");
     } catch (err) {
       console.log(err);
@@ -144,10 +116,8 @@ const Single = () => {
 
     try {
       setLoading(true);
-      await axios.post(`${URL}/api/comments/${postId}`, {
+      await api.post(`/api/comments/${postId}`, {
         comment,
-        postId,
-        userId: currentUser.id,
       });
       fetchComments();
       setComment("");
@@ -208,7 +178,7 @@ const Single = () => {
           </div>
           {currentUser?.username === post?.username && (
             <div className="edit">
-              <Link to={`/write?edit=2`} state={post}>
+              <Link to={`/write?edit=${post.id}`} state={post}>
                 <BiSolidEdit className={theme === "dark" ? "dark" : ""} />
               </Link>
               <AiFillDelete

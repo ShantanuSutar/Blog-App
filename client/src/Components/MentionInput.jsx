@@ -8,6 +8,7 @@ const MentionInput = ({ value, onChange, placeholder }) => {
   const [mentionStartPos, setMentionStartPos] = useState(null); // Track where @ was typed
   const [mentionEndPos, setMentionEndPos] = useState(null); // Track cursor position while typing mention
   const textareaRef = useRef(null);
+  const blurTimeoutRef = useRef(null); // Store timeout ID to clear it if needed
   
   // Close autocomplete when clicking outside
   useEffect(() => {
@@ -20,7 +21,13 @@ const MentionInput = ({ value, onChange, placeholder }) => {
     };
     
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      // Clean up any pending timeouts
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
+    };
   }, []);
   
   const calculateCursorPosition = (textarea, cursorPos) => {
@@ -54,6 +61,12 @@ const MentionInput = ({ value, onChange, placeholder }) => {
     const newValue = e.target.value;
     const cursorPos = e.target.selectionStart;
     
+    // Clear any pending blur timeout when user types
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+    
     // Check if @ was just typed
     if (newValue[cursorPos - 1] === '@') {
       setShowMentions(true);
@@ -68,17 +81,26 @@ const MentionInput = ({ value, onChange, placeholder }) => {
       
       if (lastAtSymbol !== -1) {
         const query = textBeforeCursor.substring(lastAtSymbol + 1);
-        // Only allow alphanumeric characters and underscore in username
-        if (/^\w*$/.test(query)) {
+        
+        // Check if there's a space in the query (user finished typing mention)
+        if (query.includes(' ')) {
+          // User typed space after @username, close dropdown and reset
+          setShowMentions(false);
+          setMentionStartPos(null);
+          setMentionEndPos(null);
+        } else if (/^\w*$/.test(query)) {
+          // Valid mention characters (alphanumeric and underscore)
           setMentionQuery(query);
           setMentionStartPos(lastAtSymbol); // Update position as user types
           setMentionEndPos(cursorPos); // Update end position
         } else {
+          // Invalid character typed, close dropdown and reset
           setShowMentions(false);
           setMentionStartPos(null);
           setMentionEndPos(null);
         }
       } else {
+        // No @ symbol found, close dropdown and reset
         setShowMentions(false);
         setMentionStartPos(null);
         setMentionEndPos(null);
@@ -132,12 +154,23 @@ const MentionInput = ({ value, onChange, placeholder }) => {
     }
   };
   
+  const handleBlur = () => {
+    // Reset mention state when textarea loses focus
+    blurTimeoutRef.current = setTimeout(() => {
+      setShowMentions(false);
+      setMentionStartPos(null);
+      setMentionEndPos(null);
+      blurTimeoutRef.current = null;
+    }, 200); // Small delay to allow click events on dropdown items
+  };
+  
   return (
     <div className="mention-input-container" ref={textareaRef}>
       <textarea
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
         placeholder={placeholder}
       />
       {showMentions && (

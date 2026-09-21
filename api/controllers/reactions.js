@@ -1,6 +1,7 @@
 import { db } from "../db.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { jwtSecret } from "../middleware/auth.js";
 
 dotenv.config();
 
@@ -11,7 +12,7 @@ export const addReaction = async (req, res) => {
 
   if (!token) return res.status(401).json("Not authenticated!");
 
-  jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
+  jwt.verify(token, jwtSecret(), async (err, userInfo) => {
     if (err) return res.status(403).json("Token is not valid!");
 
     const { postId, commentId, reactionType } = req.body;
@@ -157,19 +158,19 @@ export const getReactions = async (req, res) => {
 
     if (postId) {
       query = `
-        SELECT r.*, u.username, u.img as user_img 
-        FROM reactions r 
-        JOIN users u ON r.user_id = u.id 
-        WHERE r.post_id = $1 
+        SELECT r.*, u.username, u.avatar as user_img
+        FROM reactions r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.post_id = $1
         ORDER BY r.created_at DESC
       `;
       params = [postId];
     } else {
       query = `
-        SELECT r.*, u.username, u.img as user_img 
-        FROM reactions r 
-        JOIN users u ON r.user_id = u.id 
-        WHERE r.comment_id = $1 
+        SELECT r.*, u.username, u.avatar as user_img
+        FROM reactions r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.comment_id = $1
         ORDER BY r.created_at DESC
       `;
       params = [commentId];
@@ -211,7 +212,7 @@ export const getUserReaction = async (req, res) => {
 
   if (!token) return res.status(401).json("Not authenticated!");
 
-  jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
+  jwt.verify(token, jwtSecret(), async (err, userInfo) => {
     if (err) return res.status(403).json("Token is not valid!");
 
     const { postId, commentId } = req.params;
@@ -242,7 +243,7 @@ export const removeReaction = async (req, res) => {
 
   if (!token) return res.status(401).json("Not authenticated!");
 
-  jwt.verify(token, process.env.JWT_SECRET || "fallback_jwt_secret", async (err, userInfo) => {
+  jwt.verify(token, jwtSecret(), async (err, userInfo) => {
     if (err) return res.status(403).json("Token is not valid!");
 
     const { reactionId } = req.params;

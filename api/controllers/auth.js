@@ -1,6 +1,7 @@
 import { db } from "../db.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { jwtSecret } from "../middleware/auth.js";
 
 export const register = async (req, res) => {
   try {
@@ -43,7 +44,11 @@ export const login = async (req, res) => {
     if (!isPasswordCorrect)
       return res.status(400).json("Wrong username or password!");
 
-    const token = jwt.sign({ id: result.rows[0].id }, process.env.JWT_SECRET || "fallback_jwt_secret");
+    const token = jwt.sign(
+      { id: result.rows[0].id },
+      jwtSecret(),
+      { expiresIn: process.env.JWT_EXPIRES_IN || "1h" }
+    );
 
     const { password, ...other } = result.rows[0];
 
@@ -55,12 +60,5 @@ export const login = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-  // res
-  //   .clearCookie("access_token", {
-  //     sameSite: "none",
-  //     secure: true,
-  //   })
-  //   .status(200)
-  //   .json("User has been logged out");
   res.status(200).json("User has been logged out");
 };

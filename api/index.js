@@ -10,18 +10,17 @@ import reactionRoutes from "./routes/reactions.js";
 import followRoutes from "./routes/follows.js";
 import activityRoutes from "./routes/activity.js";
 import { schedulePostPublisher } from "./scheduler.js";
-import cookieParser from "cookie-parser";
 import multer from "multer";
 import dotenv from "dotenv";
 import cors from "cors";
+import { jwtSecret } from "./middleware/auth.js";
 
 dotenv.config();
+jwtSecret();
 const port = process.env.PORT || 8800;
 
 const app = express();
 
-// IMPORTANT: cookieParser must be before routes
-app.use(cookieParser());
 app.use(express.json()); // to send json data to the server
 
 // Use cors middleware with explicit configuration
@@ -40,10 +39,9 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true,
+  credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['set-cookie']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 const storage = multer.diskStorage({
@@ -72,6 +70,11 @@ app.use(`/api/health`, healthRoutes);
 app.use(`/api/reactions`, reactionRoutes);
 app.use(`/api/follows`, followRoutes);
 app.use(`/api/activity`, activityRoutes);
+
+app.use((err, req, res, next) => {
+  console.error("Unhandled API error:", err);
+  res.status(500).json({ error: "Internal server error" });
+});
 
 // Serve static files for avatars
 app.use("/api/uploads", express.static("uploads"));

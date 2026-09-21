@@ -46,7 +46,6 @@ const Scheduled = () => {
       await axios.put(
         `${import.meta.env.VITE_BASE_URL}/api/posts/${id}`,
         {
-          tokenValue: currentUser?.token,
           draft: false, // Set draft to false
           scheduled_publish_date: null // Remove scheduled date to publish immediately
         },
@@ -135,7 +134,7 @@ const Scheduled = () => {
                 {post.img && <img src={post.img} alt="" />}
               </div>
               <div className="content">
-                <Link className="link" to={`/post/${post.id}`}>
+                <Link className="link" to={`/write?edit=${post.id}`}>
                   <h1 className={theme === "dark" ? "text dark" : "text"}>
                     {post.title}
                   </h1>
