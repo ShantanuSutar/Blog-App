@@ -22,7 +22,7 @@ const Layout = () => {
   return (
     <div className={theme === "dark" ? "page-container dark" : "page-container"}>
       <Navbar />
-      <main className="main-content-wrapper">
+      <main id="main-content" className="main-content-wrapper ui-container">
         <Outlet />
       </main>
       <Footer />
@@ -100,9 +100,7 @@ function App() {
 
   return (
     <div className={`app ${theme === "dark" ? "dark" : ""}`}>
-      <div className="container">
-        <RouterProvider router={router} />
-      </div>
+      <RouterProvider router={router} />
     </div>
   );
 }

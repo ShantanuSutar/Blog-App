@@ -4,10 +4,12 @@ import { Heart } from "lucide-react";
 const Footer = () => {
   return (
     <footer className="footer">
-      <img src={Logo} alt="" />
-      <span className="text">
-        Made with <Heart size={16} fill="currentColor" aria-label="love" /> and <b>Reactjs</b>
-      </span>
+      <div className="footer-inner ui-container">
+        <img src={Logo} alt="" />
+        <span className="text">
+          Made with <Heart size={16} fill="currentColor" aria-label="love" /> and <b>Reactjs</b>
+        </span>
+      </div>
     </footer>
   );
 };
