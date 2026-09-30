@@ -1,9 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/logos/logo-no-background.png";
 import { AuthContext } from "../AuthContext/authContext.jsx";
-import Dark from "../img/icons/dark-mode.gif";
-import Light from "../img/icons/light-mode.gif";
-import Profile from "../img/icons/profile.gif";
+import { CircleUserRound, Moon, Sun } from "lucide-react";
 import { useContext, useState, useRef, useEffect } from "react";
 import { useThemeContext } from "../Context/theme";
 
@@ -26,9 +24,14 @@ const Navbar = () => {
         setMenuOpen(false);
       }
     };
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, []);
 
@@ -67,7 +70,9 @@ const Navbar = () => {
 
           <div className="user-menu-container" ref={menuRef}>
             {currentUser ? (
-              <div className={theme === "dark" ? "user-profile dark" : "user-profile"} onClick={() => setMenuOpen(!menuOpen)}>
+              <>
+              <div className={theme === "dark" ? "user-profile dark" : "user-profile"}>
+              <button type="button" className="profile-trigger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open account menu" aria-expanded={menuOpen} aria-controls="account-menu">
                 {currentUser.avatar ? (
                   <img 
                     src={`${URL}${currentUser.avatar}`} 
@@ -76,13 +81,14 @@ const Navbar = () => {
                   />
                 ) : (
                   <>
-                    <img src={Profile} alt="Profile" />
+                    <CircleUserRound size={24} aria-hidden="true" />
                     <span className={theme === "dark" ? "username dark" : "username"}>{currentUser.username}</span>
                   </>
                 )}
 
+              </button>
                 {menuOpen && (
-                  <div className={theme === "dark" ? "profile-dropdown dark" : "profile-dropdown"}>
+                  <div id="account-menu" className={theme === "dark" ? "profile-dropdown dark" : "profile-dropdown"}>
                     <Link className={theme === "dark" ? "dark" : ""} to="/feed" onClick={() => setMenuOpen(false)}>Activity Feed</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to={`/profile/${currentUser.username}`} onClick={() => setMenuOpen(false)}>My Profile</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to="/write" onClick={() => setMenuOpen(false)}>Write</Link>
@@ -90,10 +96,11 @@ const Navbar = () => {
                     <Link className={theme === "dark" ? "dark" : ""} to="/scheduled" onClick={() => setMenuOpen(false)}>Scheduled</Link>
                     <Link className={theme === "dark" ? "dark" : ""} to="/bookmarks" onClick={() => setMenuOpen(false)}>Bookmarks</Link>
                     <hr className={theme === "dark" ? "dark" : ""} />
-                    <span className={theme === "dark" ? "dark" : ""} onClick={() => { logout(); setMenuOpen(false); }}>Logout</span>
+                    <button type="button" className={theme === "dark" ? "dark" : ""} onClick={() => { logout(); setMenuOpen(false); }}>Logout</button>
                   </div>
                 )}
               </div>
+              </>
             ) : (
               <Link className="btn-grad" to="/login">
                 Login
@@ -101,13 +108,9 @@ const Navbar = () => {
             )}
           </div>
 
-          <span className="theme-toggle" onClick={handleTheme}>
-            {theme === "dark" ? (
-              <img src={Light} alt="Light Mode" />
-            ) : (
-              <img src={Dark} alt="Dark Mode" />
-            )}
-          </span>
+          <button type="button" className="theme-toggle" onClick={handleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
+            {theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+          </button>
         </div>
       </div>
     </div>

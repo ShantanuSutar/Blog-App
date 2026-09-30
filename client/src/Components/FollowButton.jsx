@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../AuthContext/authContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { Check, Plus } from 'lucide-react';
 
 const FollowButton = ({ userId, username, initialFollowing = false }) => {
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
@@ -70,12 +71,12 @@ const FollowButton = ({ userId, username, initialFollowing = false }) => {
           <span className="loading-spinner"></span>
         ) : isFollowing ? (
           <>
-            <span className="icon">✓</span>
+            <Check className="icon" size={18} aria-hidden="true" />
             <span className="text">Following</span>
           </>
         ) : (
           <>
-            <span className="icon">+</span>
+            <Plus className="icon" size={18} aria-hidden="true" />
             <span className="text">Follow</span>
           </>
         )}

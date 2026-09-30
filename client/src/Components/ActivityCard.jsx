@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import moment from "moment";
+import { FileText, MessageCircle, Heart, UserRound, Bell } from "lucide-react";
 
 const ActivityCard = ({ activity }) => {
   const URL = import.meta.env.VITE_BASE_URL;
@@ -8,15 +9,15 @@ const ActivityCard = ({ activity }) => {
   const getActivityIcon = (type) => {
     switch (type) {
       case 'post':
-        return '📝';
+        return <FileText size={18} aria-hidden="true" />;
       case 'comment':
-        return '💬';
+        return <MessageCircle size={18} aria-hidden="true" />;
       case 'reaction':
-        return '❤️';
+        return <Heart size={18} aria-hidden="true" />;
       case 'follow':
-        return '👤';
+        return <UserRound size={18} aria-hidden="true" />;
       default:
-        return '📢';
+        return <Bell size={18} aria-hidden="true" />;
     }
   };
 

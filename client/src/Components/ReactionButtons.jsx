@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { BiLike, BiSolidLike } from 'react-icons/bi';
-import { FaHeart, FaRegHeart } from 'react-icons/fa';
-import { GiPartyPopper } from 'react-icons/gi';
+import { ThumbsUp, Heart, PartyPopper } from 'lucide-react';
 import api from '../api/axios';
 import { AuthContext } from '../AuthContext/authContext.jsx';
 import { useNavigate } from 'react-router-dom';
@@ -27,9 +25,9 @@ const ReactionButtons = ({ postId, commentId, theme }) => {
   const navigate = useNavigate();
 
   const reactionTypes = [
-    { type: 'like', icon: '👍', animatedIcon: '👍🏻', color: '#3b82f6', label: 'Like' },
-    { type: 'love', icon: '❤️', animatedIcon: '💖', color: '#ec4899', label: 'Love' },
-    { type: 'celebrate', icon: '🎉', animatedIcon: '🥳', color: '#f59e0b', label: 'Celebrate' }
+    { type: 'like', icon: ThumbsUp, color: 'var(--color-reaction-like)', softColor: 'var(--color-reaction-like-soft)', label: 'Like' },
+    { type: 'love', icon: Heart, color: 'var(--color-reaction-love)', softColor: 'var(--color-reaction-love-soft)', label: 'Love' },
+    { type: 'celebrate', icon: PartyPopper, color: 'var(--color-reaction-celebrate)', softColor: 'var(--color-reaction-celebrate-soft)', label: 'Celebrate' }
   ];
 
   const fetchReactions = async () => {
@@ -152,26 +150,11 @@ const ReactionButtons = ({ postId, commentId, theme }) => {
     return Object.values(reactions).reduce((sum, r) => sum + r.count, 0);
   };
 
-  const getReactionLabel = () => {
-    const total = getTotalCount();
-    if (total === 0) return '';
-    
-    const topReactions = Object.entries(reactions)
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 2);
-    
-    const labels = topReactions.map(([type, data]) => {
-      const emoji = type === 'like' ? '👍' : type === 'love' ? '❤️' : '🎉';
-      return `${emoji} ${data.count}`;
-    });
-    
-    return labels.join(' • ');
-  };
-
   const getCurrentReaction = () => {
     if (!userReaction) return reactionTypes[0]; // Default to like
     return reactionTypes.find(r => r.type === userReaction) || reactionTypes[0];
   };
+  const CurrentIcon = getCurrentReaction().icon;
 
   return (
     <div className="reaction-container">
@@ -180,17 +163,22 @@ const ReactionButtons = ({ postId, commentId, theme }) => {
         className="reaction-main-wrapper"
         onMouseEnter={handleMainMouseEnter}
         onMouseLeave={handleMainMouseLeave}
+        onFocus={() => currentUser && setShowPicker(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setShowPicker(false);
+        }}
       >
         {/* Single main button */}
         <button
           className={`reaction-main ${userReaction ? 'active' : ''}`}
           onClick={() => handleReaction(userReaction || 'like')}
           title={currentUser ? "React or hover for more" : "Login to react"}
-          disabled={!currentUser}
+          aria-label={userReaction ? `Remove ${userReaction} reaction` : 'Like this post'}
+          aria-pressed={Boolean(userReaction)}
+          aria-busy={isProcessing}
+          disabled={isProcessing}
         >
-          <span style={{ fontSize: '20px' }}>
-            {userReaction ? getCurrentReaction().animatedIcon : '👍'}
-          </span>
+          <CurrentIcon size={20} aria-hidden="true" fill={userReaction === 'love' ? 'currentColor' : 'none'} />
         </button>
 
         {/* Hover reaction picker */}
@@ -200,7 +188,9 @@ const ReactionButtons = ({ postId, commentId, theme }) => {
             onMouseEnter={handlePickerMouseEnter}
             onMouseLeave={handlePickerMouseLeave}
           >
-            {reactionTypes.map((reaction) => (
+            {reactionTypes.map((reaction) => {
+              const Icon = reaction.icon;
+              return (
               <button
                 key={reaction.type}
                 className={`reaction-option-hover ${userReaction === reaction.type ? 'selected' : ''}`}
@@ -209,16 +199,17 @@ const ReactionButtons = ({ postId, commentId, theme }) => {
                   handleReaction(reaction.type);
                 }}
                 style={{
-                  borderColor: userReaction === reaction.type ? reaction.color : '#ddd',
-                  backgroundColor: userReaction === reaction.type ? `${reaction.color}15` : 'white'
+                  borderColor: userReaction === reaction.type ? reaction.color : 'var(--color-border)',
+                  backgroundColor: userReaction === reaction.type ? reaction.softColor : 'var(--color-surface)'
                 }}
                 title={reaction.label}
+                aria-label={reaction.label}
+                aria-pressed={userReaction === reaction.type}
+                disabled={isProcessing}
               >
-                <span style={{ fontSize: '22px' }}>
-                  {userReaction === reaction.type ? reaction.animatedIcon : reaction.icon}
-                </span>
+                <Icon size={22} aria-hidden="true" fill={userReaction === reaction.type && reaction.type === 'love' ? 'currentColor' : 'none'} />
               </button>
-            ))}
+            );})}
           </div>
         )}
 

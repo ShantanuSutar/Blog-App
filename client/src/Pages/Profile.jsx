@@ -5,6 +5,7 @@ import { AuthContext } from "../AuthContext/authContext.jsx";
 import moment from "moment";
 import FollowButton from "../Components/FollowButton.jsx";
 import FollowersModal from "../Components/FollowersModal.jsx";
+import { Eye } from "lucide-react";
 
 const Profile = () => {
   const { username } = useParams();
@@ -172,7 +173,7 @@ const Profile = () => {
                       </span>
                       {post.views !== undefined && (
                         <span className="post-views">
-                          👁️ {post.views}
+                          <Eye size={16} aria-hidden="true" /> {post.views}
                         </span>
                       )}
                     </div>

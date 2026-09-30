@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { BiSolidEdit, BiShareAlt, BiCopy } from "react-icons/bi";
-import { FaTwitter, FaFacebook, FaLinkedin } from "react-icons/fa";
-import { AiFillDelete } from "react-icons/ai";
+import { Pencil, Share2, Copy, ExternalLink, Trash2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Menu from "../Components/Menu.jsx";
 import axios from "axios";
@@ -166,25 +164,22 @@ const Single = () => {
             <ReactionButtons postId={postId} theme={theme} />
             <BookmarkButton postId={postId} theme={theme} />
             <div className="icon share-icon">
-              <BiShareAlt className={theme === "dark" ? "dark" : ""} />
+              <button type="button" className="share-trigger ui-button--icon" aria-label="Share post"><Share2 size={20} aria-hidden="true" /></button>
               <div className="share-menu">
-                <BiCopy onClick={handleCopyLink} className="share-btn copy-link" title="Copy link" />
-                <FaTwitter onClick={() => handleShare('twitter')} className="share-btn twitter" />
-                <FaFacebook onClick={() => handleShare('facebook')} className="share-btn facebook" />
-                <FaLinkedin onClick={() => handleShare('linkedin')} className="share-btn linkedin" />
+                <button type="button" onClick={handleCopyLink} className="share-btn copy-link ui-button--icon" aria-label="Copy post link"><Copy size={18} aria-hidden="true" /></button>
+                <button type="button" onClick={() => handleShare('twitter')} className="share-btn twitter ui-button--ghost"><ExternalLink size={16} aria-hidden="true" />Twitter</button>
+                <button type="button" onClick={() => handleShare('facebook')} className="share-btn facebook ui-button--ghost"><ExternalLink size={16} aria-hidden="true" />Facebook</button>
+                <button type="button" onClick={() => handleShare('linkedin')} className="share-btn linkedin ui-button--ghost"><ExternalLink size={16} aria-hidden="true" />LinkedIn</button>
                 {copySuccess && <span className="copy-success-toast">Link copied!</span>}
               </div>
             </div>
           </div>
           {currentUser?.username === post?.username && (
             <div className="edit">
-              <Link to={`/write?edit=${post.id}`} state={post}>
-                <BiSolidEdit className={theme === "dark" ? "dark" : ""} />
+              <Link to={`/write?edit=${post.id}`} state={post} aria-label="Edit post" className="ui-button--icon">
+                <Pencil size={20} aria-hidden="true" />
               </Link>
-              <AiFillDelete
-                className={theme === "dark" ? "dark" : ""}
-                onClick={handleDelete}
-              />
+              <button type="button" className="ui-button--icon" aria-label="Delete post" onClick={handleDelete}><Trash2 size={20} aria-hidden="true" /></button>
             </div>
           )}
         </div>

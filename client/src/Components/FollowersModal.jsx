@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { X } from 'lucide-react';
 
 const FollowersModal = ({ userId, isOpen, onClose, type }) => {
   const [users, setUsers] = useState([]);
@@ -49,8 +50,8 @@ const FollowersModal = ({ userId, isOpen, onClose, type }) => {
           <h2>
             {type === 'followers' ? 'Followers' : 'Following'}
           </h2>
-          <button className="modal-close" onClick={handleClose}>
-            ×
+          <button type="button" className="modal-close" onClick={handleClose} aria-label="Close followers dialog">
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
         

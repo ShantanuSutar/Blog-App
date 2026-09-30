@@ -5,6 +5,7 @@ import api from "../api/axios.js";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import moment from "moment";
 import { useThemeContext } from "../Context/theme";
+import { X } from "lucide-react";
 
 const cloudname = import.meta.env.VITE_CLOUD_NAME;
 const cloudUploadPreset = import.meta.env.VITE_CLOUD_UPLOAD_PRESET;
@@ -251,8 +252,9 @@ const Write = () => {
                     type="button" 
                     onClick={() => handleRemoveTag(tag)}
                     className="remove-tag-btn"
+                    aria-label={`Remove tag ${tag}`}
                   >
-                    ×
+                    <X size={16} aria-hidden="true" />
                   </button>
                 </span>
               ))}

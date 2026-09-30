@@ -1,0 +1,199 @@
+// Sass breakpoints are used in media queries; CSS custom properties cannot be.
+$breakpoint-sm: 480px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 900px;
+$breakpoint-xl: 1200px;
+$interaction-transition: color var(--transition-base), background-color var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base), opacity var(--transition-base), transform var(--transition-base);
+
+:root {
+  color-scheme: light;
+
+  --font-ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+  --font-size-display: clamp(2.75rem, 6vw, 4.75rem);
+  --font-size-title: clamp(2.25rem, 4.5vw, 3.75rem);
+  --font-size-heading-1: clamp(2rem, 4vw, 3rem);
+  --font-size-heading-2: clamp(1.625rem, 3vw, 2.25rem);
+  --font-size-heading-3: clamp(1.25rem, 2vw, 1.5rem);
+  --font-size-heading-4: 1.125rem;
+  --font-size-body-large: clamp(1.125rem, 1.4vw, 1.25rem);
+  --font-size-body: 1rem;
+  --font-size-small: 0.875rem;
+  --font-size-caption: 0.75rem;
+
+  --line-height-display: 1.04;
+  --line-height-heading: 1.15;
+  --line-height-body: 1.65;
+  --line-height-reading: 1.75;
+  --line-height-compact: 1.35;
+
+  --letter-spacing-display: -0.035em;
+  --letter-spacing-heading: -0.02em;
+  --letter-spacing-ui: -0.01em;
+  --letter-spacing-label: 0.055em;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(22, 22, 24, 0.06);
+  --shadow-md: 0 4px 16px rgba(22, 22, 24, 0.08);
+  --shadow-lg: 0 12px 32px rgba(22, 22, 24, 0.12);
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 250ms ease;
+  --content-width: 1200px;
+  --reading-width: 720px;
+
+  --color-background: #faf9f7;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f5f3f0;
+  --color-surface-hover: #eeece8;
+  --color-surface-active: #e7e3de;
+  --color-surface-disabled: #e8e5e1;
+
+  --color-text-primary: #252423;
+  --color-text-secondary: #625f5c;
+  --color-text-subtle: #78736e;
+  --color-text-disabled: #9d9893;
+  --color-on-primary: #ffffff;
+
+  --color-border: #e4e0db;
+  --color-border-strong: #cdc7c0;
+  --color-focus-ring: rgba(185, 20, 79, 0.28);
+
+  --color-primary: #b9144f;
+  --color-primary-hover: #98103f;
+  --color-primary-active: #7f0d35;
+  --color-primary-light: #d63a72;
+  --color-primary-soft: #f9e7ee;
+  --color-accent: var(--color-primary);
+  --color-accent-deep: var(--color-primary-active);
+
+  --color-success: #16835b;
+  --color-success-strong: #116c4a;
+  --color-success-soft: #e7f7f0;
+  --color-warning: #b86b08;
+  --color-warning-soft: #fff4df;
+  --color-danger: #c52b43;
+  --color-danger-strong: #a51f35;
+  --color-danger-soft: #fdebed;
+  --color-info: #2f6fa8;
+  --color-info-soft: #eaf3fb;
+
+  --color-reaction-like: #2f6fa8;
+  --color-reaction-like-soft: rgba(47, 111, 168, 0.1);
+  --color-reaction-love: #c53d72;
+  --color-reaction-love-soft: rgba(197, 61, 114, 0.1);
+  --color-reaction-celebrate: #b86b08;
+  --color-reaction-celebrate-soft: rgba(184, 107, 8, 0.1);
+  --color-social-twitter: #1d9bf0;
+  --color-social-facebook: #4267b2;
+  --color-social-linkedin: #0077b5;
+  --color-social-share: #16835b;
+
+  --color-primary-alpha-10: rgba(185, 20, 79, 0.1);
+  --color-primary-alpha-15: rgba(185, 20, 79, 0.15);
+  --color-primary-alpha-20: rgba(185, 20, 79, 0.2);
+  --color-primary-alpha-30: rgba(185, 20, 79, 0.3);
+  --color-primary-alpha-40: rgba(185, 20, 79, 0.4);
+  --color-primary-alpha-60: rgba(185, 20, 79, 0.6);
+  --color-primary-alpha-80: rgba(185, 20, 79, 0.8);
+  --color-accent-alpha-20: rgba(185, 20, 79, 0.2);
+  --color-accent-alpha-30: rgba(185, 20, 79, 0.3);
+  --color-accent-alpha-40: rgba(185, 20, 79, 0.4);
+  --color-success-alpha-10: rgba(22, 131, 91, 0.1);
+  --color-success-alpha-15: rgba(22, 131, 91, 0.15);
+  --color-danger-alpha-20: rgba(197, 43, 67, 0.2);
+
+  --color-ink-alpha-03: rgba(37, 36, 35, 0.03);
+  --color-ink-alpha-05: rgba(37, 36, 35, 0.05);
+  --color-ink-alpha-08: rgba(37, 36, 35, 0.08);
+  --color-ink-alpha-10: rgba(37, 36, 35, 0.1);
+  --color-ink-alpha-12: rgba(37, 36, 35, 0.12);
+  --color-ink-alpha-15: rgba(37, 36, 35, 0.15);
+  --color-ink-alpha-20: rgba(37, 36, 35, 0.2);
+  --color-ink-alpha-25: rgba(37, 36, 35, 0.25);
+  --color-ink-alpha-30: rgba(37, 36, 35, 0.3);
+  --color-ink-alpha-40: rgba(37, 36, 35, 0.4);
+  --color-ink-alpha-50: rgba(37, 36, 35, 0.5);
+  --color-ink-alpha-60: rgba(37, 36, 35, 0.6);
+  --color-ink-alpha-75: rgba(37, 36, 35, 0.75);
+  --color-paper-alpha-04: rgba(255, 255, 255, 0.04);
+  --color-paper-alpha-05: rgba(255, 255, 255, 0.05);
+  --color-paper-alpha-10: rgba(255, 255, 255, 0.1);
+  --color-paper-alpha-20: rgba(255, 255, 255, 0.2);
+  --color-paper-alpha-80: rgba(255, 255, 255, 0.8);
+  --color-transparent: rgba(0, 0, 0, 0);
+  --color-nav-translucent: rgba(250, 249, 247, 0.96);
+}
+
+body.dark,
+.app.dark,
+.page-container.dark {
+  color-scheme: dark;
+
+  --color-background: #171717;
+  --color-surface: #222222;
+  --color-surface-subtle: #292929;
+  --color-surface-hover: #343434;
+  --color-surface-active: #404040;
+  --color-surface-disabled: #323232;
+
+  --color-text-primary: #f5f3f0;
+  --color-text-secondary: #c7c3be;
+  --color-text-subtle: #a9a39d;
+  --color-text-disabled: #77726d;
+
+  --color-border: #3a3a3a;
+  --color-border-strong: #565656;
+  --color-focus-ring: rgba(240, 90, 141, 0.34);
+
+  --color-primary: #c62660;
+  --color-primary-hover: #dc3672;
+  --color-primary-active: #ac1f51;
+  --color-primary-light: #f05a8d;
+  --color-primary-soft: #351622;
+  --color-accent: var(--color-primary);
+  --color-accent-deep: var(--color-primary-active);
+
+  --color-primary-alpha-10: rgba(198, 38, 96, 0.1);
+  --color-primary-alpha-15: rgba(198, 38, 96, 0.15);
+  --color-primary-alpha-20: rgba(198, 38, 96, 0.2);
+  --color-primary-alpha-30: rgba(198, 38, 96, 0.3);
+  --color-primary-alpha-40: rgba(198, 38, 96, 0.4);
+  --color-primary-alpha-60: rgba(198, 38, 96, 0.6);
+  --color-primary-alpha-80: rgba(198, 38, 96, 0.8);
+  --color-accent-alpha-20: rgba(198, 38, 96, 0.2);
+  --color-accent-alpha-30: rgba(198, 38, 96, 0.3);
+  --color-accent-alpha-40: rgba(198, 38, 96, 0.4);
+
+  --color-success: #4fc798;
+  --color-success-strong: #74d8b1;
+  --color-success-soft: #112b22;
+  --color-warning: #e9ad57;
+  --color-warning-soft: #33240f;
+  --color-danger: #f07182;
+  --color-danger-strong: #fa94a1;
+  --color-danger-soft: #35171d;
+  --color-info: #79afe0;
+  --color-info-soft: #142536;
+
+  --color-nav-translucent: rgba(23, 23, 23, 0.96);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.24);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.32);
+}

@@ -3,7 +3,7 @@ import api from "../api/axios";
 import { useEffect, useState, useContext, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useThemeContext } from "../Context/theme";
-import { BiSearch, BiShow } from "react-icons/bi";
+import { Search, Star, FileText, Eye, BookOpen, ChevronDown, CircleCheck } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext";
 import Tilt from "react-parallax-tilt";
 import Menu from "../Components/Menu";
@@ -265,13 +265,15 @@ const Home = () => {
           <div className="filters-container">
             <div className="tag-filter">
               <div className="custom-tag-dropdown">
-                <div
+                <button type="button"
                   className={`dropdown-header ${theme === "dark" ? "dark" : ""} ${isDropdownOpen ? "open" : ""}`}
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  aria-expanded={isDropdownOpen}
+                  aria-label="Filter posts by tag"
                 >
                   <span>{selectedTag || "Filter by Tag"}</span>
-                  <span className="dropdown-arrow">▼</span>
-                </div>
+                  <ChevronDown className="dropdown-arrow" size={16} aria-hidden="true" />
+                </button>
 
                 {isDropdownOpen && (
                   <div className={`dropdown-content ${theme === "dark" ? "dark" : ""}`}>
@@ -288,7 +290,7 @@ const Home = () => {
                     <div className="tags-list">
                       {filteredTags.length > 0 ? (
                         filteredTags.map((tag, index) => (
-                          <div
+                          <button type="button"
                             key={index}
                             className={`tag-option ${theme === 'dark' ? 'dark' : ''}`}
                             onClick={() => {
@@ -298,7 +300,7 @@ const Home = () => {
                             }}
                           >
                             {tag}
-                          </div>
+                          </button>
                         ))
                       ) : (
                         <div className={`no-tags ${theme === 'dark' ? 'dark' : ''}`}>No tags found</div>
@@ -334,16 +336,7 @@ const Home = () => {
                   onChange={(e) => setPostsSearchQuery(e.target.value)}
                   className={theme === "dark" ? "post-search-input dark" : "post-search-input"}
                 />
-                <BiSearch
-                  className={theme === "dark" ? "dark" : ""}
-                  onClick={() => {
-                    if (postsSearchQuery.trim()) {
-                      navigate(`/?search=${postsSearchQuery}`);
-                    } else {
-                      navigate('/');
-                    }
-                  }}
-                />
+                <button type="submit" className="post-search-button" aria-label="Search posts"><Search size={20} aria-hidden="true" /></button>
               </form>
             </div>
 
@@ -370,8 +363,8 @@ const Home = () => {
         {/* Featured Posts Section */}
         {featuredPosts.length > 0 && !selectedTag && !search && !cat && (
           <div className="featured-section" style={{ marginBottom: '40px' }}>
-            <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginBottom: '25px', color: '#ec1257' }}>
-              ⭐ Featured Posts
+            <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginBottom: '25px', color: 'var(--color-primary)' }}>
+              <Star size={22} aria-hidden="true" /> Featured Posts
             </h2>
             <div className="posts featured-posts">
               {featuredPosts.map((post) => (
@@ -391,7 +384,7 @@ const Home = () => {
                   ) : (
                     <div className="no-image-placeholder">
                       <div className="placeholder-content">
-                        <span className="placeholder-icon">⭐</span>
+                        <Star className="placeholder-icon" size={28} aria-hidden="true" />
                         <span className="placeholder-text">Featured Post</span>
                       </div>
                     </div>
@@ -412,7 +405,7 @@ const Home = () => {
                         })}
                       </span>
                       <span className="reading-time">
-                        📖 {calculateReadingTime(post.desc)}
+                        <BookOpen size={16} aria-hidden="true" /> {calculateReadingTime(post.desc)}
                       </span>
                     </div>
                     <div className="post-author-preview">
@@ -464,7 +457,7 @@ const Home = () => {
                 ) : (
                   <div className="no-image-placeholder">
                     <div className="placeholder-content">
-                      <span className="placeholder-icon">📝</span>
+                      <FileText className="placeholder-icon" size={28} aria-hidden="true" />
                       <span className="placeholder-text">Featured Post</span>
                     </div>
                   </div>
@@ -506,7 +499,7 @@ const Home = () => {
                     
                     {post.views > 0 && (
                       <div className="view-count" title="Views">
-                        <span className="view-icon">👁️</span>
+                        <Eye className="view-icon" size={16} aria-hidden="true" />
                         <span className="view-count-value">{formatCount(post.views)}</span>
                       </div>
                     )}
@@ -540,15 +533,15 @@ const Home = () => {
               display: 'inline-block',
               width: '40px',
               height: '40px',
-              border: '4px solid #f3f3f3',
-              borderTop: '4px solid #ec1257',
+              border: '4px solid var(--color-border)',
+              borderTop: '4px solid var(--color-primary)',
               borderRadius: '50%',
               animation: 'spin 1s linear infinite'
             }} />
             <p className={theme === "dark" ? "text dark" : "text"} style={{ 
               fontSize: '14px',
               marginTop: '10px',
-              color: '#888'
+              color: 'var(--color-text-subtle)'
             }}>
               Loading more posts...
             </p>
@@ -558,8 +551,8 @@ const Home = () => {
         {/* End of Posts Message */}
         {page >= totalPages && posts.length > 0 && !isLoadingMore && (
           <div className="end-of-posts" style={{ textAlign: 'center', padding: '40px 20px', marginTop: '30px' }}>
-            <p className={theme === "dark" ? "text dark" : "text"} style={{ color: '#888', fontSize: '16px' }}>
-              🎉 You've reached the end!
+            <p className={theme === "dark" ? "text dark" : "text"} style={{ color: 'var(--color-text-subtle)', fontSize: '16px' }}>
+              <CircleCheck size={18} aria-hidden="true" /> You've reached the end!
             </p>
           </div>
         )}

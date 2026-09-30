@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { BiBookmark, BiSolidBookmark } from 'react-icons/bi';
+import { Bookmark } from 'lucide-react';
 import api from '../api/axios';
 import { AuthContext } from '../AuthContext/authContext.jsx';
 import { useNavigate } from 'react-router-dom';
@@ -101,13 +101,12 @@ const BookmarkButton = ({ postId, theme }) => {
           className={`btn-grad bookmark-btn ${isBookmarked ? 'active' : ''}`}
           onClick={handleBookmark}
           title={currentUser ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Login to bookmark"}
-          disabled={!currentUser && !isProcessing}
+          aria-label={currentUser ? (isBookmarked ? 'Remove bookmark' : 'Add bookmark') : 'Log in to bookmark'}
+          aria-pressed={isBookmarked}
+          aria-busy={isProcessing}
+          disabled={isProcessing}
         >
-          {isBookmarked ? (
-            <BiSolidBookmark />
-          ) : (
-            <BiBookmark />
-          )}
+          <Bookmark size={20} fill={isBookmarked ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
         
         {bookmarkCount > 0 && (

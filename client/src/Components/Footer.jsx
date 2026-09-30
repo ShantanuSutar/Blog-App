@@ -1,11 +1,12 @@
 import Logo from "../img/logos/logo-no-background.png";
+import { Heart } from "lucide-react";
 
 const Footer = () => {
   return (
     <footer className="footer">
       <img src={Logo} alt="" />
       <span className="text">
-        Made with <span style={{ color: "red" }}>❤</span> and <b>Reactjs</b>
+        Made with <Heart size={16} fill="currentColor" aria-label="love" /> and <b>Reactjs</b>
       </span>
     </footer>
   );
