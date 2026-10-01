@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronDown, LoaderCircle, Search, X } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
+import LoadingButton from "../ui/LoadingButton.jsx";
 
 const categories = [
   { label: "All", value: "" },
@@ -94,10 +95,7 @@ export default function HomeFilters({
               <X size={17} aria-hidden="true" />
             </button>
           )}
-          <button className="ui-button--primary home-filters__search-submit" type="submit" disabled={searchInProgress} aria-busy={searchInProgress}>
-            {searchInProgress && <LoaderCircle className="interaction-spinner" size={17} aria-hidden="true" />}
-            <span>{searchInProgress ? "Searching…" : "Search"}</span>
-          </button>
+          <LoadingButton className="ui-button--primary home-filters__search-submit" type="submit" loading={searchInProgress} loadingLabel="Searching…">Search</LoadingButton>
         </form>
         <div className="home-filters__tag-control" ref={tagRef}>
           <button

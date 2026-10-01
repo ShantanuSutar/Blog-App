@@ -1,9 +1,10 @@
 import { useContext, useState } from "react";
-import { CheckCircle2, KeyRound, LoaderCircle } from "lucide-react";
+import { CheckCircle2, KeyRound } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import AuthLayout from "../Components/auth/AuthLayout.jsx";
 import PasswordField from "../Components/auth/PasswordField.jsx";
+import LoadingButton from "../Components/ui/LoadingButton.jsx";
 
 const mapLoginError = (error) => {
   if (!error.response) return "We couldn’t reach Unsaid. Check your connection and try again.";
@@ -110,10 +111,7 @@ export default function Login() {
           onToggle={() => setPasswordVisible((visible) => !visible)}
         />
 
-        <button className="ui-button--primary auth-submit" type="submit" disabled={loading} aria-busy={loading}>
-          {loading ? <LoaderCircle className="auth-spinner" size={19} aria-hidden="true" /> : <KeyRound size={18} aria-hidden="true" />}
-          {loading ? "Logging in…" : "Log in"}
-        </button>
+        <LoadingButton className="ui-button--primary auth-submit" type="submit" loading={loading} loadingLabel="Logging in…" icon={KeyRound}>Log in</LoadingButton>
       </form>
 
       <aside className="auth-demo" aria-labelledby="demo-heading">

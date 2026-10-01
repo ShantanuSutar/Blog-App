@@ -1,10 +1,11 @@
 import { useContext, useState } from "react";
-import { LoaderCircle, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import api from "../api/axios.js";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import AuthLayout from "../Components/auth/AuthLayout.jsx";
 import PasswordField from "../Components/auth/PasswordField.jsx";
+import LoadingButton from "../Components/ui/LoadingButton.jsx";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const usernamePattern = /^[a-zA-Z0-9_]+$/;
@@ -127,10 +128,7 @@ export default function Register() {
           onToggle={() => setPasswordVisible((visible) => !visible)}
         />
 
-        <button className="ui-button--primary auth-submit" type="submit" disabled={loading} aria-busy={loading}>
-          {loading ? <LoaderCircle className="auth-spinner" size={19} aria-hidden="true" /> : <UserPlus size={18} aria-hidden="true" />}
-          {loading ? "Creating account…" : "Create account"}
-        </button>
+        <LoadingButton className="ui-button--primary auth-submit" type="submit" loading={loading} loadingLabel="Creating account…" icon={UserPlus}>Create account</LoadingButton>
       </form>
     </AuthLayout>
   );

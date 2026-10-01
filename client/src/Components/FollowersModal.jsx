@@ -1,10 +1,12 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { LoaderCircle, RotateCcw, Users, X } from "lucide-react";
+import { RotateCcw, Users, X } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import api from "../api/axios.js";
 import FollowButton from "./FollowButton.jsx";
 import ProfileAvatar from "./ProfileAvatar.jsx";
+import InlineLoader from "./ui/InlineLoader.jsx";
+import StatePanel from "./ui/StatePanel.jsx";
 
 export default function FollowersModal({ userId, isOpen, onClose, type }) {
   const [users, setUsers] = useState([]);
@@ -79,9 +81,9 @@ export default function FollowersModal({ userId, isOpen, onClose, type }) {
         </header>
 
         <div className="followers-dialog__content" aria-live="polite" aria-busy={status === "loading"}>
-          {status === "loading" && <div className="profile-state profile-state--compact"><LoaderCircle className="profile-spinner" size={26} aria-hidden="true" /><p>Loading {title.toLowerCase()}…</p></div>}
-          {status === "error" && <div className="profile-state profile-state--compact" role="alert"><p>We couldn’t load this list.</p><button className="ui-button--secondary" type="button" onClick={() => fetchUsers()}><RotateCcw size={16} aria-hidden="true" /> Retry</button></div>}
-          {status === "success" && users.length === 0 && <div className="profile-state profile-state--compact"><Users size={28} strokeWidth={1.5} aria-hidden="true" /><p>No {title.toLowerCase()} yet.</p></div>}
+          {status === "loading" && <StatePanel className="profile-state" compact action={<InlineLoader label={`Loading ${title.toLowerCase()}…`} />} />}
+          {status === "error" && <StatePanel className="profile-state" compact tone="error" role="alert" title="We couldn’t load this list" headingLevel={3} action={<button className="ui-button--secondary" type="button" onClick={() => fetchUsers()}><RotateCcw size={16} aria-hidden="true" /> Retry</button>} />}
+          {status === "success" && users.length === 0 && <StatePanel className="profile-state" compact icon={Users} title={`No ${title.toLowerCase()} yet`} headingLevel={3} />}
           {status === "success" && users.length > 0 && (
             <ul className="followers-list">
               {users.map((listedUser) => (

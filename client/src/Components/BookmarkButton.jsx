@@ -3,6 +3,7 @@ import { Bookmark, BookmarkCheck, LoaderCircle } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { AuthContext } from "../AuthContext/authContext.jsx";
+import { useToast } from "../Context/ToastContext.jsx";
 
 const formatCount = (count) => {
   const numericCount = Number(count) || 0;
@@ -16,8 +17,8 @@ export default function BookmarkButton({ postId, postTitle, initialBookmarked = 
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [feedback, setFeedback] = useState("");
   const { currentUser } = useContext(AuthContext);
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const targetLabel = postTitle || "this story";
@@ -27,7 +28,6 @@ export default function BookmarkButton({ postId, postTitle, initialBookmarked = 
     let active = true;
     const load = async () => {
       setIsLoading(true);
-      setFeedback("");
       if (!currentUser) setIsBookmarked(false);
       try {
         const requests = [api.post("/api/bookmarks/counts", { postIds: [postId] }, { signal: controller.signal })];
@@ -64,7 +64,6 @@ export default function BookmarkButton({ postId, postTitle, initialBookmarked = 
     const previousCount = bookmarkCount;
     const nextBookmarked = !previousBookmarked;
     setIsProcessing(true);
-    setFeedback("");
     setIsBookmarked(nextBookmarked);
     setBookmarkCount((count) => Math.max(0, count + (nextBookmarked ? 1 : -1)));
 
@@ -72,13 +71,14 @@ export default function BookmarkButton({ postId, postTitle, initialBookmarked = 
       if (nextBookmarked) await api.post("/api/bookmarks", { postId });
       else await api.delete(`/api/bookmarks/${postId}`);
       onChange?.(nextBookmarked);
+      toast.success(nextBookmarked ? "Story saved to your bookmarks." : "Story removed from your bookmarks.");
     } catch (error) {
       setIsBookmarked(previousBookmarked);
       setBookmarkCount(previousCount);
       if (error.response?.status === 401) {
         navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       } else {
-        setFeedback("Bookmark could not be updated. Try again.");
+        toast.error("Bookmark could not be updated. Try again.");
       }
     } finally {
       setIsProcessing(false);
@@ -105,7 +105,6 @@ export default function BookmarkButton({ postId, postTitle, initialBookmarked = 
           : <Icon size={20} fill={isBookmarked ? "currentColor" : "none"} aria-hidden="true" />}
       </button>
       {bookmarkCount > 0 && <span className="bookmark-control__count" aria-label={`${bookmarkCount} bookmarks`}>{formatCount(bookmarkCount)}</span>}
-      {feedback && <span className="interaction-feedback" role="alert">{feedback}</span>}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarClock, Clock3, Edit3, ImageOff, LoaderCircle, Send, Trash2 } from "lucide-react";
+import { CalendarClock, Clock3, Edit3, ImageOff, Send, Trash2 } from "lucide-react";
 import { formatPostDate, getPostExcerpt, getPostTags, resolveMediaUrl } from "../home/postPresentation";
+import LoadingButton from "../ui/LoadingButton.jsx";
 
 const categoryLabels = { art: "Art", scitech: "Sci-Tech", sports: "Sports", cinema: "Cinema", food: "Food", travel: "Travel" };
 
@@ -83,14 +84,8 @@ export default function ManagedPostCard({ post, type, baseUrl, busyAction, actio
 
         <div className="managed-post__actions">
           <Link className="ui-button--secondary" to={`/write?edit=${post.id}`}><Edit3 size={17} aria-hidden="true" /> Edit</Link>
-          <button className="ui-button--primary" type="button" onClick={() => onPublish(post.id)} disabled={busy} aria-busy={publishing}>
-            {publishing ? <LoaderCircle className="interaction-spinner" size={17} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}
-            {publishing ? "Publishing…" : scheduled ? "Publish now" : "Publish"}
-          </button>
-          <button className="ui-button--ghost managed-post__delete" type="button" onClick={() => onRequestDelete(post)} disabled={busy} aria-busy={deleting}>
-            {deleting ? <LoaderCircle className="interaction-spinner" size={17} aria-hidden="true" /> : <Trash2 size={17} aria-hidden="true" />}
-            {scheduled ? "Cancel & delete" : "Delete"}
-          </button>
+          <LoadingButton className="ui-button--primary" onClick={() => onPublish(post.id)} disabled={busy} loading={publishing} loadingLabel="Publishing…" icon={Send}>{scheduled ? "Publish now" : "Publish"}</LoadingButton>
+          <LoadingButton className="ui-button--ghost managed-post__delete" onClick={() => onRequestDelete(post)} disabled={busy} loading={deleting} loadingLabel="Deleting…" icon={Trash2}>{scheduled ? "Cancel & delete" : "Delete"}</LoadingButton>
         </div>
       </div>
     </article>

@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef } from "react";
-import { AlertTriangle, LoaderCircle, X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
+import LoadingButton from "./ui/LoadingButton.jsx";
 
-export default function ConfirmDialog({ open, title, description, confirmLabel = "Delete", loading = false, onConfirm, onClose }) {
+export default function ConfirmDialog({ open, title, description, confirmLabel = "Delete", cancelLabel = "Cancel", loadingLabel = "Deleting…", loading = false, onConfirm, onClose }) {
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef(null);
@@ -55,11 +56,8 @@ export default function ConfirmDialog({ open, title, description, confirmLabel =
         <h2 id={titleId}>{title}</h2>
         <p id={descriptionId}>{description}</p>
         <div className="confirm-dialog__actions">
-          <button ref={cancelRef} className="ui-button--secondary" type="button" onClick={onClose} disabled={loading}>Keep post</button>
-          <button className="ui-button--danger" type="button" onClick={onConfirm} disabled={loading} aria-busy={loading}>
-            {loading && <LoaderCircle className="interaction-spinner" size={17} aria-hidden="true" />}
-            {loading ? "Deleting…" : confirmLabel}
-          </button>
+          <button ref={cancelRef} className="ui-button--secondary" type="button" onClick={onClose} disabled={loading}>{cancelLabel}</button>
+          <LoadingButton className="ui-button--danger" onClick={onConfirm} loading={loading} loadingLabel={loadingLabel}>{confirmLabel}</LoadingButton>
         </div>
       </section>
     </div>

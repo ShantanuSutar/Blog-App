@@ -1,4 +1,6 @@
 import React from "react";
+import { AlertTriangle, RotateCcw } from "lucide-react";
+import StatePanel from "./Components/ui/StatePanel.jsx";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -17,12 +19,16 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: "20px", color: "var(--color-danger)" }}>
-          <h2>Something went wrong.</h2>
-          <details style={{ whiteSpace: "pre-wrap" }}>
-            {this.state.error && this.state.error.toString()}
-          </details>
-        </div>
+        <main className="ui-container" style={{ paddingBlock: "var(--space-16)" }}>
+          <StatePanel
+            icon={AlertTriangle}
+            tone="error"
+            role="alert"
+            title="Something went wrong"
+            description="The page encountered an unexpected problem. Reload it to try again."
+            action={<button className="ui-button--primary" type="button" onClick={() => window.location.reload()}><RotateCcw size={17} aria-hidden="true" /> Reload page</button>}
+          />
+        </main>
       );
     }
 

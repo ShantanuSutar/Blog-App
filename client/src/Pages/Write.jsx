@@ -3,7 +3,6 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import {
   CalendarClock,
-  CheckCircle2,
   ChevronRight,
   FileText,
   LoaderCircle,
@@ -23,6 +22,8 @@ import api from "../api/axios.js";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import CoverImageField from "../Components/write/CoverImageField.jsx";
 import TagEditor from "../Components/write/TagEditor.jsx";
+import LoadingButton from "../Components/ui/LoadingButton.jsx";
+import { useToast } from "../Context/ToastContext.jsx";
 
 const cloudName = import.meta.env.VITE_CLOUD_NAME;
 const cloudUploadPreset = import.meta.env.VITE_CLOUD_UPLOAD_PRESET;
@@ -100,9 +101,14 @@ const snapshot = ({ title, value, category, scheduledDate, tags, featured, exist
 });
 
 const getErrorMessage = (error, fallback) => {
-  const response = error?.response?.data;
-  if (typeof response === "string") return response;
-  return response?.error || response?.message || fallback;
+  if (error?.message === "Image upload is not configured.") return "Cover image upload is not configured. Remove the cover and try again.";
+  if (error?.message === "Cover image upload failed.") return "The cover image couldn’t be uploaded. Try another image or save without it.";
+  if (error?.response?.status === 401) return "Your session has expired. Log in again before saving.";
+  if (error?.response?.status === 403) return "You don’t have permission to change this article.";
+  if (error?.response?.status === 404) return "This article could not be found.";
+  if (error?.response?.status === 413) return "The cover image is too large. Choose a smaller image.";
+  if (error?.response?.status === 429) return "Too many requests were made. Wait a moment and try again.";
+  return fallback;
 };
 
 function LeaveDialog({ blocker, onLeave }) {
@@ -143,6 +149,7 @@ export default function Write() {
   const fileInputRef = useRef(null);
   const titleInputRef = useRef(null);
   const navigationAllowedRef = useRef(false);
+  const toast = useToast();
 
   const routeTags = normalizeTags(routePost?.tags);
   const [title, setTitle] = useState(routePost?.title || "");
@@ -362,19 +369,13 @@ export default function Write() {
       const savedId = editId || response.data?.id;
       navigationAllowedRef.current = true;
       initialSnapshotRef.current = currentSnapshot;
-      setFeedback({
-        type: "success",
-        message: action === "draft" ? "Draft saved." : action === "schedule" ? "Article scheduled." : editId ? "Article updated." : "Article published.",
-      });
-
-      window.setTimeout(() => {
-        if (action === "draft") navigate("/drafts", { replace: true });
-        else if (action === "schedule") navigate("/scheduled", { replace: true });
-        else navigate(savedId ? `/post/${savedId}` : "/", { replace: true });
-      }, 450);
+      toast.success(action === "draft" ? "Draft saved." : action === "schedule" ? "Article scheduled." : editId ? "Article updated." : "Article published.");
+      if (action === "draft") navigate("/drafts", { replace: true });
+      else if (action === "schedule") navigate("/scheduled", { replace: true });
+      else navigate(savedId ? `/post/${savedId}` : "/", { replace: true });
     } catch (error) {
       setUploading(false);
-      setFeedback({ type: "error", message: getErrorMessage(error, error.message || "Your article could not be saved. Please try again.") });
+      setFeedback({ type: "error", message: getErrorMessage(error, "Your article could not be saved. Please try again.") });
       setSubmitAction(null);
     }
   };
@@ -428,7 +429,7 @@ export default function Write() {
 
       {feedback && (
         <div className={`write-feedback write-feedback--${feedback.type}`} role={feedback.type === "error" ? "alert" : "status"}>
-          {feedback.type === "success" ? <CheckCircle2 size={18} aria-hidden="true" /> : feedback.type === "progress" ? <LoaderCircle className="write-spinner" size={18} aria-hidden="true" /> : <FileText size={18} aria-hidden="true" />}
+          {feedback.type === "progress" ? <LoaderCircle className="write-spinner" size={18} aria-hidden="true" /> : <FileText size={18} aria-hidden="true" />}
           <span>{feedback.message}</span>
           {feedback.type === "error" && <button type="button" aria-label="Dismiss message" onClick={() => setFeedback(null)}>×</button>}
         </div>
@@ -577,19 +578,10 @@ export default function Write() {
               </div>
               <Sparkles size={19} aria-hidden="true" />
             </div>
-            <button className="ui-button--primary write-primary-action" type="button" onClick={() => submit("publish")} disabled={Boolean(submitAction)} aria-busy={submitAction === "publish"}>
-              {submitAction === "publish" ? <LoaderCircle className="write-spinner" size={18} aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
-              {submitAction === "publish" ? "Working…" : primaryLabel}
-            </button>
+            <LoadingButton className="ui-button--primary write-primary-action" onClick={() => submit("publish")} disabled={Boolean(submitAction)} loading={submitAction === "publish"} loadingLabel="Working…" icon={Send}>{primaryLabel}</LoadingButton>
             <div className="write-secondary-actions">
-              <button className="ui-button--secondary" type="button" onClick={() => submit("draft")} disabled={Boolean(submitAction)} aria-busy={submitAction === "draft"}>
-                {submitAction === "draft" ? <LoaderCircle className="write-spinner" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
-                {submitAction === "draft" ? "Saving…" : draftLabel}
-              </button>
-              <button className="ui-button--ghost" type="button" onClick={() => submit("schedule")} disabled={Boolean(submitAction)} aria-busy={submitAction === "schedule"}>
-                {submitAction === "schedule" ? <LoaderCircle className="write-spinner" size={17} aria-hidden="true" /> : <CalendarClock size={17} aria-hidden="true" />}
-                {submitAction === "schedule" ? "Scheduling…" : "Schedule"}
-              </button>
+              <LoadingButton className="ui-button--secondary" onClick={() => submit("draft")} disabled={Boolean(submitAction)} loading={submitAction === "draft"} loadingLabel="Saving…" icon={Save}>{draftLabel}</LoadingButton>
+              <LoadingButton className="ui-button--ghost" onClick={() => submit("schedule")} disabled={Boolean(submitAction)} loading={submitAction === "schedule"} loadingLabel="Scheduling…" icon={CalendarClock}>Schedule</LoadingButton>
             </div>
             <p className="write-publish-note">Drafts can be incomplete. Publishing and scheduling require a title, story, and category.</p>
           </section>

@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, Feather, FileText, Pencil, RotateCcw } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { CalendarDays, Feather, FileText, Pencil, RotateCcw, UserRoundX } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
 import api from "../api/axios.js";
@@ -8,6 +8,8 @@ import FollowButton from "../Components/FollowButton.jsx";
 import FollowersModal from "../Components/FollowersModal.jsx";
 import PostCard from "../Components/home/PostCard.jsx";
 import ProfileAvatar from "../Components/ProfileAvatar.jsx";
+import ProfileSkeleton from "../Components/states/ProfileSkeleton.jsx";
+import StatePanel from "../Components/ui/StatePanel.jsx";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -26,7 +28,6 @@ function formatMembershipDate(value) {
 export default function Profile() {
   const { username } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const { currentUser } = useContext(AuthContext);
   const { theme } = useThemeContext();
   const [user, setUser] = useState(null);
@@ -59,31 +60,21 @@ export default function Profile() {
   })), [user]);
 
   if (status === "loading") {
-    return (
-      <div className="profile-page" aria-busy="true" aria-label="Loading profile">
-        <div className="profile-skeleton">
-          <span className="profile-skeleton__avatar" />
-          <div><span /><span /><span /></div>
-        </div>
-        <div className="profile-skeleton profile-skeleton--post"><span /><span /><span /></div>
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (status === "missing") {
-    return <div className="profile-state"><span className="profile-kicker">Profile unavailable</span><h1>We couldn’t find that writer.</h1><p>The account may have moved or no longer exists.</p><Link className="ui-button--primary" to="/">Browse stories</Link></div>;
+    return <StatePanel className="profile-state" icon={UserRoundX} eyebrow="Profile unavailable" title="We couldn’t find that writer" description="The account may have moved or no longer exists." headingLevel={1} action={<Link className="ui-button--primary" to="/">Browse stories</Link>} />;
   }
 
   if (status === "error" || !user) {
-    return <div className="profile-state" role="alert"><span className="profile-kicker">Connection interrupted</span><h1>This profile couldn’t be loaded.</h1><p>Check your connection and try again.</p><button className="ui-button--primary" type="button" onClick={() => setRequestVersion((version) => version + 1)}><RotateCcw size={17} aria-hidden="true" /> Retry</button></div>;
+    return <StatePanel className="profile-state" tone="error" role="alert" eyebrow="Connection interrupted" title="This profile couldn’t be loaded" description="Check your connection and try again." headingLevel={1} action={<button className="ui-button--primary" type="button" onClick={() => setRequestVersion((version) => version + 1)}><RotateCcw size={17} aria-hidden="true" /> Retry</button>} />;
   }
 
   const membershipDate = formatMembershipDate(user.created_at);
 
   return (
     <div className="profile-page">
-      {location.state?.profileUpdated && <div className="profile-feedback" role="status">Your profile has been updated.</div>}
-
       <header className="profile-header">
         <ProfileAvatar source={user.avatar} username={user.username} className="profile-avatar--large" loading="eager" />
         <div className="profile-header__content">
@@ -124,7 +115,7 @@ export default function Profile() {
         {profilePosts.length > 0 ? (
           <div className="profile-story-list">{profilePosts.map((post) => <PostCard key={post.id} post={post} theme={theme} baseUrl={baseUrl} />)}</div>
         ) : (
-          <div className="profile-state profile-state--empty"><Feather size={30} strokeWidth={1.5} aria-hidden="true" /><h3>No published stories yet</h3><p>{isOwnProfile ? "Your first story can start whenever you’re ready." : `${user.username} hasn’t published a story yet.`}</p>{isOwnProfile && <Link className="ui-button--primary" to="/write">Write your first story</Link>}</div>
+          <StatePanel className="profile-state profile-state--empty" icon={Feather} title="No published stories yet" description={isOwnProfile ? "Your first story can start whenever you’re ready." : `${user.username} hasn’t published a story yet.`} headingLevel={3} action={isOwnProfile ? <Link className="ui-button--primary" to="/write">Write your first story</Link> : null} />
         )}
       </section>
     </div>

@@ -3,6 +3,7 @@ import { Heart, LoaderCircle, PartyPopper, ThumbsUp } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { AuthContext } from "../AuthContext/authContext.jsx";
+import { useToast } from "../Context/ToastContext.jsx";
 
 const REACTION_TYPES = [
   { type: "like", icon: ThumbsUp, label: "Like" },
@@ -41,8 +42,8 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
   const [loadStatus, setLoadStatus] = useState("loading");
   const [isProcessing, setIsProcessing] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [feedback, setFeedback] = useState("");
   const { currentUser } = useContext(AuthContext);
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const controlRef = useRef(null);
@@ -55,7 +56,6 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
     let active = true;
     const load = async () => {
       setLoadStatus("loading");
-      setFeedback("");
       try {
         const reactionsEndpoint = postId
           ? `/api/reactions/post/${postId}`
@@ -110,7 +110,6 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
       navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       return;
     }
-    setFeedback("");
     setPickerOpen((open) => !open);
   };
 
@@ -121,7 +120,6 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
     const nextReaction = previousReaction === type ? null : type;
 
     setIsProcessing(true);
-    setFeedback("");
     setUserReaction(nextReaction);
     setReactions(updateReactionCounts(previousCounts, previousReaction, type));
 
@@ -135,7 +133,7 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
       if (error.response?.status === 401) {
         navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       } else {
-        setFeedback("Reaction could not be saved. Try again.");
+        toast.error("Reaction could not be saved. Try again.");
       }
     } finally {
       setIsProcessing(false);
@@ -202,7 +200,6 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
       )}
 
       {loadStatus === "error" && <span className="sr-only" role="status">Reaction counts are temporarily unavailable.</span>}
-      {feedback && <span className="interaction-feedback" role="alert">{feedback}</span>}
     </div>
   );
 }

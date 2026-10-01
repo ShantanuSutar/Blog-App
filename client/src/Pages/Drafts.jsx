@@ -4,8 +4,9 @@ import { FilePlus2, FileText, LogIn } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext";
 import api from "../api/axios";
 import ConfirmDialog from "../Components/ConfirmDialog";
-import CollectionPage, { CollectionFeedback } from "../Components/library/CollectionPage";
+import CollectionPage from "../Components/library/CollectionPage";
 import ManagedPostCard from "../Components/library/ManagedPostCard";
+import { useToast } from "../Context/ToastContext.jsx";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -16,8 +17,8 @@ export default function Drafts() {
   const [requestVersion, setRequestVersion] = useState(0);
   const [pendingAction, setPendingAction] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [actionError, setActionError] = useState("");
   const actionLockRef = useRef(false);
+  const toast = useToast();
 
   useEffect(() => {
     if (!currentUser) {
@@ -43,12 +44,12 @@ export default function Drafts() {
     if (actionLockRef.current) return;
     actionLockRef.current = true;
     setPendingAction({ postId, type: "publish" });
-    setActionError("");
     try {
       await api.put(`/api/posts/${postId}`, { draft: false });
       setPosts((current) => current.filter((post) => post.id !== postId));
+      toast.success("Draft published.");
     } catch {
-      setActionError("The draft couldn’t be published. Your draft is still safe; please try again.");
+      toast.error("The draft couldn’t be published. Your draft is still safe; please try again.");
     } finally {
       actionLockRef.current = false;
       setPendingAction(null);
@@ -60,13 +61,13 @@ export default function Drafts() {
     actionLockRef.current = true;
     const postId = deleteTarget.id;
     setPendingAction({ postId, type: "delete" });
-    setActionError("");
     try {
       await api.delete(`/api/posts/${postId}`);
       setPosts((current) => current.filter((post) => post.id !== postId));
       setDeleteTarget(null);
+      toast.success("Draft deleted.");
     } catch {
-      setActionError("The draft couldn’t be deleted. Please try again.");
+      toast.error("The draft couldn’t be deleted. Please try again.");
       setDeleteTarget(null);
     } finally {
       actionLockRef.current = false;
@@ -95,7 +96,6 @@ export default function Drafts() {
           : <Link className="ui-button--primary" to="/login" state={{ from: "/drafts" }}><LogIn size={17} aria-hidden="true" /> Log in</Link>}
         onRetry={() => setRequestVersion((version) => version + 1)}
       >
-        <CollectionFeedback message={actionError} onDismiss={() => setActionError("")} />
         <div className="managed-post-list">
           {posts.map((post) => (
             <ManagedPostCard

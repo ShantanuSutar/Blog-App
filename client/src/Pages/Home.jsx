@@ -1,13 +1,14 @@
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, CircleCheck, RotateCcw } from "lucide-react";
+import { AlertCircle, ArrowRight, CircleCheck, FileText, RotateCcw, SearchX } from "lucide-react";
 import { useThemeContext } from "../Context/theme";
 import Menu from "../Components/Menu";
 import Newsletter from "../Components/Newsletter";
 import HomeFilters from "../Components/home/HomeFilters";
 import HomeSkeleton from "../Components/home/HomeSkeleton";
 import PostCard from "../Components/home/PostCard";
+import StatePanel from "../Components/ui/StatePanel.jsx";
 import { getPostExcerpt, getPostTags } from "../Components/home/postPresentation";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
@@ -208,7 +209,7 @@ export default function Home() {
         <section className="home-featured" aria-labelledby="featured-heading">
           <div className="home-section-heading"><div><span className="home-section-kicker">Editor’s selection</span><h2 id="featured-heading">Featured stories</h2></div></div>
           {featured.status === "loading" && <HomeSkeleton featured count={2} />}
-          {featured.status === "error" && <div className="home-state home-state--compact" role="alert"><p>Featured stories couldn’t be loaded.</p><button className="ui-button--secondary" type="button" onClick={retryFeatured}><RotateCcw size={16} aria-hidden="true" /> Try again</button></div>}
+          {featured.status === "error" && <StatePanel className="home-state" compact tone="error" role="alert" icon={AlertCircle} title="Featured stories couldn’t be loaded" headingLevel={3} action={<button className="ui-button--secondary" type="button" onClick={retryFeatured}><RotateCcw size={16} aria-hidden="true" /> Try again</button>} />}
           {featured.status === "success" && featured.posts.length > 0 && (
             <div className="home-featured-grid">
               {featured.posts.map((post, index) => <PostCard key={post.id} post={post} variant={index === 0 ? "featured-primary" : "featured"} theme={theme} baseUrl={baseUrl} />)}
@@ -242,13 +243,13 @@ export default function Home() {
         <div className="home-feed-layout">
           <div className="home-feed-layout__main" aria-live="polite" aria-busy={visibleFeed.status === "loading"}>
             {visibleFeed.status === "loading" && <HomeSkeleton count={3} />}
-            {visibleFeed.status === "error" && <div className="home-state" role="alert"><h3>We couldn’t load the stories.</h3><p>Check your connection and try again.</p><button className="ui-button--primary" type="button" onClick={retryFeed}><RotateCcw size={16} aria-hidden="true" /> Retry</button></div>}
-            {visibleFeed.status === "success" && visibleFeed.posts.length === 0 && <div className="home-state"><h3>{hasFilters ? "No stories match these filters" : "No stories yet"}</h3><p>{hasFilters ? "Try another category, tag, or search term." : "Check back soon for new stories."}</p>{hasFilters && <button className="ui-button--secondary" type="button" onClick={() => navigate("/")}>Clear filters</button>}</div>}
+            {visibleFeed.status === "error" && <StatePanel className="home-state" tone="error" role="alert" icon={AlertCircle} title="We couldn’t load the stories" description="Check your connection and try again." headingLevel={3} action={<button className="ui-button--primary" type="button" onClick={retryFeed}><RotateCcw size={16} aria-hidden="true" /> Retry</button>} />}
+            {visibleFeed.status === "success" && visibleFeed.posts.length === 0 && <StatePanel className="home-state" icon={hasFilters ? SearchX : FileText} title={hasFilters ? "No stories match these filters" : "No stories yet"} description={hasFilters ? "Try another category, tag, or search term." : "Check back soon for new stories."} headingLevel={3} action={hasFilters ? <button className="ui-button--secondary" type="button" onClick={() => navigate("/")}>Clear filters</button> : null} />}
             {visibleFeed.posts.length > 0 && (
               <>
                 <div className="home-feed-list">{visibleFeed.posts.map((post) => <PostCard key={post.id} post={post} theme={theme} baseUrl={baseUrl} />)}</div>
                 {visibleFeed.loadMoreStatus === "loading" && <div className="home-load-more" role="status"><HomeSkeleton count={1} /><p>Loading more stories…</p></div>}
-                {visibleFeed.loadMoreStatus === "error" && <div className="home-state home-state--compact" role="alert"><p>More stories couldn’t be loaded. Your current stories are still here.</p><button className="ui-button--secondary" type="button" onClick={retryFeed}><RotateCcw size={16} aria-hidden="true" /> Retry loading</button></div>}
+                {visibleFeed.loadMoreStatus === "error" && <StatePanel className="home-state" compact tone="error" role="alert" title="More stories couldn’t be loaded" description="Your current stories are still here." headingLevel={3} action={<button className="ui-button--secondary" type="button" onClick={retryFeed}><RotateCcw size={16} aria-hidden="true" /> Retry loading</button>} />}
                 {visibleFeed.loadMoreStatus === "idle" && visibleFeed.page >= visibleFeed.totalPages && <p className="home-feed-end" role="status"><CircleCheck size={17} aria-hidden="true" /> You’re all caught up.</p>}
                 <div ref={sentinelRef} className="home-scroll-sentinel" aria-hidden="true" />
               </>

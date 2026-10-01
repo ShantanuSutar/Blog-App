@@ -1,6 +1,8 @@
 import { useState } from "react";
 import axios from "axios";
 import { useThemeContext } from "../Context/theme";
+import { Send } from "lucide-react";
+import LoadingButton from "./ui/LoadingButton.jsx";
 
 const Newsletter = () => {
     const [email, setEmail] = useState("");
@@ -21,9 +23,9 @@ const Newsletter = () => {
             setStatus("success");
             setMessage("Subscribed successfully!");
             setEmail("");
-        } catch (err) {
+        } catch {
             setStatus("error");
-            setMessage(err.response?.data || "Something went wrong.");
+            setMessage("We couldn’t subscribe you right now. Please try again.");
         }
     };
 
@@ -32,7 +34,9 @@ const Newsletter = () => {
             <h3>Subscribe to our Newsletter</h3>
             <div className="newsletter-content">
                 <form onSubmit={handleSubmit}>
+                    <label className="sr-only" htmlFor="newsletter-email">Email address</label>
                     <input
+                        id="newsletter-email"
                         type="email"
                         placeholder="Enter your email"
                         value={email}
@@ -40,11 +44,9 @@ const Newsletter = () => {
                         required
                         className={theme === "dark" ? "dark" : ""}
                     />
-                    <button type="submit" disabled={status === "loading"}>
-                        {status === "loading" ? "Subscribing..." : "Subscribe"}
-                    </button>
+                    <LoadingButton type="submit" loading={status === "loading"} loadingLabel="Subscribing…" icon={Send}>Subscribe</LoadingButton>
                 </form>
-                {message && <p className={`message ${status}`}>{message}</p>}
+                {message && <p className={`message ${status}`} role={status === "error" ? "alert" : "status"}>{message}</p>}
             </div>
         </div>
     );

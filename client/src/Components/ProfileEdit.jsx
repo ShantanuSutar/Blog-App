@@ -1,9 +1,13 @@
 import { useContext, useEffect, useState } from "react";
-import { ArrowLeft, ImagePlus, LoaderCircle, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ImagePlus, Save, Trash2 } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import api from "../api/axios.js";
 import ProfileAvatar from "./ProfileAvatar.jsx";
+import StatePanel from "./ui/StatePanel.jsx";
+import InlineLoader from "./ui/InlineLoader.jsx";
+import LoadingButton from "./ui/LoadingButton.jsx";
+import { useToast } from "../Context/ToastContext.jsx";
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 const acceptedAvatarTypes = ["image/jpeg", "image/png", "image/webp"];
@@ -20,6 +24,7 @@ export default function ProfileEdit() {
   const [status, setStatus] = useState("loading");
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const toast = useToast();
 
   useEffect(() => {
     if (!currentUser || currentUser.username !== username) return undefined;
@@ -93,15 +98,16 @@ export default function ProfileEdit() {
         updateCurrentUser({ avatar: null });
       }
 
-      navigate(`/profile/${encodeURIComponent(username)}`, { replace: true, state: { profileUpdated: true } });
+      toast.success("Your profile has been updated.");
+      navigate(`/profile/${encodeURIComponent(username)}`, { replace: true });
     } catch (error) {
       setErrors({ form: error.response?.status === 413 ? "That avatar is too large." : "We couldn’t save your profile. Please try again." });
       setSaving(false);
     }
   };
 
-  if (status === "loading") return <div className="profile-edit-page"><div className="profile-state profile-state--compact" aria-busy="true"><LoaderCircle className="profile-spinner" size={28} aria-hidden="true" /><p>Loading your profile…</p></div></div>;
-  if (status === "error" || !user) return <div className="profile-edit-page"><div className="profile-state" role="alert"><h1>Your profile editor couldn’t be loaded.</h1><p>Return to your profile and try again.</p><button className="ui-button--secondary" type="button" onClick={() => navigate(`/profile/${encodeURIComponent(username)}`)}>Back to profile</button></div></div>;
+  if (status === "loading") return <div className="profile-edit-page"><StatePanel className="profile-state" compact action={<InlineLoader label="Loading your profile…" />} /></div>;
+  if (status === "error" || !user) return <div className="profile-edit-page"><StatePanel className="profile-state" tone="error" role="alert" title="Your profile editor couldn’t be loaded" description="Return to your profile and try again." headingLevel={1} action={<button className="ui-button--secondary" type="button" onClick={() => navigate(`/profile/${encodeURIComponent(username)}`)}>Back to profile</button>} /></div>;
 
   const hasAvatar = Boolean(avatarPreview);
 
@@ -142,7 +148,7 @@ export default function ProfileEdit() {
 
         <div className="profile-edit-actions">
           <button className="ui-button--secondary" type="button" onClick={() => navigate(`/profile/${encodeURIComponent(username)}`)} disabled={saving}>Cancel</button>
-          <button className="ui-button--primary" type="submit" disabled={saving} aria-busy={saving}>{saving ? <LoaderCircle className="profile-spinner" size={18} aria-hidden="true" /> : <Save size={18} aria-hidden="true" />}{saving ? "Saving…" : "Save profile"}</button>
+          <LoadingButton className="ui-button--primary" type="submit" loading={saving} loadingLabel="Saving…" icon={Save}>Save profile</LoadingButton>
         </div>
       </form>
     </div>

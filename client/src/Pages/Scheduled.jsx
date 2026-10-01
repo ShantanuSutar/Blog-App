@@ -4,8 +4,9 @@ import { CalendarClock, FilePlus2, LogIn } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext";
 import api from "../api/axios";
 import ConfirmDialog from "../Components/ConfirmDialog";
-import CollectionPage, { CollectionFeedback } from "../Components/library/CollectionPage";
+import CollectionPage from "../Components/library/CollectionPage";
 import ManagedPostCard from "../Components/library/ManagedPostCard";
+import { useToast } from "../Context/ToastContext.jsx";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -16,8 +17,8 @@ export default function Scheduled() {
   const [requestVersion, setRequestVersion] = useState(0);
   const [pendingAction, setPendingAction] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [actionError, setActionError] = useState("");
   const actionLockRef = useRef(false);
+  const toast = useToast();
 
   useEffect(() => {
     if (!currentUser) {
@@ -43,12 +44,12 @@ export default function Scheduled() {
     if (actionLockRef.current) return;
     actionLockRef.current = true;
     setPendingAction({ postId, type: "publish" });
-    setActionError("");
     try {
       await api.put(`/api/posts/${postId}`, { draft: false, scheduled_publish_date: null });
       setPosts((current) => current.filter((post) => post.id !== postId));
+      toast.success("Scheduled post published.");
     } catch {
-      setActionError("The post couldn’t be published. Its schedule has not been changed.");
+      toast.error("The post couldn’t be published. Its schedule has not been changed.");
     } finally {
       actionLockRef.current = false;
       setPendingAction(null);
@@ -60,13 +61,13 @@ export default function Scheduled() {
     actionLockRef.current = true;
     const postId = deleteTarget.id;
     setPendingAction({ postId, type: "delete" });
-    setActionError("");
     try {
       await api.delete(`/api/posts/${postId}`);
       setPosts((current) => current.filter((post) => post.id !== postId));
       setDeleteTarget(null);
+      toast.success("Scheduled post deleted.");
     } catch {
-      setActionError("The scheduled post couldn’t be deleted. Its schedule remains unchanged.");
+      toast.error("The scheduled post couldn’t be deleted. Its schedule remains unchanged.");
       setDeleteTarget(null);
     } finally {
       actionLockRef.current = false;
@@ -95,7 +96,6 @@ export default function Scheduled() {
           : <Link className="ui-button--primary" to="/login" state={{ from: "/scheduled" }}><LogIn size={17} aria-hidden="true" /> Log in</Link>}
         onRetry={() => setRequestVersion((version) => version + 1)}
       >
-        <CollectionFeedback message={actionError} onDismiss={() => setActionError("")} />
         <div className="managed-post-list">
           {posts.map((post) => (
             <ManagedPostCard

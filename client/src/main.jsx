@@ -4,12 +4,15 @@ import App from "./App.jsx";
 import { AuthContextProvider } from "./AuthContext/authContext.jsx";
 import ThemeContextProvider from "./Context/theme.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
+import { ToastProvider } from "./Context/ToastContext.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <ErrorBoundary>
     <ThemeContextProvider>
       <AuthContextProvider>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </AuthContextProvider>
     </ThemeContextProvider>
   </ErrorBoundary>

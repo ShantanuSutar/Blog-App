@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { BookOpen, ImageOff, LoaderCircle, MessageCircle, RotateCcw, Send } from "lucide-react";
+import { BookOpen, ImageOff, MessageCircle, RotateCcw, Send } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
 import { AuthContext } from "../AuthContext/authContext.jsx";
@@ -10,6 +10,12 @@ import Comment from "../Components/Comment.jsx";
 import MentionInput from "../Components/MentionInput.jsx";
 import Menu from "../Components/Menu.jsx";
 import ProfileAvatar from "../Components/ProfileAvatar.jsx";
+import ConfirmDialog from "../Components/ConfirmDialog.jsx";
+import CommentSkeleton from "../Components/states/CommentSkeleton.jsx";
+import LoadingButton from "../Components/ui/LoadingButton.jsx";
+import StatePanel from "../Components/ui/StatePanel.jsx";
+import Skeleton from "../Components/ui/Skeleton.jsx";
+import { useToast } from "../Context/ToastContext.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
 import { formatPostDate, getPostTags, resolveMediaUrl } from "../Components/home/postPresentation";
 import { calculateReadingTime } from "../utils/readingTime";
@@ -71,11 +77,11 @@ function ArticlePageSkeleton() {
   return (
     <div className="article-state article-state--loading" aria-live="polite" aria-busy="true">
       <span className="sr-only">Loading article</span>
-      <div className="article-skeleton__line article-skeleton__line--label" />
-      <div className="article-skeleton__line article-skeleton__line--title" />
-      <div className="article-skeleton__line article-skeleton__line--title-short" />
-      <div className="article-skeleton__line article-skeleton__line--meta" />
-      <div className="article-skeleton__cover" />
+      <Skeleton className="article-skeleton__line article-skeleton__line--label" />
+      <Skeleton className="article-skeleton__line article-skeleton__line--title" />
+      <Skeleton className="article-skeleton__line article-skeleton__line--title-short" />
+      <Skeleton className="article-skeleton__line article-skeleton__line--meta" />
+      <Skeleton className="article-skeleton__cover" />
     </div>
   );
 }
@@ -94,6 +100,8 @@ export default function Single() {
   const [commentStatus, setCommentStatus] = useState("idle");
   const [commentError, setCommentError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const toast = useToast();
 
   const loadComments = useCallback(async (signal) => {
     setCommentsStatus("loading");
@@ -163,6 +171,7 @@ export default function Single() {
       setComment("");
       await loadComments();
       setCommentStatus("success");
+      toast.success("Your comment has been posted.");
     } catch {
       setCommentStatus("error");
       setCommentError("Your comment could not be posted. Please try again.");
@@ -176,13 +185,14 @@ export default function Single() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Delete this article? This action cannot be undone.")) return;
     setDeleting(true);
     try {
       await api.delete(`/api/posts/${postId}`);
+      toast.success("Article deleted.");
       navigate("/");
     } catch {
       setDeleting(false);
+      toast.error("The article could not be deleted. Try again.");
     }
   };
 
@@ -191,17 +201,22 @@ export default function Single() {
   if (postState.status === "error" || postState.status === "missing") {
     const missing = postState.status === "missing";
     return (
-      <section className="article-state" aria-labelledby="article-state-title">
-        <BookOpen size={32} aria-hidden="true" />
-        <h1 id="article-state-title">{missing ? "This story is unavailable" : "We couldn't load this story"}</h1>
-        <p>{missing ? "It may have been removed or the link may be incorrect." : "Check your connection, then try again."}</p>
-        {missing ? (
+      <section className="article-state" aria-label={missing ? "Story unavailable" : "Story loading error"}>
+        <StatePanel
+          icon={BookOpen}
+          title={missing ? "This story is unavailable" : "We couldn't load this story"}
+          description={missing ? "It may have been removed or the link may be incorrect." : "Check your connection, then try again."}
+          headingLevel={1}
+          tone={missing ? "neutral" : "error"}
+          role={missing ? undefined : "alert"}
+          action={missing ? (
           <Link className="ui-button--primary" to="/">Browse stories</Link>
         ) : (
           <button className="ui-button--secondary" type="button" onClick={() => setPostVersion((version) => version + 1)}>
             <RotateCcw size={18} aria-hidden="true" /> Try again
           </button>
-        )}
+          )}
+        />
       </section>
     );
   }
@@ -234,7 +249,7 @@ export default function Single() {
                 <span className="article-byline__dot" aria-hidden="true" />
                 <span>{readingTime}</span>
               </div>
-              <ArticleActions post={post} postId={postId} theme={theme} isOwner={isOwner} onDelete={handleDelete} deleting={deleting} />
+              <ArticleActions post={post} postId={postId} theme={theme} isOwner={isOwner} onDelete={() => setDeleteDialogOpen(true)} deleting={deleting} />
             </div>
           </header>
 
@@ -286,11 +301,7 @@ export default function Single() {
                     <span id="article-comment-help">Be constructive and keep the conversation welcoming.</span>
                     <span aria-label={`${comment.length} of 5000 characters`}>{comment.length}/5000</span>
                   </div>
-                  <button className="ui-button--primary" type="submit" disabled={!comment.trim() || commentStatus === "loading"} aria-busy={commentStatus === "loading"}>
-                    {commentStatus === "loading"
-                      ? <><LoaderCircle className="interaction-spinner" size={18} aria-hidden="true" /> Posting…</>
-                      : <><Send size={18} aria-hidden="true" /> Post comment</>}
-                  </button>
+                  <LoadingButton className="ui-button--primary" type="submit" disabled={!comment.trim()} loading={commentStatus === "loading"} loadingLabel="Posting…" icon={Send}>Post comment</LoadingButton>
                 </div>
                 <span id="article-comment-feedback" className={`article-comment-form__feedback${commentError ? " is-error" : ""}`} role={commentError ? "alert" : "status"} aria-live="polite">
                   {commentError || (commentStatus === "success" ? "Your comment has been posted." : "")}
@@ -304,27 +315,12 @@ export default function Single() {
             </div>
           )}
 
-          {commentsStatus === "loading" && (
-            <div className="comment-skeleton-list" role="status" aria-label="Loading comments" aria-busy="true">
-              {[0, 1].map((item) => (
-                <div className="comment-skeleton" key={item} aria-hidden="true">
-                  <span className="comment-skeleton__avatar" />
-                  <span className="comment-skeleton__lines"><span /><span /></span>
-                </div>
-              ))}
-            </div>
-          )}
+          {commentsStatus === "loading" && <CommentSkeleton />}
           {commentsStatus === "error" && (
-            <div className="article-comments__status article-comments__status--error" role="alert">
-              <span>Comments couldn't be loaded.</span>
-              <button className="ui-button--ghost" type="button" onClick={() => loadComments()}>Try again</button>
-            </div>
+            <StatePanel className="article-comments__status" compact tone="error" role="alert" title="Comments couldn't be loaded" description="Check your connection and try again." headingLevel={3} action={<button className="ui-button--ghost" type="button" onClick={() => loadComments()}>Try again</button>} />
           )}
           {commentsStatus === "success" && comments.length === 0 && (
-            <div className="article-comments__empty">
-              <MessageCircle size={24} aria-hidden="true" />
-              <p><strong>No comments yet.</strong> Start the conversation with a thoughtful response.</p>
-            </div>
+            <StatePanel className="article-comments__empty" compact icon={MessageCircle} title="No comments yet" description="Start the conversation with a thoughtful response." headingLevel={3} />
           )}
           {commentsStatus === "success" && comments.length > 0 && (
             <div className="article-comments__list">
@@ -337,6 +333,17 @@ export default function Single() {
       <aside className="article-sidebar" aria-label="More stories">
         <Menu cat={post.cat} />
       </aside>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete this article?"
+        description="This action cannot be undone. The article and its discussion will no longer be available."
+        confirmLabel="Delete article"
+        cancelLabel="Keep article"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onClose={() => setDeleteDialogOpen(false)}
+      />
     </div>
   );
 }

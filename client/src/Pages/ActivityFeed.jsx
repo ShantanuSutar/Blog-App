@@ -1,9 +1,12 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Activity, CircleCheck, LoaderCircle, LogIn, RotateCcw, Users } from "lucide-react";
+import { Activity, CircleCheck, LogIn, RotateCcw, Users } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import api from "../api/axios.js";
 import ActivityItem from "../Components/activity/ActivityItem.jsx";
+import ActivitySkeleton from "../Components/states/ActivitySkeleton.jsx";
+import LoadingButton from "../Components/ui/LoadingButton.jsx";
+import StatePanel from "../Components/ui/StatePanel.jsx";
 
 const filters = [
   { label: "All", value: "all" },
@@ -12,24 +15,6 @@ const filters = [
   { label: "Reactions", value: "reactions" },
   { label: "Follows", value: "follows" },
 ];
-
-function ActivitySkeleton({ count = 5 }) {
-  return (
-    <div className="activity-skeleton-list" role="status" aria-label="Loading activity">
-      {Array.from({ length: count }, (_, index) => (
-        <div className="activity-skeleton" aria-hidden="true" key={index}>
-          <span className="activity-skeleton__avatar" />
-          <span className="activity-skeleton__body">
-            <span className="activity-skeleton__line activity-skeleton__line--title" />
-            <span className="activity-skeleton__line" />
-            <span className="activity-skeleton__line activity-skeleton__line--short" />
-          </span>
-        </div>
-      ))}
-      <span className="sr-only">Loading activity…</span>
-    </div>
-  );
-}
 
 export default function ActivityFeed() {
   const { currentUser } = useContext(AuthContext);
@@ -110,12 +95,7 @@ export default function ActivityFeed() {
           <h1 id="activity-heading">Activity</h1>
           <p>Follow conversations and stories from writers across Unsaid.</p>
         </header>
-        <div className="activity-state">
-          <LogIn size={30} strokeWidth={1.5} aria-hidden="true" />
-          <h2>Sign in to view activity</h2>
-          <p>Your personalized feed is available after you log in.</p>
-          <Link className="ui-button--primary" to="/login" state={{ from: "/feed" }}><LogIn size={17} aria-hidden="true" /> Log in</Link>
-        </div>
+        <StatePanel className="activity-state" icon={LogIn} title="Sign in to view activity" description="Your personalized feed is available after you log in." action={<Link className="ui-button--primary" to="/login" state={{ from: "/feed" }}><LogIn size={17} aria-hidden="true" /> Log in</Link>} />
       </section>
     );
   }
@@ -141,21 +121,11 @@ export default function ActivityFeed() {
         {status === "loading" && <ActivitySkeleton />}
 
         {status === "error" && (
-          <div className="activity-state" role="alert">
-            <Activity size={30} strokeWidth={1.5} aria-hidden="true" />
-            <h2>Activity couldn’t be loaded</h2>
-            <p>Check your connection and try again.</p>
-            <button className="ui-button--primary" type="button" onClick={retry}><RotateCcw size={17} aria-hidden="true" /> Retry</button>
-          </div>
+          <StatePanel className="activity-state" tone="error" role="alert" icon={Activity} title="Activity couldn’t be loaded" description="Check your connection and try again." action={<button className="ui-button--primary" type="button" onClick={retry}><RotateCcw size={17} aria-hidden="true" /> Retry</button>} />
         )}
 
         {status === "success" && activities.length === 0 && (
-          <div className="activity-state">
-            <Users size={30} strokeWidth={1.5} aria-hidden="true" />
-            <h2>{filter === "all" ? "No activity yet" : `No ${activeFilter.toLocaleLowerCase()} yet`}</h2>
-            <p>{filter === "all" ? "Follow writers and join conversations to build your activity feed." : "Try another filter or check back after more activity."}</p>
-            {filter !== "all" && <button className="ui-button--secondary" type="button" onClick={() => selectFilter("all")}>View all activity</button>}
-          </div>
+          <StatePanel className="activity-state" icon={Users} title={filter === "all" ? "No activity yet" : `No ${activeFilter.toLocaleLowerCase()} yet`} description={filter === "all" ? "Follow writers and join conversations to build your activity feed." : "Try another filter or check back after more activity."} action={filter !== "all" ? <button className="ui-button--secondary" type="button" onClick={() => selectFilter("all")}>View all activity</button> : null} />
         )}
 
         {activities.length > 0 && (
@@ -173,10 +143,7 @@ export default function ActivityFeed() {
 
             {hasMore && loadMoreStatus !== "error" && (
               <div className="activity-load-state">
-                <button className="ui-button--secondary" type="button" onClick={loadMore} disabled={loadMoreStatus === "loading"} aria-busy={loadMoreStatus === "loading"}>
-                  {loadMoreStatus === "loading" && <LoaderCircle className="interaction-spinner" size={17} aria-hidden="true" />}
-                  {loadMoreStatus === "loading" ? "Loading…" : "Load more"}
-                </button>
+                <LoadingButton className="ui-button--secondary" onClick={loadMore} loading={loadMoreStatus === "loading"} loadingLabel="Loading…">Load more</LoadingButton>
               </div>
             )}
 

@@ -355,14 +355,7 @@
 .article-comment-form__feedback.is-error { color: var(--color-danger); }
 .article-comments__login { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-8); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); color: var(--color-text-secondary); background: var(--color-surface-subtle); }
 .article-comments__login p { margin: 0; }
-.article-comments__status,
-.article-comments__empty { color: var(--color-text-subtle); text-align: center; }
-.article-comments__status--error { display: flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--color-danger); }
 .article-comments__list { display: grid; }
-
-.article-comments__empty { display: grid; place-items: center; gap: var(--space-2); margin: 0; padding: var(--space-10) var(--space-4); border-top: 1px solid var(--color-border); }
-.article-comments__empty p { max-width: 38ch; margin: 0; }
-.article-comments__empty strong { display: block; margin-bottom: var(--space-1); color: var(--color-text-primary); }
 
 .discussion-comment { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: var(--space-3); padding-block: var(--space-5); border-top: 1px solid var(--color-border); }
 .discussion-comment__avatar-link { align-self: start; border-radius: 50%; text-decoration: none; }
@@ -377,7 +370,7 @@
 .comment-skeleton-list { display: grid; }
 .comment-skeleton { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: var(--space-3); padding-block: var(--space-5); border-top: 1px solid var(--color-border); }
 .comment-skeleton__avatar,
-.comment-skeleton__lines span { display: block; background: var(--color-surface-subtle); animation: article-pulse 1.5s ease-in-out infinite; }
+.comment-skeleton__lines span { display: block; }
 .comment-skeleton__avatar { width: 42px; height: 42px; border-radius: 50%; }
 .comment-skeleton__lines { display: grid; align-content: start; gap: var(--space-3); padding-top: var(--space-1); }
 .comment-skeleton__lines span { height: 13px; border-radius: var(--radius-sm); }
@@ -411,14 +404,13 @@
 }
 .article-state--loading { display: block; width: min(100%, 900px); margin-inline: auto; }
 .article-skeleton__line,
-.article-skeleton__cover { border-radius: var(--radius-sm); background: var(--color-surface-subtle); animation: article-pulse 1.5s ease-in-out infinite; }
+.article-skeleton__cover { border-radius: var(--radius-sm); }
 .article-skeleton__line { height: 20px; margin-bottom: var(--space-4); }
 .article-skeleton__line--label { width: 110px; height: 14px; }
 .article-skeleton__line--title { width: 86%; height: clamp(42px, 7vw, 70px); }
 .article-skeleton__line--title-short { width: 60%; height: clamp(42px, 7vw, 70px); }
 .article-skeleton__line--meta { width: 280px; height: 38px; margin-top: var(--space-6); }
 .article-skeleton__cover { aspect-ratio: 16 / 9; margin-top: var(--space-8); }
-@keyframes article-pulse { 50% { opacity: 0.55; } }
 
 @media (max-width: tokens.$breakpoint-lg) {
   .article-layout { grid-template-columns: minmax(0, 1fr); }

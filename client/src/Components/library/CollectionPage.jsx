@@ -1,27 +1,18 @@
-import { AlertCircle, Inbox, RotateCcw, X } from "lucide-react";
-
-export function CollectionFeedback({ message, onDismiss }) {
-  if (!message) return null;
-  return (
-    <div className="collection-feedback" role="alert">
-      <AlertCircle size={18} aria-hidden="true" />
-      <span>{message}</span>
-      <button className="ui-button--icon" type="button" onClick={onDismiss} aria-label="Dismiss message"><X size={17} aria-hidden="true" /></button>
-    </div>
-  );
-}
+import { AlertCircle, Inbox, RotateCcw } from "lucide-react";
+import Skeleton from "../ui/Skeleton.jsx";
+import StatePanel from "../ui/StatePanel.jsx";
 
 export function CollectionSkeleton({ count = 3 }) {
   return (
     <div className="collection-skeleton-list" role="status" aria-label="Loading content">
       {Array.from({ length: count }, (_, index) => (
         <div className="collection-skeleton" aria-hidden="true" key={index}>
-          <span className="collection-skeleton__image" />
+          <Skeleton className="collection-skeleton__image" />
           <span className="collection-skeleton__content">
-            <span className="collection-skeleton__line collection-skeleton__line--short" />
-            <span className="collection-skeleton__line collection-skeleton__line--title" />
-            <span className="collection-skeleton__line" />
-            <span className="collection-skeleton__line collection-skeleton__line--medium" />
+            <Skeleton className="collection-skeleton__line collection-skeleton__line--short" />
+            <Skeleton className="collection-skeleton__line collection-skeleton__line--title" />
+            <Skeleton className="collection-skeleton__line" />
+            <Skeleton className="collection-skeleton__line collection-skeleton__line--medium" />
           </span>
         </div>
       ))}
@@ -61,20 +52,10 @@ export default function CollectionPage({
       <div className="collection-page__body" aria-live="polite" aria-busy={status === "loading"}>
         {status === "loading" && <CollectionSkeleton />}
         {status === "error" && (
-          <div className="collection-state" role="alert">
-            <AlertCircle size={28} strokeWidth={1.6} aria-hidden="true" />
-            <h2>We couldn’t load this page</h2>
-            <p>{errorMessage}</p>
-            {onRetry && <button className="ui-button--secondary" type="button" onClick={onRetry}><RotateCcw size={17} aria-hidden="true" /> Try again</button>}
-          </div>
+          <StatePanel className="collection-state" tone="error" role="alert" icon={AlertCircle} title="We couldn’t load this page" description={errorMessage} action={onRetry ? <button className="ui-button--secondary" type="button" onClick={onRetry}><RotateCcw size={17} aria-hidden="true" /> Try again</button> : null} />
         )}
         {status === "empty" && (
-          <div className="collection-state">
-            <EmptyIcon size={30} strokeWidth={1.5} aria-hidden="true" />
-            <h2>{emptyTitle}</h2>
-            <p>{emptyDescription}</p>
-            {emptyAction}
-          </div>
+          <StatePanel className="collection-state" icon={EmptyIcon} title={emptyTitle} description={emptyDescription} action={emptyAction} />
         )}
         {status === "success" && children}
       </div>
