@@ -8,15 +8,16 @@ import { formatPostDate, formatViewCount, getPostExcerpt, getPostTags, resolveMe
 
 const categories = { art: "Art", scitech: "Sci-Tech", sports: "Sports", cinema: "Cinema", food: "Food", travel: "Travel" };
 
-function PostImage({ post, featured, priority }) {
+function PostImage({ post, featured, priority, baseUrl }) {
   const [failed, setFailed] = useState(false);
-  const hasImage = Boolean(post.img) && !failed;
+  const imageUrl = resolveMediaUrl(post.img, baseUrl);
+  const hasImage = Boolean(imageUrl) && !failed;
 
   return (
     <div className="story-card__image">
       {hasImage ? (
         <img
-          src={post.img}
+          src={imageUrl}
           alt={post.imgAlt || ""}
           loading={priority ? "eager" : "lazy"}
           decoding="async"
@@ -49,7 +50,7 @@ function Author({ post, baseUrl }) {
   );
 }
 
-export default function PostCard({ post, variant = "standard", theme, baseUrl }) {
+export default function PostCard({ post, variant = "standard", theme, baseUrl, bookmarkInitialState = false, onBookmarkChange }) {
   const featured = variant !== "standard";
   const primary = variant === "featured-primary";
   const tags = getPostTags(post.tags).slice(0, featured ? 2 : 3);
@@ -61,7 +62,7 @@ export default function PostCard({ post, variant = "standard", theme, baseUrl })
 
   return (
     <article className={`story-card ${featured ? "story-card--featured" : ""} ${primary ? "story-card--featured-primary" : ""}`}>
-      <PostImage key={post.img || "no-image"} post={post} featured={featured} priority={primary} />
+      <PostImage key={post.img || "no-image"} post={post} featured={featured} priority={primary} baseUrl={baseUrl} />
       <div className="story-card__body">
         {post.cat && <span className="story-card__category">{categories[post.cat] || post.cat}</span>}
         <h3 className="story-card__title">
@@ -83,7 +84,7 @@ export default function PostCard({ post, variant = "standard", theme, baseUrl })
         <div className="story-card__footer">
           <div className="story-card__engagement">
             {!featured && <ReactionButtons postId={post.id} theme={theme} postTitle={post.title} />}
-            <BookmarkButton postId={post.id} theme={theme} postTitle={post.title} />
+            <BookmarkButton postId={post.id} theme={theme} postTitle={post.title} initialBookmarked={bookmarkInitialState} onChange={onBookmarkChange} />
             {views && <span className="story-card__views ui-meta" aria-label={`${post.views} views`}><Eye size={17} aria-hidden="true" />{views}</span>}
           </div>
           <span className="story-card__read-link" aria-hidden="true">Read story <ArrowUpRight size={16} /></span>

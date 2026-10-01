@@ -11,8 +11,8 @@ const formatCount = (count) => {
   return numericCount.toString();
 };
 
-export default function BookmarkButton({ postId, postTitle }) {
-  const [isBookmarked, setIsBookmarked] = useState(false);
+export default function BookmarkButton({ postId, postTitle, initialBookmarked = false, onChange }) {
+  const [isBookmarked, setIsBookmarked] = useState(Boolean(initialBookmarked));
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,6 +71,7 @@ export default function BookmarkButton({ postId, postTitle }) {
     try {
       if (nextBookmarked) await api.post("/api/bookmarks", { postId });
       else await api.delete(`/api/bookmarks/${postId}`);
+      onChange?.(nextBookmarked);
     } catch (error) {
       setIsBookmarked(previousBookmarked);
       setBookmarkCount(previousCount);

@@ -1,185 +1,126 @@
-import axios from "axios";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { CalendarClock, FilePlus2, LogIn } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext";
-import { useThemeContext } from "../Context/theme";
+import api from "../api/axios";
+import ConfirmDialog from "../Components/ConfirmDialog";
+import CollectionPage, { CollectionFeedback } from "../Components/library/CollectionPage";
+import ManagedPostCard from "../Components/library/ManagedPostCard";
 
-const Scheduled = () => {
-  const [posts, setPosts] = useState([]);
+const baseUrl = import.meta.env.VITE_BASE_URL;
+
+export default function Scheduled() {
   const { currentUser } = useContext(AuthContext);
-  const { theme } = useThemeContext();
+  const [posts, setPosts] = useState([]);
+  const [status, setStatus] = useState(currentUser ? "loading" : "empty");
+  const [requestVersion, setRequestVersion] = useState(0);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [actionError, setActionError] = useState("");
+  const actionLockRef = useRef(false);
 
   useEffect(() => {
-    const fetchScheduledPosts = async () => {
-      try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_BASE_URL}/api/posts/scheduled/user`,
-          {
-            headers: {
-              Authorization: `Bearer ${currentUser?.token}`,
-            },
-          }
-        );
-        setPosts(res.data);
-      } catch (err) {
-        console.log(err);
-      }
-    };
-    fetchScheduledPosts();
-  }, [currentUser]);
+    if (!currentUser) {
+      setPosts([]);
+      setStatus("empty");
+      return undefined;
+    }
 
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`${import.meta.env.VITE_BASE_URL}/api/posts/${id}`, {
-        headers: {
-          Authorization: `Bearer ${currentUser?.token}`
-        }
+    const controller = new AbortController();
+    setStatus("loading");
+    api.get("/api/posts/scheduled/user", { signal: controller.signal })
+      .then((response) => {
+        setPosts(Array.isArray(response.data) ? response.data : []);
+        setStatus("success");
+      })
+      .catch((error) => {
+        if (error.code !== "ERR_CANCELED") setStatus("error");
       });
-      setPosts(posts.filter((post) => post.id !== id));
-    } catch (err) {
-      console.log(err);
-    }
-  };
+    return () => controller.abort();
+  }, [currentUser, requestVersion]);
 
-  const handlePublishNow = async (id) => {
+  const publishNow = async (postId) => {
+    if (actionLockRef.current) return;
+    actionLockRef.current = true;
+    setPendingAction({ postId, type: "publish" });
+    setActionError("");
     try {
-      await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/api/posts/${id}`,
-        {
-          draft: false, // Set draft to false
-          scheduled_publish_date: null // Remove scheduled date to publish immediately
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${currentUser?.token}`
-          }
-        }
-      );
-      // Remove from scheduled list after publishing
-      setPosts(posts.filter((post) => post.id !== id));
-    } catch (err) {
-      console.log(err);
+      await api.put(`/api/posts/${postId}`, { draft: false, scheduled_publish_date: null });
+      setPosts((current) => current.filter((post) => post.id !== postId));
+    } catch {
+      setActionError("The post couldn’t be published. Its schedule has not been changed.");
+    } finally {
+      actionLockRef.current = false;
+      setPendingAction(null);
     }
   };
 
-  const getText = (html) => {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    return doc.body.textContent;
+  const deleteScheduledPost = async () => {
+    if (!deleteTarget || actionLockRef.current) return;
+    actionLockRef.current = true;
+    const postId = deleteTarget.id;
+    setPendingAction({ postId, type: "delete" });
+    setActionError("");
+    try {
+      await api.delete(`/api/posts/${postId}`);
+      setPosts((current) => current.filter((post) => post.id !== postId));
+      setDeleteTarget(null);
+    } catch {
+      setActionError("The scheduled post couldn’t be deleted. Its schedule remains unchanged.");
+      setDeleteTarget(null);
+    } finally {
+      actionLockRef.current = false;
+      setPendingAction(null);
+    }
   };
 
-  const getTimeRemaining = (scheduledDate) => {
-    const now = new Date();
-    const scheduled = new Date(scheduledDate);
-    const difference = scheduled.getTime() - now.getTime();
-
-    if (difference <= 0) {
-      return {
-        formatted: "Published!",
-        colorClass: "published"
-      };
-    }
-
-    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-    let formatted = "";
-    if (days > 0) {
-      formatted = `${days}d ${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-      formatted = `${hours}h ${minutes}m ${seconds}s`;
-    } else if (minutes > 0) {
-      formatted = `${minutes}m ${seconds}s`;
-    } else {
-      formatted = `${seconds}s`;
-    }
-
-    // Determine color based on time remaining
-    let colorClass = "";
-    if (days === 0 && hours === 0 && minutes <= 30) {
-      colorClass = "urgent"; // Less than 30 minutes - red
-    } else if (days === 0 && hours <= 2) {
-      colorClass = "warning"; // Less than 2 hours - orange
-    } else {
-      colorClass = "normal"; // More than 2 hours - green
-    }
-
-    return {
-      formatted,
-      colorClass
-    };
-  };
-
-  if (!currentUser) {
-    return (
-      <div className={theme === "dark" ? "home dark" : "home"}>
-        <div className="no-posts">
-          <p className={theme === "dark" ? "text dark" : "text"}>
-            Please log in to view your scheduled posts
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const pageStatus = status === "success" && posts.length === 0 ? "empty" : status;
+  const activeActionFor = (postId) => pendingAction?.postId === postId ? pendingAction.type : "";
+  const targetTitle = deleteTarget?.title?.trim() || "Untitled scheduled post";
 
   return (
-    <div className="home">
-      <div className="posts">
-        <h1 className={theme === "dark" ? "text dark" : "text"}>Your Scheduled Posts</h1>
-        {posts && posts.length > 0 ? (
-          posts.map((post) => (
-            <div className="post" key={post.id}>
-              <div className={theme === "dark" ? "img dark" : "img"}>
-                {post.img && <img src={post.img} alt="" />}
-              </div>
-              <div className="content">
-                <Link className="link" to={`/write?edit=${post.id}`}>
-                  <h1 className={theme === "dark" ? "text dark" : "text"}>
-                    {post.title}
-                  </h1>
-                </Link>
-                <p className={theme === "dark" ? "text dark" : "text"}>
-                  {getText(post.desc)}
-                </p>
-                <div className="details">
-                  <p className={theme === "dark" ? "text dark" : "text"}>
-                    <strong>Scheduled for:</strong> {new Date(post.scheduled_publish_date).toLocaleString()}
-                  </p>
-                  <p className={`countdown ${getTimeRemaining(post.scheduled_publish_date).colorClass}`}>
-                    <strong>Time remaining:</strong> {getTimeRemaining(post.scheduled_publish_date).formatted}
-                  </p>
-                </div>
-                <div className="actions">
-                  <Link className="link" to={`/write?edit=${post.id}`}>
-                    <button className="btn-grad">Edit</button>
-                  </Link>
-                  <button
-                    className="btn-grad"
-                    onClick={() => handlePublishNow(post.id)}
-                  >
-                    Publish Now
-                  </button>
-                  <button
-                    className="btn-grad delete"
-                    onClick={() => handleDelete(post.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="no-posts">
-            <p className={theme === "dark" ? "text dark" : "text"}>
-              No scheduled posts. Posts scheduled for future publication will appear here.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+    <>
+      <CollectionPage
+        title="Scheduled posts"
+        description="Review upcoming stories and control when they go live."
+        count={posts.length}
+        countLabel={posts.length === 1 ? "scheduled post" : "scheduled posts"}
+        status={pageStatus}
+        errorMessage="Your scheduled posts couldn’t be loaded. Check your connection and try again."
+        emptyTitle={currentUser ? "No scheduled posts" : "Sign in to manage scheduled posts"}
+        emptyDescription={currentUser ? "Schedule an article and its publication time will appear here." : "Scheduling and publishing tools are available from your Unsaid account."}
+        emptyIcon={currentUser ? CalendarClock : LogIn}
+        emptyAction={currentUser
+          ? <Link className="ui-button--primary" to="/write"><FilePlus2 size={17} aria-hidden="true" /> Write a story</Link>
+          : <Link className="ui-button--primary" to="/login" state={{ from: "/scheduled" }}><LogIn size={17} aria-hidden="true" /> Log in</Link>}
+        onRetry={() => setRequestVersion((version) => version + 1)}
+      >
+        <CollectionFeedback message={actionError} onDismiss={() => setActionError("")} />
+        <div className="managed-post-list">
+          {posts.map((post) => (
+            <ManagedPostCard
+              key={post.id}
+              post={post}
+              type="scheduled"
+              baseUrl={baseUrl}
+              busyAction={activeActionFor(post.id)}
+              actionsDisabled={Boolean(pendingAction)}
+              onPublish={publishNow}
+              onRequestDelete={setDeleteTarget}
+            />
+          ))}
+        </div>
+      </CollectionPage>
 
-export default Scheduled;
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={`Delete “${targetTitle}”?`}
+        description="This cancels the schedule and permanently deletes the post. This action cannot be undone."
+        confirmLabel="Cancel & delete"
+        loading={pendingAction?.type === "delete"}
+        onConfirm={deleteScheduledPost}
+        onClose={() => { if (!pendingAction) setDeleteTarget(null); }}
+      />
+    </>
+  );
+}

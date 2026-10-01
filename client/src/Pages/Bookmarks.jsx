@@ -1,74 +1,73 @@
-import axios from "axios";
-import api from "../api/axios";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Bookmark, Compass, LogIn } from "lucide-react";
+import { AuthContext } from "../AuthContext/authContext";
+import api from "../api/axios";
 import { useThemeContext } from "../Context/theme";
+import CollectionPage from "../Components/library/CollectionPage";
+import PostCard from "../Components/home/PostCard";
 
-const Bookmarks = () => {
-    const [posts, setPosts] = useState([]);
-    const { theme } = useThemeContext();
-    const URL = import.meta.env.VITE_BASE_URL;
+const baseUrl = import.meta.env.VITE_BASE_URL;
 
-    useEffect(() => {
-        const fetchBookmarks = async () => {
-            try {
-                const res = await api.get(`/api/bookmarks`);
-                setPosts(res.data);
-            } catch (err) {
-                console.log(err);
-            }
-        };
-        fetchBookmarks();
-    }, [URL]);
+export default function Bookmarks() {
+  const { currentUser } = useContext(AuthContext);
+  const { theme } = useThemeContext();
+  const [posts, setPosts] = useState([]);
+  const [status, setStatus] = useState(currentUser ? "loading" : "empty");
+  const [requestVersion, setRequestVersion] = useState(0);
 
-    const removeBookmark = async (id) => {
-        try {
-            await api.delete(`/api/bookmarks/${id}`);
-            setPosts(posts.filter((post) => post.id !== id));
-        } catch (err) {
-            console.log(err);
-        }
-    };
+  useEffect(() => {
+    if (!currentUser) {
+      setPosts([]);
+      setStatus("empty");
+      return undefined;
+    }
 
-    const getText = (html) => {
-        const doc = new DOMParser().parseFromString(html, "text/html");
-        return doc.body.textContent;
-    };
+    const controller = new AbortController();
+    setStatus("loading");
+    api.get("/api/bookmarks", { signal: controller.signal })
+      .then((response) => {
+        setPosts(Array.isArray(response.data) ? response.data : []);
+        setStatus("success");
+      })
+      .catch((error) => {
+        if (error.code !== "ERR_CANCELED") setStatus("error");
+      });
+    return () => controller.abort();
+  }, [currentUser, requestVersion]);
 
-    return (
-        <div className={theme === "dark" ? "home dark" : "home"}>
-            <div className="main-content">
-                <div className="posts">
-                    <h1 className={theme === "dark" ? "text dark" : "text"} style={{ marginBottom: '30px' }}>Your Bookmarks</h1>
-                    {posts.length > 0 ? (
-                        posts.map((post) => (
-                            <div className="post" key={post.id}>
-                                <div className={theme === "dark" ? "img dark" : "img"}>
-                                    <img src={post.img} alt="" />
-                                </div>
-                                <div className="content">
-                                    <Link className="link" to={`/post/${post.id}`}>
-                                        <h1 className={theme === "dark" ? "text dark" : "text"}>{post.title}</h1>
-                                    </Link>
-                                    <p className={theme === "dark" ? "dark" : ""}>{getText(post.desc)}</p>
-                                    <div className="post-actions">
-                                        <button className="btn-grad delete" onClick={() => removeBookmark(post.id)}>Remove</button>
-                                        <Link className="link" to={`/post/${post.id}`}>
-                                            <button className="btn-grad">Read More</button>
-                                        </Link>
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="no-posts">
-                            <p className={theme === "dark" ? "text dark" : "text"}>No bookmarks found.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
+  const pageStatus = status === "success" && posts.length === 0 ? "empty" : status;
 
-export default Bookmarks;
+  return (
+    <CollectionPage
+      title="Bookmarks"
+      description="Stories you saved for another quiet moment."
+      count={posts.length}
+      countLabel={posts.length === 1 ? "saved story" : "saved stories"}
+      status={pageStatus}
+      errorMessage="Your saved stories couldn’t be loaded. Check your connection and try again."
+      emptyTitle={currentUser ? "No bookmarks yet" : "Sign in to see your bookmarks"}
+      emptyDescription={currentUser ? "Save stories as you browse and they’ll appear here." : "Your saved stories are tied to your Unsaid account."}
+      emptyIcon={currentUser ? Bookmark : LogIn}
+      emptyAction={currentUser
+        ? <Link className="ui-button--primary" to="/"><Compass size={17} aria-hidden="true" /> Explore stories</Link>
+        : <Link className="ui-button--primary" to="/login" state={{ from: "/bookmarks" }}><LogIn size={17} aria-hidden="true" /> Log in</Link>}
+      onRetry={() => setRequestVersion((version) => version + 1)}
+    >
+      <div className="collection-post-list">
+        {posts.map((post) => (
+          <PostCard
+            key={post.id}
+            post={post}
+            theme={theme}
+            baseUrl={baseUrl}
+            bookmarkInitialState
+            onBookmarkChange={(bookmarked) => {
+              if (!bookmarked) setPosts((current) => current.filter((item) => item.id !== post.id));
+            }}
+          />
+        ))}
+      </div>
+    </CollectionPage>
+  );
+}
