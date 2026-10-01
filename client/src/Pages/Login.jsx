@@ -1,90 +1,122 @@
-import { useContext, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useContext, useState } from "react";
+import { CheckCircle2, KeyRound, LoaderCircle } from "lucide-react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../AuthContext/authContext.jsx";
+import AuthLayout from "../Components/auth/AuthLayout.jsx";
+import PasswordField from "../Components/auth/PasswordField.jsx";
 
-const Login = () => {
-  const [inputs, setInputs] = useState({
-    username: "demo",
-    password: "demo",
-  });
-  const [loading, setLoading] = useState(false);
-
-  const [err, setError] = useState(null);
-
-  const navigate = useNavigate();
-
-  const { login } = useContext(AuthContext);
-
-  const handleChange = (e) => {
-    setInputs((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    setLoading(true);
-
-    if (inputs.username === "") {
-      setError("Please enter username");
-      setLoading(false);
-      return;
-    } else if (inputs.password === "") {
-      setError("Please enter password");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      await login(inputs);
-      setLoading(false);
-      navigate("/");
-    } catch (err) {
-      setLoading(false);
-      if (err.response && err.response.data) {
-        setError(err.response.data);
-      } else {
-        setError(err.message || "An error occurred");
-      }
-    }
-  };
-  useEffect(() => {
-    alert(
-      "If you want to just see around the project then demo login credentials are already entered, just click on the login button to login, else would love you to be our new user by clicking on the Register button and creating a new account."
-    );
-  }, []);
-  return (
-    <div className="auth">
-      <h1 className="text constant">Login</h1>
-      <form>
-        <input
-          defaultValue={inputs.username}
-          className="text"
-          type="text"
-          placeholder="username"
-          name="username"
-          onChange={handleChange}
-        />
-        <input
-          defaultValue={inputs.password}
-          className="text"
-          type="password"
-          placeholder="password"
-          name="password"
-          onChange={handleChange}
-        />
-        <button className="btn-grad" onClick={handleSubmit}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-        {err && <p>{err} !</p>}
-        <span>
-          Don't you have an account ?{" "}
-          <Link className="text" to={"/register"}>
-            Register
-          </Link>
-        </span>
-      </form>
-    </div>
-  );
+const mapLoginError = (error) => {
+  if (!error.response) return "We couldn’t reach Unsaid. Check your connection and try again.";
+  if ([400, 404].includes(error.response.status)) return "The username or password is incorrect.";
+  if (error.response.status === 429) return "Too many login attempts. Please wait a moment and try again.";
+  return "We couldn’t log you in right now. Please try again.";
 };
 
-export default Login;
+export default function Login() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, login } = useContext(AuthContext);
+  const [inputs, setInputs] = useState({ username: location.state?.username || "", password: "" });
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const registrationSuccess = Boolean(location.state?.registrationSuccess);
+
+  if (currentUser) return <Navigate to="/" replace />;
+
+  const updateField = (field, value) => {
+    setInputs((current) => ({ ...current, [field]: value }));
+    setErrors((current) => ({ ...current, [field]: "" }));
+    setFormError("");
+  };
+
+  const validate = () => {
+    const nextErrors = {};
+    if (!inputs.username.trim()) nextErrors.username = "Enter your username.";
+    if (!inputs.password) nextErrors.password = "Enter your password.";
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (loading || !validate()) return;
+    setLoading(true);
+    setFormError("");
+    try {
+      await login({ username: inputs.username.trim(), password: inputs.password });
+      navigate("/", { replace: true });
+    } catch (error) {
+      setFormError(mapLoginError(error));
+      setLoading(false);
+    }
+  };
+
+  const useDemoAccount = () => {
+    setInputs({ username: "demo", password: "demo" });
+    setErrors({});
+    setFormError("");
+  };
+
+  return (
+    <AuthLayout
+      eyebrow="Welcome back"
+      title="Continue your story"
+      description="Log in to write, save stories, and join the conversation."
+      footer={<p>New to Unsaid? <Link to="/register">Create an account</Link></p>}
+    >
+      {registrationSuccess && (
+        <div className="auth-notice auth-notice--success" role="status">
+          <CheckCircle2 size={18} aria-hidden="true" />
+          <span>Your account is ready. Log in to continue.</span>
+        </div>
+      )}
+
+      {formError && <div className="auth-notice auth-notice--error" role="alert">{formError}</div>}
+
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
+        <div className={`auth-field ${errors.username ? "has-error" : ""}`}>
+          <label htmlFor="login-username">Username</label>
+          <input
+            id="login-username"
+            name="username"
+            type="text"
+            value={inputs.username}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck="false"
+            autoFocus
+            onChange={(event) => updateField("username", event.target.value)}
+            aria-invalid={Boolean(errors.username)}
+            aria-describedby={errors.username ? "login-username-error" : undefined}
+          />
+          {errors.username && <p className="auth-field__error" id="login-username-error">{errors.username}</p>}
+        </div>
+
+        <PasswordField
+          id="login-password"
+          value={inputs.password}
+          visible={passwordVisible}
+          error={errors.password}
+          autoComplete="current-password"
+          onChange={(event) => updateField("password", event.target.value)}
+          onToggle={() => setPasswordVisible((visible) => !visible)}
+        />
+
+        <button className="ui-button--primary auth-submit" type="submit" disabled={loading} aria-busy={loading}>
+          {loading ? <LoaderCircle className="auth-spinner" size={19} aria-hidden="true" /> : <KeyRound size={18} aria-hidden="true" />}
+          {loading ? "Logging in…" : "Log in"}
+        </button>
+      </form>
+
+      <aside className="auth-demo" aria-labelledby="demo-heading">
+        <div>
+          <h2 id="demo-heading">Just looking around?</h2>
+          <p>Use the project’s demo account without creating a profile.</p>
+        </div>
+        <button className="ui-button--ghost" type="button" onClick={useDemoAccount}>Use demo account</button>
+      </aside>
+    </AuthLayout>
+  );
+}
