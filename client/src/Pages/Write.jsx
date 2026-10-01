@@ -1,14 +1,72 @@
-import { useState, useEffect } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import {
+  CalendarClock,
+  CheckCircle2,
+  ChevronRight,
+  FileText,
+  LoaderCircle,
+  Save,
+  Send,
+  Sparkles,
+} from "lucide-react";
+import {
+  Link,
+  unstable_useBlocker as useBlocker,
+  useBeforeUnload,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import api from "../api/axios.js";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import moment from "moment";
-import { useThemeContext } from "../Context/theme";
-import { X } from "lucide-react";
+import { AuthContext } from "../AuthContext/authContext.jsx";
+import CoverImageField from "../Components/write/CoverImageField.jsx";
+import TagEditor from "../Components/write/TagEditor.jsx";
 
-const cloudname = import.meta.env.VITE_CLOUD_NAME;
+const cloudName = import.meta.env.VITE_CLOUD_NAME;
 const cloudUploadPreset = import.meta.env.VITE_CLOUD_UPLOAD_PRESET;
+const titleLimit = 140;
+const imageSizeLimit = 8 * 1024 * 1024;
+const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const categories = [
+  ["art", "Art"],
+  ["scitech", "Sci-Tech"],
+  ["sports", "Sports"],
+  ["cinema", "Cinema"],
+  ["food", "Food"],
+  ["travel", "Travel"],
+];
+
+const quillModules = {
+  toolbar: [
+    [{ header: [2, 3, 4, false] }],
+    ["bold", "italic", "underline", "strike"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    ["blockquote", "code-block"],
+    ["link"],
+    ["clean"],
+  ],
+  clipboard: { matchVisual: false },
+};
+
+const quillFormats = ["header", "bold", "italic", "underline", "strike", "list", "bullet", "blockquote", "code-block", "link"];
+
+const normalizeTags = (value) => {
+  if (Array.isArray(value)) {
+    const normalized = value.filter((tag) => typeof tag === "string" && tag.trim()).map((tag) => tag.trim());
+    return normalized.filter((tag, index) => normalized.findIndex((candidate) => candidate.toLowerCase() === tag.toLowerCase()) === index);
+  }
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? normalizeTags(parsed) : [];
+  } catch {
+    return [];
+  }
+};
+
+const normalizeCategory = (value) => ["tech", "technology", "science"].includes(value) ? "scitech" : value || "";
 
 const toDateTimeLocalValue = (value) => {
   if (!value) return "";
@@ -18,352 +76,527 @@ const toDateTimeLocalValue = (value) => {
   return localDate.toISOString().slice(0, 16);
 };
 
-const Write = () => {
-  const state = useLocation().state;
-  const [searchParams] = useSearchParams();
-  const editId = searchParams.get('edit');
-  const { theme, setTheme } = useThemeContext();
-  const [value, setValue] = useState(state?.desc || "");
-  const [title, setTitle] = useState(state?.title || "");
-  const [file, setFile] = useState(null);
-  const [cat, setCat] = useState(state?.cat || "");
-  const [scheduledDate, setScheduledDate] = useState(toDateTimeLocalValue(state?.scheduled_publish_date));
-  const [tags, setTags] = useState(state?.tags || []);
-  const [tagInput, setTagInput] = useState("");
-  const [featured, setFeatured] = useState(state?.featured || false);
-  const navigate = useNavigate();
+const getMinimumSchedule = () => {
+  const date = new Date(Date.now() + 60_000);
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+};
 
-  // Fetch post data when editing
+const getPlainText = (html) => {
+  if (!html) return "";
+  return new DOMParser().parseFromString(html, "text/html").body.textContent?.replace(/\s+/g, " ").trim() || "";
+};
+
+const snapshot = ({ title, value, category, scheduledDate, tags, featured, existingImage, coverRemoved, file }) => JSON.stringify({
+  title,
+  value,
+  category,
+  scheduledDate,
+  tags,
+  featured,
+  existingImage,
+  coverRemoved,
+  file: file ? `${file.name}:${file.size}:${file.lastModified}` : "",
+});
+
+const getErrorMessage = (error, fallback) => {
+  const response = error?.response?.data;
+  if (typeof response === "string") return response;
+  return response?.error || response?.message || fallback;
+};
+
+function LeaveDialog({ blocker, onLeave }) {
+  const stayButtonRef = useRef(null);
+
   useEffect(() => {
-    if (editId) {
-      const fetchPost = async () => {
-        try {
-          const res = await api.get(`/api/posts/${editId}/edit`);
-          const post = res.data;
-          setTitle(post.title);
-          setValue(post.desc);
-          setCat(post.cat || "");
-          setScheduledDate(toDateTimeLocalValue(post.scheduled_publish_date));
-          setTags(Array.isArray(post.tags) ? post.tags : JSON.parse(post.tags || "[]"));
-          setFeatured(post.featured || false);
-        } catch (err) {
-          console.log(err);
-        }
-      };
-      fetchPost();
-    }
-  }, [editId]);
-
-  const upload = async () => {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", cloudUploadPreset);
-      formData.append("cloud_name", cloudname);
-      const res = fetch(
-        `https://api.cloudinary.com/v1_1/${cloudname}/image/upload`,
-        {
-          method: "post",
-          body: formData,
-        }
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          return data.url;
-        });
-
-      return res;
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const handleClick = async (e, isDraft = false, keepSchedule = true) => {
-    e.preventDefault();
-    const imgUrl = file ? await upload() : "";
-    const scheduledPublishDate = keepSchedule && scheduledDate
-      ? new Date(scheduledDate).toISOString()
-      : null;
-
-    try {
-      (state || editId)
-        ? await api.put(`/api/posts/${state?.id || editId}`, {
-            title,
-            desc: value,
-            cat,
-            img: file ? imgUrl : "",
-            draft: isDraft,
-            scheduled_publish_date: scheduledPublishDate,
-            tags: tags,
-            featured: featured,
-          })
-        : await api.post(`/api/posts/`, {
-            title,
-            desc: value,
-            cat,
-            img: file ? imgUrl : "",
-            date: moment(Date.now()).format("YYYY-MM-DD HH:mm:ss"),
-            draft: isDraft,
-            scheduled_publish_date: scheduledPublishDate,
-            tags: tags,
-            featured: featured,
-          });
-      navigate("/");
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const handleSaveDraft = async (e) => {
-    e.preventDefault();
-    handleClick(e, true, false);
-  };
-
-  const handleAddTag = (e) => {
-    e.preventDefault();
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput("");
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
-
-  const getTimeRemaining = (scheduledDate) => {
-    const now = new Date();
-    const scheduled = new Date(scheduledDate);
-    const difference = scheduled.getTime() - now.getTime();
-
-    if (difference <= 0) {
-      return {
-        formatted: "Published!",
-        colorClass: "published"
-      };
-    }
-
-    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-    let formatted = "";
-    if (days > 0) {
-      formatted = `${days}d ${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-      formatted = `${hours}h ${minutes}m ${seconds}s`;
-    } else if (minutes > 0) {
-      formatted = `${minutes}m ${seconds}s`;
-    } else {
-      formatted = `${seconds}s`;
-    }
-
-    // Determine color based on time remaining
-    let colorClass = "";
-    if (days === 0 && hours === 0 && minutes <= 30) {
-      colorClass = "urgent"; // Less than 30 minutes - red
-    } else if (days === 0 && hours <= 2) {
-      colorClass = "warning"; // Less than 2 hours - orange
-    } else {
-      colorClass = "normal"; // More than 2 hours - green
-    }
-
-    return {
-      formatted,
-      colorClass
+    if (blocker.state !== "blocked") return undefined;
+    stayButtonRef.current?.focus();
+    const handleEscape = (event) => {
+      if (event.key === "Escape") blocker.reset();
     };
-  };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [blocker]);
 
+  if (blocker.state !== "blocked") return null;
   return (
-    <div className="add">
-      <div className="content">
-        <input
-          type="text"
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <div
-          className={
-            theme === "dark" ? "editorContainer dark" : "editorContainer"
-          }
-        >
-          <ReactQuill
-            className="editor"
-            theme="snow"
-            value={value}
-            onChange={setValue}
-          />
-        </div>
-      </div>
-      <div className="menu">
-        <div className="item">
-          <h1 className={theme === "dark" ? " dark" : ""}>Publish</h1>
-          <span className={theme === "dark" ? " dark" : ""}>
-            <b>Status: </b> Draft
-          </span>
-          <span className={theme === "dark" ? " dark" : ""}>
-            <b>Visibility: </b> Public
-          </span>
-          <div className="item">
-            <label className={theme === "dark" ? " dark" : ""}>
-              <b>Schedule Post: </b>
-            </label>
-            <input
-              type="datetime-local"
-              value={scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)}
-              className={theme === "dark" ? " dark" : ""}
-            />
-            {scheduledDate && (
-              <div className="countdown-display">
-                <p className={`countdown ${getTimeRemaining(scheduledDate).colorClass}`}>
-                  <strong>Time remaining:</strong> {getTimeRemaining(scheduledDate).formatted}
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="item">
-            <label className={theme === "dark" ? " dark" : ""}>
-              <b>Featured Post: </b>
-            </label>
-            <div>
-              <input
-                type="checkbox"
-                checked={featured}
-                onChange={(e) => setFeatured(e.target.checked)}
-                id="featured"
-              />
-              <label htmlFor="featured" className={theme === "dark" ? " dark" : ""}>
-                Mark as featured
-              </label>
-            </div>
-          </div>
-          <div className="item">
-            <label className={theme === "dark" ? " dark" : ""}>
-              <b>Tags: </b>
-            </label>
-            <div className="tags-container">
-              {tags.map((tag, index) => (
-                <span key={index} className="tag">
-                  {tag}
-                  <button 
-                    type="button" 
-                    onClick={() => handleRemoveTag(tag)}
-                    className="remove-tag-btn"
-                    aria-label={`Remove tag ${tag}`}
-                  >
-                    <X size={16} aria-hidden="true" />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <form onSubmit={handleAddTag} className="tag-input-form">
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                placeholder="Add a tag"
-                className={theme === "dark" ? " dark" : ""}
-              />
-              <button type="submit" className="btn-grad">Add</button>
-            </form>
-          </div>
-          <input
-            style={{ display: "none" }}
-            type="file"
-            id="file"
-            name=""
-            onChange={(e) => setFile(e.target.files[0])}
-          />
-          <label
-            className={theme === "dark" ? "file text dark" : "file text"}
-            htmlFor="file"
-          >
-            Upload Image
-          </label>
-          <div className="buttons">
-            <button className="btn-grad" onClick={handleSaveDraft}>
-              Save as a draft
-            </button>
-            <button onClick={handleClick} className="btn-grad">
-              {scheduledDate ? "Schedule" : "Publish"}
-            </button>
-          </div>
-        </div>
-        <div className="item">
-          <h1 className={theme === "dark" ? " dark" : ""}>Category</h1>
-          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
-            <input
-              type="radio"
-              checked={cat === "art"}
-              name="cat"
-              value="art"
-              id="art"
-              onChange={(e) => setCat(e.target.value)}
-            />
-            <label htmlFor="art">Art</label>
-          </div>
-          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
-            <input
-              type="radio"
-              checked={cat === "scitech"}
-              name="cat"
-              value="scitech"
-              id="scitech"
-              onChange={(e) => setCat(e.target.value)}
-            />
-            <label htmlFor="scitech">Sci-Tech</label>
-          </div>
-          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
-            <input
-              type="radio"
-              checked={cat === "sports"}
-              name="cat"
-              value="sports"
-              id="sports"
-              onChange={(e) => setCat(e.target.value)}
-            />
-            <label htmlFor="sports">Sports</label>
-          </div>
-          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
-            <input
-              type="radio"
-              checked={cat === "cinema"}
-              name="cat"
-              value="cinema"
-              id="cinema"
-              onChange={(e) => setCat(e.target.value)}
-            />
-            <label htmlFor="cinema">Cinema</label>
-          </div>
-          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
-            <input
-              type="radio"
-              checked={cat === "food"}
-              name="cat"
-              value="food"
-              id="food"
-              onChange={(e) => setCat(e.target.value)}
-            />
-            <label htmlFor="food">Food</label>
-          </div>
-          <div className={theme === "dark" ? "cat text dark" : "cat text"}>
-            <input
-              type="radio"
-              checked={cat === "travel"}
-              name="cat"
-              value="travel"
-              id="travel"
-              onChange={(e) => setCat(e.target.value)}
-            />
-            <label htmlFor="travel">Travel</label>
-          </div>
+    <div className="write-dialog-backdrop" role="presentation">
+      <div className="write-dialog" role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-description">
+        <h2 id="leave-title">Leave this draft?</h2>
+        <p id="leave-description">Your unsaved changes will be lost.</p>
+        <div className="write-dialog__actions">
+          <button ref={stayButtonRef} className="ui-button--secondary" type="button" onClick={() => blocker.reset()}>Keep writing</button>
+          <button className="ui-button--danger" type="button" onClick={onLeave}>Leave page</button>
         </div>
       </div>
     </div>
   );
-};
+}
 
-export default Write;
+export default function Write() {
+  const location = useLocation();
+  const routePost = location.state;
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const navigate = useNavigate();
+  const { currentUser } = useContext(AuthContext);
+  const fileInputRef = useRef(null);
+  const titleInputRef = useRef(null);
+  const navigationAllowedRef = useRef(false);
+
+  const routeTags = normalizeTags(routePost?.tags);
+  const [title, setTitle] = useState(routePost?.title || "");
+  const [value, setValue] = useState(routePost?.desc || "");
+  const [category, setCategory] = useState(normalizeCategory(routePost?.cat));
+  const [scheduledDate, setScheduledDate] = useState(toDateTimeLocalValue(routePost?.scheduled_publish_date));
+  const [tags, setTags] = useState(routeTags);
+  const [tagInput, setTagInput] = useState("");
+  const [featured, setFeatured] = useState(Boolean(routePost?.featured));
+  const [existingImage, setExistingImage] = useState(routePost?.img || "");
+  const [coverRemoved, setCoverRemoved] = useState(false);
+  const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(routePost?.img || "");
+  const [dragging, setDragging] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [feedback, setFeedback] = useState(null);
+  const [submitAction, setSubmitAction] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [editStatus, setEditStatus] = useState(editId ? "loading" : "ready");
+  const [originalStatus, setOriginalStatus] = useState(routePost?.draft ? (routePost?.scheduled_publish_date ? "scheduled" : "draft") : "published");
+
+  const initialSnapshotRef = useRef(snapshot({
+    title: routePost?.title || "",
+    value: routePost?.desc || "",
+    category: normalizeCategory(routePost?.cat),
+    scheduledDate: toDateTimeLocalValue(routePost?.scheduled_publish_date),
+    tags: routeTags,
+    featured: Boolean(routePost?.featured),
+    existingImage: routePost?.img || "",
+    coverRemoved: false,
+    file: null,
+  }));
+
+  const currentSnapshot = snapshot({ title, value, category, scheduledDate, tags, featured, existingImage, coverRemoved, file });
+  const isDirty = editStatus === "ready" && currentSnapshot !== initialSnapshotRef.current;
+  const blocker = useBlocker(isDirty && !navigationAllowedRef.current && !submitAction);
+
+  useBeforeUnload(useCallback((event) => {
+    if (!isDirty || navigationAllowedRef.current) return;
+    event.preventDefault();
+    event.returnValue = "";
+  }, [isDirty]));
+
+  useEffect(() => {
+    if (!editId || !currentUser) return undefined;
+    const controller = new AbortController();
+    setEditStatus("loading");
+    setFeedback(null);
+
+    api.get(`/api/posts/${editId}/edit`, { signal: controller.signal })
+      .then(({ data: post }) => {
+        const loadedTags = normalizeTags(post.tags);
+        const loadedSchedule = toDateTimeLocalValue(post.scheduled_publish_date);
+        const loadedFeatured = Boolean(post.featured);
+        setTitle(post.title || "");
+        setValue(post.desc || "");
+        const loadedCategory = normalizeCategory(post.cat);
+        setCategory(loadedCategory);
+        setScheduledDate(loadedSchedule);
+        setTags(loadedTags);
+        setFeatured(loadedFeatured);
+        setExistingImage(post.img || "");
+        setPreviewUrl(post.img || "");
+        setCoverRemoved(false);
+        setFile(null);
+        setOriginalStatus(post.draft ? (post.scheduled_publish_date ? "scheduled" : "draft") : "published");
+        initialSnapshotRef.current = snapshot({
+          title: post.title || "",
+          value: post.desc || "",
+          category: loadedCategory,
+          scheduledDate: loadedSchedule,
+          tags: loadedTags,
+          featured: loadedFeatured,
+          existingImage: post.img || "",
+          coverRemoved: false,
+          file: null,
+        });
+        setEditStatus("ready");
+      })
+      .catch((error) => {
+        if (error.name === "CanceledError" || error.code === "ERR_CANCELED") return;
+        setEditStatus("error");
+        setFeedback({ type: "error", message: getErrorMessage(error, "This article could not be loaded for editing.") });
+      });
+
+    return () => controller.abort();
+  }, [editId, currentUser]);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(coverRemoved ? "" : existingImage);
+      return undefined;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file, existingImage, coverRemoved]);
+
+  useEffect(() => {
+    const input = titleInputRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${input.scrollHeight}px`;
+  }, [title]);
+
+  const articleText = useMemo(() => getPlainText(value), [value]);
+  const wordCount = articleText ? articleText.split(/\s+/).length : 0;
+  const minimumSchedule = getMinimumSchedule();
+  const scheduleIsFuture = scheduledDate && new Date(scheduledDate).getTime() > Date.now();
+
+  const selectCover = (selectedFile) => {
+    setDragging(false);
+    setFieldErrors((errors) => ({ ...errors, cover: "" }));
+    if (!selectedFile) return;
+    if (!allowedImageTypes.has(selectedFile.type)) {
+      setFieldErrors((errors) => ({ ...errors, cover: "Choose a JPG, PNG, WebP, or GIF image." }));
+      return;
+    }
+    if (selectedFile.size > imageSizeLimit) {
+      setFieldErrors((errors) => ({ ...errors, cover: "Cover images must be 8 MB or smaller." }));
+      return;
+    }
+    setFile(selectedFile);
+    setCoverRemoved(false);
+  };
+
+  const removeCover = () => {
+    setFile(null);
+    setCoverRemoved(true);
+    setFieldErrors((errors) => ({ ...errors, cover: "" }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const addTag = () => {
+    const nextTag = tagInput.trim().replace(/^#/, "").replace(/\s+/g, "-");
+    if (!nextTag) return;
+    if (tags.length >= 8) {
+      setFieldErrors((errors) => ({ ...errors, tags: "You can add up to 8 tags." }));
+      return;
+    }
+    if (tags.some((tag) => tag.toLowerCase() === nextTag.toLowerCase())) {
+      setFieldErrors((errors) => ({ ...errors, tags: "That tag has already been added." }));
+      return;
+    }
+    setTags((current) => [...current, nextTag]);
+    setTagInput("");
+    setFieldErrors((errors) => ({ ...errors, tags: "" }));
+  };
+
+  const removeTag = (tagToRemove) => {
+    setTags((current) => current.filter((tag) => tag !== tagToRemove));
+    setFieldErrors((errors) => ({ ...errors, tags: "" }));
+  };
+
+  const uploadCover = async () => {
+    if (!file) return coverRemoved ? "" : existingImage;
+    if (!cloudName || !cloudUploadPreset) throw new Error("Image upload is not configured.");
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", cloudUploadPreset);
+    formData.append("cloud_name", cloudName);
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: "POST", body: formData });
+    const data = await response.json();
+    if (!response.ok || (!data.secure_url && !data.url)) throw new Error(data.error?.message || "Cover image upload failed.");
+    return data.secure_url || data.url;
+  };
+
+  const validate = (action) => {
+    const errors = {};
+    if (!title.trim()) errors.title = "Add a title before saving.";
+    if (action !== "draft" && !articleText) errors.content = "Write some article content before publishing.";
+    if (action !== "draft" && !category) errors.category = "Choose a category before publishing.";
+    if (action === "schedule") {
+      if (!scheduledDate) errors.schedule = "Choose a publication date and time.";
+      else if (!scheduleIsFuture) errors.schedule = "Scheduled publication must be in the future.";
+    }
+    setFieldErrors((current) => ({
+      ...current,
+      title: errors.title || "",
+      content: errors.content || "",
+      category: errors.category || "",
+      schedule: errors.schedule || "",
+    }));
+    if (Object.keys(errors).length > 0) {
+      const target = errors.title ? "post-title" : errors.content ? "post-editor" : errors.category ? "category-heading" : "schedule-date";
+      window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      return false;
+    }
+    return true;
+  };
+
+  const submit = async (action) => {
+    if (submitAction || editStatus !== "ready" || !validate(action)) return;
+    setSubmitAction(action);
+    setFeedback({ type: "progress", message: file ? "Uploading cover image…" : action === "draft" ? "Saving draft…" : action === "schedule" ? "Scheduling article…" : editId ? "Updating article…" : "Publishing article…" });
+
+    try {
+      setUploading(Boolean(file));
+      const imageUrl = await uploadCover();
+      setUploading(false);
+      setFeedback({ type: "progress", message: action === "draft" ? "Saving draft…" : action === "schedule" ? "Scheduling article…" : editId ? "Updating article…" : "Publishing article…" });
+      const payload = {
+        title: title.trim(),
+        desc: value,
+        cat: category,
+        img: imageUrl,
+        draft: action === "draft",
+        scheduled_publish_date: action === "schedule" ? new Date(scheduledDate).toISOString() : null,
+        tags,
+        featured,
+      };
+
+      const response = editId
+        ? await api.put(`/api/posts/${editId}`, payload)
+        : await api.post("/api/posts/", { ...payload, date: new Date().toISOString() });
+
+      const savedId = editId || response.data?.id;
+      navigationAllowedRef.current = true;
+      initialSnapshotRef.current = currentSnapshot;
+      setFeedback({
+        type: "success",
+        message: action === "draft" ? "Draft saved." : action === "schedule" ? "Article scheduled." : editId ? "Article updated." : "Article published.",
+      });
+
+      window.setTimeout(() => {
+        if (action === "draft") navigate("/drafts", { replace: true });
+        else if (action === "schedule") navigate("/scheduled", { replace: true });
+        else navigate(savedId ? `/post/${savedId}` : "/", { replace: true });
+      }, 450);
+    } catch (error) {
+      setUploading(false);
+      setFeedback({ type: "error", message: getErrorMessage(error, error.message || "Your article could not be saved. Please try again.") });
+      setSubmitAction(null);
+    }
+  };
+
+  const leavePage = () => {
+    navigationAllowedRef.current = true;
+    if (blocker.state === "blocked") blocker.proceed();
+  };
+
+  if (!currentUser) {
+    return (
+      <section className="write-access-state" aria-labelledby="write-access-title">
+        <FileText size={34} aria-hidden="true" />
+        <h1 id="write-access-title">Sign in to start writing</h1>
+        <p>Your drafts and publishing tools are available after you log in.</p>
+        <Link className="ui-button--primary" to="/login">Log in</Link>
+      </section>
+    );
+  }
+
+  if (editStatus === "loading") {
+    return <div className="write-loading" role="status"><LoaderCircle className="write-spinner" size={24} aria-hidden="true" /> Loading your article…</div>;
+  }
+
+  if (editStatus === "error") {
+    return (
+      <section className="write-access-state" aria-labelledby="write-error-title">
+        <FileText size={34} aria-hidden="true" />
+        <h1 id="write-error-title">This article can’t be edited</h1>
+        <p>{feedback?.message}</p>
+        <Link className="ui-button--secondary" to="/">Return home</Link>
+      </section>
+    );
+  }
+
+  const primaryLabel = editId ? (originalStatus === "published" ? "Update post" : "Publish now") : "Publish";
+  const draftLabel = editId && originalStatus === "published" ? "Move to drafts" : "Save draft";
+
+  return (
+    <div className="write-workspace">
+      <header className="write-workspace__header">
+        <div>
+          <span className="write-workspace__eyebrow">{editId ? "Editing story" : "New story"}</span>
+          <h1>{editId ? "Refine your story" : "Tell a story worth reading"}</h1>
+        </div>
+        <div className="write-workspace__status" aria-live="polite">
+          <span className={`write-dirty-indicator ${isDirty ? "is-dirty" : ""}`} aria-hidden="true" />
+          {isDirty ? "Unsaved changes" : editId ? "All changes saved" : "Ready to write"}
+        </div>
+      </header>
+
+      {feedback && (
+        <div className={`write-feedback write-feedback--${feedback.type}`} role={feedback.type === "error" ? "alert" : "status"}>
+          {feedback.type === "success" ? <CheckCircle2 size={18} aria-hidden="true" /> : feedback.type === "progress" ? <LoaderCircle className="write-spinner" size={18} aria-hidden="true" /> : <FileText size={18} aria-hidden="true" />}
+          <span>{feedback.message}</span>
+          {feedback.type === "error" && <button type="button" aria-label="Dismiss message" onClick={() => setFeedback(null)}>×</button>}
+        </div>
+      )}
+
+      <div className="write-workspace__grid">
+        <section className="write-canvas" aria-label="Story editor">
+          <div className={`write-title-field ${fieldErrors.title ? "has-error" : ""}`}>
+            <label className="sr-only" htmlFor="post-title">Article title</label>
+            <textarea
+              ref={titleInputRef}
+              id="post-title"
+              rows="2"
+              maxLength={titleLimit}
+              value={title}
+              placeholder="Your story starts with a title…"
+              onChange={(event) => {
+                setTitle(event.target.value.replace(/\n/g, ""));
+                setFieldErrors((errors) => ({ ...errors, title: "" }));
+              }}
+              aria-invalid={Boolean(fieldErrors.title)}
+              aria-describedby="title-count title-error"
+            />
+            <div className="write-title-field__meta">
+              <span className="write-field-error" id="title-error" role="alert">{fieldErrors.title}</span>
+              <span id="title-count">{title.length}/{titleLimit}</span>
+            </div>
+          </div>
+
+          <section className={`write-editor-shell ${fieldErrors.content ? "has-error" : ""}`} id="post-editor" aria-labelledby="editor-heading">
+            <div className="write-editor-shell__heading">
+              <h2 id="editor-heading">Story</h2>
+              <span>{wordCount} {wordCount === 1 ? "word" : "words"}</span>
+            </div>
+            <ReactQuill
+              className="write-editor"
+              theme="snow"
+              value={value}
+              onChange={(nextValue) => {
+                setValue(nextValue);
+                setFieldErrors((errors) => ({ ...errors, content: "" }));
+              }}
+              modules={quillModules}
+              formats={quillFormats}
+              placeholder="Write your story…"
+              preserveWhitespace
+            />
+            {fieldErrors.content && <p className="write-field-error write-editor-error" role="alert">{fieldErrors.content}</p>}
+          </section>
+        </section>
+
+        <aside className="write-settings" aria-label="Publishing settings">
+          <CoverImageField
+            inputRef={fileInputRef}
+            previewUrl={previewUrl}
+            fileName={file?.name}
+            error={fieldErrors.cover}
+            dragging={dragging}
+            uploading={uploading}
+            onFileChange={selectCover}
+            onDrop={(event) => { event.preventDefault(); selectCover(event.dataTransfer.files?.[0]); }}
+            onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onRemove={removeCover}
+          />
+
+          <section className="write-panel" aria-labelledby="category-heading">
+            <div className="write-panel__heading">
+              <div>
+                <span className="write-panel__eyebrow">Organization</span>
+                <h2 id="category-heading">Category</h2>
+              </div>
+              <ChevronRight size={19} aria-hidden="true" />
+            </div>
+            <div className="write-categories">
+              {categories.map(([valueName, label]) => (
+                <label className={category === valueName ? "is-selected" : ""} key={valueName}>
+                  <input
+                    type="radio"
+                    name="category"
+                    value={valueName}
+                    checked={category === valueName}
+                    onChange={(event) => {
+                      setCategory(event.target.value);
+                      setFieldErrors((errors) => ({ ...errors, category: "" }));
+                    }}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            {fieldErrors.category && <p className="write-field-error" role="alert">{fieldErrors.category}</p>}
+          </section>
+
+          <TagEditor tags={tags} input={tagInput} error={fieldErrors.tags} onInputChange={setTagInput} onAdd={addTag} onRemove={removeTag} />
+
+          <section className="write-panel" aria-labelledby="schedule-heading">
+            <div className="write-panel__heading">
+              <div>
+                <span className="write-panel__eyebrow">Timing</span>
+                <h2 id="schedule-heading">Schedule</h2>
+              </div>
+              <CalendarClock size={19} aria-hidden="true" />
+            </div>
+            <label className="write-control-label" htmlFor="schedule-date">Publication date and time</label>
+            <div className="write-schedule-control">
+              <input
+                id="schedule-date"
+                type="datetime-local"
+                min={minimumSchedule}
+                value={scheduledDate}
+                onChange={(event) => {
+                  setScheduledDate(event.target.value);
+                  setFieldErrors((errors) => ({ ...errors, schedule: "" }));
+                }}
+                aria-invalid={Boolean(fieldErrors.schedule)}
+              />
+              {scheduledDate && <button className="ui-button--ghost" type="button" onClick={() => setScheduledDate("")}>Clear</button>}
+            </div>
+            {scheduledDate && (
+              <p className={`write-schedule-summary ${scheduleIsFuture ? "" : "is-invalid"}`}>
+                {scheduleIsFuture ? `Ready to publish ${new Date(scheduledDate).toLocaleString()}.` : "Choose a future date and time."}
+              </p>
+            )}
+            {fieldErrors.schedule && <p className="write-field-error" role="alert">{fieldErrors.schedule}</p>}
+          </section>
+
+          <section className="write-panel write-feature-panel" aria-labelledby="featured-heading">
+            <div>
+              <span className="write-panel__eyebrow">Homepage</span>
+              <h2 id="featured-heading">Featured story</h2>
+              <p>Give this article additional prominence when it is published.</p>
+            </div>
+            <label className="write-switch">
+              <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
+              <span aria-hidden="true" />
+              <span className="sr-only">Mark as featured</span>
+            </label>
+          </section>
+
+          <section className="write-publish-panel" aria-labelledby="publish-heading">
+            <div className="write-publish-panel__heading">
+              <div>
+                <span className="write-panel__eyebrow">Finish</span>
+                <h2 id="publish-heading">Publish your story</h2>
+              </div>
+              <Sparkles size={19} aria-hidden="true" />
+            </div>
+            <button className="ui-button--primary write-primary-action" type="button" onClick={() => submit("publish")} disabled={Boolean(submitAction)} aria-busy={submitAction === "publish"}>
+              {submitAction === "publish" ? <LoaderCircle className="write-spinner" size={18} aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
+              {submitAction === "publish" ? "Working…" : primaryLabel}
+            </button>
+            <div className="write-secondary-actions">
+              <button className="ui-button--secondary" type="button" onClick={() => submit("draft")} disabled={Boolean(submitAction)} aria-busy={submitAction === "draft"}>
+                {submitAction === "draft" ? <LoaderCircle className="write-spinner" size={17} aria-hidden="true" /> : <Save size={17} aria-hidden="true" />}
+                {submitAction === "draft" ? "Saving…" : draftLabel}
+              </button>
+              <button className="ui-button--ghost" type="button" onClick={() => submit("schedule")} disabled={Boolean(submitAction)} aria-busy={submitAction === "schedule"}>
+                {submitAction === "schedule" ? <LoaderCircle className="write-spinner" size={17} aria-hidden="true" /> : <CalendarClock size={17} aria-hidden="true" />}
+                {submitAction === "schedule" ? "Scheduling…" : "Schedule"}
+              </button>
+            </div>
+            <p className="write-publish-note">Drafts can be incomplete. Publishing and scheduling require a title, story, and category.</p>
+          </section>
+        </aside>
+      </div>
+
+      <LeaveDialog blocker={blocker} onLeave={leavePage} />
+    </div>
+  );
+}
