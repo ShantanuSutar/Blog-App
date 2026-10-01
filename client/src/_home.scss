@@ -486,8 +486,8 @@
   button {
     display: inline-grid;
     flex: none;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     place-items: center;
     border: 0;
@@ -574,7 +574,7 @@
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  min-height: 36px;
+  min-height: 44px;
   padding-left: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
@@ -592,8 +592,8 @@
 
   button {
     display: inline-grid;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     place-items: center;
     border: 0;
@@ -692,6 +692,8 @@
   .home-filters__clear { min-width: 44px; padding-inline: var(--space-2); font-size: var(--font-size-caption); }
   .home-filters__controls { flex-direction: column; }
   .home-filters__search { max-width: none; }
+  .home-filters__search { flex-wrap: wrap; }
+  .home-filters__search-submit { flex-basis: 100%; width: 100%; }
   .home-filters__tag-control, .home-filters__tag-trigger { width: 100%; max-width: none; }
   .home-filters__tag-menu { left: 0; right: auto; width: 100%; }
   .home-filters__categories { max-width: 100%; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; padding-bottom: var(--space-2); scrollbar-width: thin; -webkit-overflow-scrolling: touch; }

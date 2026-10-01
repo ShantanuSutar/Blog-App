@@ -24,6 +24,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
+  min-height: 44px;
   color: var(--color-text-primary);
   text-decoration: none;
 
@@ -307,6 +308,8 @@ body.dark .auth-brand img {
   .auth-card {
     padding: var(--space-6) var(--space-5);
   }
+
+  .auth-card__footer a { display: inline-flex; align-items: center; min-height: 40px; padding-inline: var(--space-1); }
 
   .auth-card__heading {
     margin-bottom: var(--space-6);

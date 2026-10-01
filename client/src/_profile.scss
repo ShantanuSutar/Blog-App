@@ -307,7 +307,7 @@
 
 .followers-dialog {
   width: min(100%, 560px);
-  max-height: min(76vh, 680px);
+  max-height: min(76dvh, 680px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -640,7 +640,7 @@
   }
 
   .followers-dialog {
-    max-height: 86vh;
+    max-height: 86dvh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
 
@@ -671,7 +671,8 @@
   }
 
   .profile-edit-actions {
-    bottom: var(--space-2);
+    position: static;
+    bottom: auto;
 
     button {
       flex: 1;
