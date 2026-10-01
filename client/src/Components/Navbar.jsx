@@ -32,9 +32,10 @@ const Navbar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
-  const activeCategory = location.pathname === "/"
-    ? new URLSearchParams(location.search).get("cat")
-    : null;
+  const isBrowseRoute = location.pathname === "/" || location.pathname.startsWith("/tag/");
+  const locationParams = new URLSearchParams(location.search);
+  const activeCategory = isBrowseRoute ? locationParams.get("cat") : null;
+  const urlSearchQuery = isBrowseRoute ? locationParams.get("search") || "" : "";
   const avatarBaseUrl = import.meta.env.VITE_BASE_URL;
 
   const closePanels = () => {
@@ -53,6 +54,10 @@ const Navbar = () => {
   useEffect(() => {
     closePanels();
   }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    setSearchQuery(urlSearchQuery);
+  }, [urlSearchQuery]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
@@ -80,7 +85,12 @@ const Navbar = () => {
   const handleSearch = (event) => {
     event.preventDefault();
     const query = searchQuery.trim();
-    navigate(query ? `/?search=${encodeURIComponent(query)}` : "/");
+    const nextParams = new URLSearchParams(isBrowseRoute ? location.search : "");
+    if (query) nextParams.set("search", query);
+    else nextParams.delete("search");
+    const nextQuery = nextParams.toString();
+    const pathname = isBrowseRoute ? location.pathname : "/";
+    navigate(nextQuery ? `${pathname}?${nextQuery}` : pathname);
     closePanels();
   };
 
@@ -96,17 +106,23 @@ const Navbar = () => {
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
   const profileUrl = `/profile/${currentUser?.username}`;
 
-  const categoryLinks = categories.map(({ label, value }) => (
-    <Link
-      key={value}
-      to={`/?cat=${value}`}
-      className="nav-topic"
-      aria-current={activeCategory === value ? "page" : undefined}
-      onClick={closePanels}
-    >
-      {label}
-    </Link>
-  ));
+  const categoryLinks = categories.map(({ label, value }) => {
+    const nextParams = new URLSearchParams(isBrowseRoute ? location.search : "");
+    nextParams.set("cat", value);
+    const pathname = isBrowseRoute ? location.pathname : "/";
+
+    return (
+      <Link
+        key={value}
+        to={`${pathname}?${nextParams.toString()}`}
+        className="nav-topic"
+        aria-current={activeCategory === value ? "page" : undefined}
+        onClick={closePanels}
+      >
+        {label}
+      </Link>
+    );
+  });
 
   return (
     <header ref={headerRef} className={`site-header${scrolled ? " is-scrolled" : ""}`}>
@@ -133,6 +149,7 @@ const Navbar = () => {
             aria-expanded={searchOpen}
             aria-controls="nav-search"
             onClick={() => {
+              if (!searchOpen) setSearchQuery(urlSearchQuery);
               setSearchOpen(!searchOpen);
               setProfileOpen(false);
               setMobileOpen(false);

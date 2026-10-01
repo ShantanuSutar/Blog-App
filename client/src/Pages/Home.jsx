@@ -8,7 +8,7 @@ import Newsletter from "../Components/Newsletter";
 import HomeFilters from "../Components/home/HomeFilters";
 import HomeSkeleton from "../Components/home/HomeSkeleton";
 import PostCard from "../Components/home/PostCard";
-import { getPostTags } from "../Components/home/postPresentation";
+import { getPostExcerpt, getPostTags } from "../Components/home/postPresentation";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 const createFeed = (key) => ({ key, posts: [], page: 1, totalPages: 1, status: "loading", loadMoreStatus: "idle" });
@@ -18,12 +18,44 @@ function getPostsFromResponse(data) {
   return Array.isArray(data?.posts) ? data.posts : [];
 }
 
-function getBrowseUrl(category, search) {
+const categoryLabels = {
+  art: "Art",
+  scitech: "Sci-Tech",
+  sports: "Sports",
+  cinema: "Cinema",
+  food: "Food",
+  travel: "Travel",
+};
+
+function getBrowseUrl({ category = "", search = "", tag = "" }) {
   const params = new URLSearchParams();
   if (category) params.set("cat", category);
-  if (search) params.set("search", search);
+  if (search.trim()) params.set("search", search.trim());
   const query = params.toString();
-  return query ? `/?${query}` : "/";
+  const pathname = tag ? `/tag/${encodeURIComponent(tag)}` : "/";
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+function filterTaggedPosts(posts, { category, search, tag }) {
+  const normalizedTag = tag.toLocaleLowerCase();
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+
+  return posts.filter((post) => {
+    const hasExactTag = getPostTags(post.tags).some((postTag) => postTag.toLocaleLowerCase() === normalizedTag);
+    if (!hasExactTag || (category && post.cat !== category)) return false;
+    if (!normalizedSearch) return true;
+
+    const searchableText = `${post.title || ""} ${getPostExcerpt(post.desc, Number.MAX_SAFE_INTEGER)}`.toLocaleLowerCase();
+    return searchableText.includes(normalizedSearch);
+  });
+}
+
+function getResultsHeading({ category, search, tag }) {
+  if (search) return `Results for “${search}”`;
+  if (tag && category) return `#${tag} stories in ${categoryLabels[category] || category}`;
+  if (tag) return `Stories tagged #${tag}`;
+  if (category) return `${categoryLabels[category] || category} stories`;
+  return "Latest stories";
 }
 
 export default function Home() {
@@ -34,7 +66,7 @@ export default function Home() {
   const params = new URLSearchParams(location.search);
   const category = params.get("cat") || "";
   const search = params.get("search") || "";
-  const activeTag = urlTag || "";
+  const activeTag = urlTag?.trim() || "";
   const filterKey = JSON.stringify([category, search, activeTag]);
   const hasFilters = Boolean(category || search || activeTag);
   const sentinelRef = useRef(null);
@@ -43,7 +75,7 @@ export default function Home() {
   const [requestVersion, setRequestVersion] = useState(0);
   const [featured, setFeatured] = useState({ posts: [], status: "loading" });
   const [featuredVersion, setFeaturedVersion] = useState(0);
-  const [allTags, setAllTags] = useState([]);
+  const [tagDiscovery, setTagDiscovery] = useState({ tags: [], status: "loading" });
 
   useEffect(() => {
     setFeed((current) => current.key === filterKey ? current : createFeed(filterKey));
@@ -66,7 +98,10 @@ export default function Home() {
           response = await axios.get(`${baseUrl}/api/posts?${query.toString()}`, { signal: controller.signal });
         }
 
-        const nextPosts = getPostsFromResponse(response.data);
+        const responsePosts = getPostsFromResponse(response.data);
+        const nextPosts = activeTag
+          ? filterTaggedPosts(responsePosts, { category, search, tag: activeTag })
+          : responsePosts;
         const reportedPages = Number(response.data?.totalPages);
         const totalPages = activeTag || nextPosts.length === 0
           ? page
@@ -114,12 +149,16 @@ export default function Home() {
 
   useEffect(() => {
     const controller = new AbortController();
-    axios.get(`${baseUrl}/api/posts`, { signal: controller.signal })
+    axios.get(`${baseUrl}/api/posts?limit=100`, { signal: controller.signal })
       .then((response) => {
         const tags = getPostsFromResponse(response.data).flatMap((post) => getPostTags(post.tags));
-        setAllTags([...new Set(tags)].sort((a, b) => a.localeCompare(b)));
+        setTagDiscovery({ tags: [...new Set(tags)].sort((a, b) => a.localeCompare(b)), status: "success" });
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (!controller.signal.aborted && !axios.isCancel(error)) {
+          setTagDiscovery((current) => ({ ...current, status: "error" }));
+        }
+      });
     return () => controller.abort();
   }, []);
 
@@ -147,11 +186,15 @@ export default function Home() {
     setFeaturedVersion((version) => version + 1);
   };
 
-  const handleCategory = (value) => navigate(getBrowseUrl(value, search));
-  const handleSearch = (value) => navigate(getBrowseUrl(activeTag ? "" : category, value));
-  const handleTag = (value) => navigate(`/tag/${encodeURIComponent(value)}`);
+  const handleCategory = (value) => navigate(getBrowseUrl({ category: value, search, tag: activeTag }));
+  const handleSearch = (value) => navigate(getBrowseUrl({ category, search: value, tag: activeTag }));
+  const handleTag = (value) => navigate(getBrowseUrl({ category, search, tag: value }));
   const visibleFeed = feed.key === filterKey ? feed : createFeed(filterKey);
-  const visibleTags = [...new Set([...allTags, ...featured.posts.flatMap((post) => getPostTags(post.tags)), ...visibleFeed.posts.flatMap((post) => getPostTags(post.tags)), ...(activeTag ? [activeTag] : [])])].sort((a, b) => a.localeCompare(b));
+  const visibleTags = [...new Set([...tagDiscovery.tags, ...featured.posts.flatMap((post) => getPostTags(post.tags)), ...visibleFeed.posts.flatMap((post) => getPostTags(post.tags)), ...(activeTag ? [activeTag] : [])])].sort((a, b) => a.localeCompare(b));
+  const resultsHeading = getResultsHeading({ category, search, tag: activeTag });
+  const searchContext = search && (category || activeTag)
+    ? `Searching within ${[category ? categoryLabels[category] || category : "", activeTag ? `#${activeTag}` : ""].filter(Boolean).join(" and ")}.`
+    : "";
 
   return (
     <div className="home-page">
@@ -174,13 +217,25 @@ export default function Home() {
         </section>
       )}
 
-      <HomeFilters activeCategory={category} activeTag={activeTag} searchQuery={search} tags={visibleTags} onSearch={handleSearch} onCategory={handleCategory} onTag={handleTag} onClear={() => navigate("/")} />
+      <HomeFilters
+        activeCategory={category}
+        activeTag={activeTag}
+        searchQuery={search}
+        tags={visibleTags}
+        tagsStatus={visibleTags.length ? "success" : tagDiscovery.status}
+        isLoading={visibleFeed.status === "loading"}
+        onSearch={handleSearch}
+        onCategory={handleCategory}
+        onTag={handleTag}
+        onClear={() => navigate("/")}
+      />
 
       <section className="home-latest" aria-labelledby="latest-heading">
         <div className="home-section-heading">
           <div>
             <span className="home-section-kicker">The feed</span>
-            <h2 id="latest-heading">{activeTag ? `Stories tagged #${activeTag}` : search ? `Results for “${search}”` : category ? `${category === "scitech" ? "Sci-Tech" : category.charAt(0).toUpperCase() + category.slice(1)} stories` : "Latest stories"}</h2>
+            <h2 id="latest-heading">{resultsHeading}</h2>
+            {searchContext && <p className="home-section-heading__context">{searchContext}</p>}
           </div>
           {!hasFilters && <span className="home-section-heading__note">Fresh perspectives, one story at a time <ArrowRight size={16} aria-hidden="true" /></span>}
         </div>
