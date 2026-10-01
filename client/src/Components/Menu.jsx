@@ -38,7 +38,6 @@ const Menu = ({ cat }) => {
     setPosts((prev) => shuffle(prev));
   };
   useEffect(() => {
-    console.log('Menu useEffect triggered with cat:', cat);
     const fetchData = async () => {
       try {
         const res = await axios.get(`${URL}/api/posts/?cat=${cat}`);
@@ -57,9 +56,9 @@ const Menu = ({ cat }) => {
 
   return (
     <div className="menu">
-      <h1 className={theme === "dark" ? "dark" : ""}>
+      <h2 className={theme === "dark" ? "dark" : ""}>
         Other posts you may like
-      </h1>
+      </h2>
       {Array.isArray(posts) && posts.length > 0 ? (
         posts.map((post) => (
           <Link className="post" key={post.id} to={`/post/${post.id}`} onClick={handleClick}>

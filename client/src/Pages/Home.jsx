@@ -1,568 +1,207 @@
 import axios from "axios";
-import api from "../api/axios";
-import { useEffect, useState, useContext, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowRight, CircleCheck, RotateCcw } from "lucide-react";
 import { useThemeContext } from "../Context/theme";
-import { Search, Star, FileText, Eye, BookOpen, ChevronDown, CircleCheck } from "lucide-react";
-import { AuthContext } from "../AuthContext/authContext";
-import Tilt from "react-parallax-tilt";
 import Menu from "../Components/Menu";
 import Newsletter from "../Components/Newsletter";
-import { calculateReadingTime } from "../utils/readingTime";
-import ReactionButtons from "../Components/ReactionButtons.jsx";
-import BookmarkButton from "../Components/BookmarkButton.jsx";
+import HomeFilters from "../Components/home/HomeFilters";
+import HomeSkeleton from "../Components/home/HomeSkeleton";
+import PostCard from "../Components/home/PostCard";
+import { getPostTags } from "../Components/home/postPresentation";
 
-const Home = () => {
-  console.log('Home component rendering...');
-  const { theme, setTheme } = useThemeContext();
-  const { currentUser } = useContext(AuthContext);
-  const [loading, setLoading] = useState(false);
-  const [posts, setPosts] = useState([]);
-  const [allTags, setAllTags] = useState([]);
-  const [filteredTags, setFilteredTags] = useState([]);
-  const [selectedTag, setSelectedTag] = useState(null);
-  const [tagSearch, setTagSearch] = useState('');
-  const [postsSearchQuery, setPostsSearchQuery] = useState('');
+const baseUrl = import.meta.env.VITE_BASE_URL;
+const createFeed = (key) => ({ key, posts: [], page: 1, totalPages: 1, status: "loading", loadMoreStatus: "idle" });
 
-  // Pagination
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+function getPostsFromResponse(data) {
+  if (Array.isArray(data)) return data;
+  return Array.isArray(data?.posts) ? data.posts : [];
+}
 
-  // Reset page on filter change
+function getBrowseUrl(category, search) {
+  const params = new URLSearchParams();
+  if (category) params.set("cat", category);
+  if (search) params.set("search", search);
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
+}
 
-
+export default function Home() {
+  const { theme } = useThemeContext();
   const navigate = useNavigate();
   const location = useLocation();
+  const { tag: urlTag } = useParams();
   const params = new URLSearchParams(location.search);
-  const catParam = params.get('cat');
-  const cat = catParam ? `?cat=${catParam}` : '';
-  const search = params.get('search') || '';
+  const category = params.get("cat") || "";
+  const search = params.get("search") || "";
+  const activeTag = urlTag || "";
+  const filterKey = JSON.stringify([category, search, activeTag]);
+  const hasFilters = Boolean(category || search || activeTag);
+  const sentinelRef = useRef(null);
 
-  const URL = import.meta.env.VITE_BASE_URL;
+  const [feed, setFeed] = useState(() => createFeed(filterKey));
+  const [requestVersion, setRequestVersion] = useState(0);
+  const [featured, setFeatured] = useState({ posts: [], status: "loading" });
+  const [featuredVersion, setFeaturedVersion] = useState(0);
+  const [allTags, setAllTags] = useState([]);
 
-
-
-  // Featured posts
-  const [featuredPosts, setFeaturedPosts] = useState([]);
-
-  // Reading time helper (now using centralized utility)
-  // You can pass custom WPM if needed: calculateReadingTime(text, 150) for technical content
-
-  // Fetch featured posts
   useEffect(() => {
+    setFeed((current) => current.key === filterKey ? current : createFeed(filterKey));
+  }, [filterKey]);
+
+  useEffect(() => {
+    if (feed.key !== filterKey) return;
+    const controller = new AbortController();
+    const page = feed.page;
+
+    const fetchPosts = async () => {
+      try {
+        let response;
+        if (activeTag) {
+          response = await axios.get(`${baseUrl}/api/posts/tag/${encodeURIComponent(activeTag)}`, { signal: controller.signal });
+        } else {
+          const query = new URLSearchParams({ page: String(page), limit: "10" });
+          if (category) query.set("cat", category);
+          if (search) query.set("search", search);
+          response = await axios.get(`${baseUrl}/api/posts?${query.toString()}`, { signal: controller.signal });
+        }
+
+        const nextPosts = getPostsFromResponse(response.data);
+        const reportedPages = Number(response.data?.totalPages);
+        const totalPages = activeTag || nextPosts.length === 0
+          ? page
+          : Number.isFinite(reportedPages) && reportedPages > 0 ? Math.max(page, reportedPages) : page;
+
+        setFeed((current) => {
+          if (current.key !== filterKey || current.page !== page) return current;
+          const seen = new Set(page === 1 ? [] : current.posts.map((post) => post.id));
+          const additions = nextPosts.filter((post) => !seen.has(post.id));
+          return {
+            ...current,
+            posts: page === 1 ? nextPosts : [...current.posts, ...additions],
+            totalPages: additions.length === 0 ? page : totalPages,
+            status: "success",
+            loadMoreStatus: "idle",
+          };
+        });
+      } catch (error) {
+        if (controller.signal.aborted || axios.isCancel(error)) return;
+        setFeed((current) => current.key !== filterKey || current.page !== page
+          ? current
+          : { ...current, status: page === 1 ? "error" : current.status, loadMoreStatus: page === 1 ? "idle" : "error" });
+      }
+    };
+
+    fetchPosts();
+    return () => controller.abort();
+  }, [feed.key, feed.page, filterKey, activeTag, category, search, requestVersion]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     const fetchFeatured = async () => {
       try {
-        const res = await axios.get(`${URL}/api/posts/featured`);
-        setFeaturedPosts(res.data);
-      } catch (err) {
-        console.log('Error fetching featured posts:', err);
+        const response = await axios.get(`${baseUrl}/api/posts/featured`, { signal: controller.signal });
+        setFeatured({ posts: getPostsFromResponse(response.data), status: "success" });
+      } catch (error) {
+        if (!controller.signal.aborted && !axios.isCancel(error)) {
+          setFeatured((current) => ({ ...current, status: "error" }));
+        }
       }
     };
     fetchFeatured();
-  }, [URL]);
-
-  // Extract tag from URL path (for /tag/:tag routes)
-  const pathSegments = location.pathname.split('/');
-  const urlTag = pathSegments[1] === 'tag' ? pathSegments[2] : null;
-
-  // Reset page on filter change
-  useEffect(() => {
-    setPage(1);
-  }, [cat, search, selectedTag, urlTag]);
-
-  // Infinite Scroll - Auto load more posts when reaching bottom
-  useEffect(() => {
-    const handleLoadMore = () => {
-      if (!isLoadingMore && page < totalPages) {
-        setPage(prevPage => prevPage + 1);
-      }
-    };
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const firstEntry = entries[0];
-        if (firstEntry.isIntersecting) {
-          handleLoadMore();
-        }
-      },
-      {
-        threshold: 0.1,
-        rootMargin: '200px' // Increased trigger zone for smoother experience
-      }
-    );
-
-    let sentinelElement = document.getElementById('sentinel');
-    if (sentinelElement) {
-      observer.observe(sentinelElement);
-    }
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [page, totalPages, isLoadingMore]);
-
-  console.log('Home component state:', { theme, loading, posts: posts.length, allTags: allTags.length, filteredTags: filteredTags.length, selectedTag, tagSearch, cat, urlTag, URL });
-
-  // Filter tags based on search input
-  useEffect(() => {
-    if (tagSearch) {
-      setFilteredTags(
-        allTags.filter(tag =>
-          tag.toLowerCase().includes(tagSearch.toLowerCase())
-        )
-      );
-    } else {
-      setFilteredTags(allTags);
-    }
-  }, [tagSearch, allTags]);
+    return () => controller.abort();
+  }, [featuredVersion]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      // Only show full screen loading on initial page load (page 1)
-      if (page === 1) {
-        setLoading(true);
-      }
-      try {
-        let apiUrl;
-
-        if (urlTag) {
-          apiUrl = `${URL}/api/posts/tag/${urlTag}`;
-        } else if (selectedTag) {
-          apiUrl = `${URL}/api/posts/tag/${selectedTag}`;
-        } else {
-          // Base query
-          apiUrl = `${URL}/api/posts` + (cat ? cat : '?');
-          if (!cat.includes('?')) apiUrl = `${URL}/api/posts?` + (cat ? cat : ''); // Correct generic logic
-
-          if (cat) apiUrl = `${URL}/api/posts${cat}`;
-          else apiUrl = `${URL}/api/posts?`;
-
-          if (search) apiUrl += `&search=${search}`;
-
-          apiUrl += `&page=${page}&limit=10`; // Increased from 5 to 10 for better UX
-        }
-
-        const res = await axios.get(apiUrl);
-
-        if (res.data.posts) {
-          if (page === 1) {
-            setPosts(res.data.posts);
-          } else {
-            // For infinite scroll, append new posts
-            setPosts(prevPosts => [...prevPosts, ...res.data.posts]);
-          }
-          setTotalPages(res.data.totalPages);
-        } else {
-          // Fallback for tags calls that return direct array
-          setPosts(Array.isArray(res.data) ? res.data : []);
-          setTotalPages(1);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setPosts([]);
-      } finally {
-        if (page === 1) {
-          setLoading(false);
-        }
-      }
-    };
-    fetchData();
-  }, [cat, selectedTag, urlTag, URL, search, page]);
-
-  // Fetch all tags to populate the filter dropdown
-  useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        const res = await axios.get(`${URL}/api/posts`);
-        const allPostTags = [];
-        const postsData = res.data.posts || (Array.isArray(res.data) ? res.data : []);
-
-        postsData.forEach(post => {
-          if (post.tags) {
-            try {
-              const postTags = typeof post.tags === 'string' ? JSON.parse(post.tags) : post.tags;
-              postTags.forEach(tag => {
-                if (!allPostTags.includes(tag)) {
-                  allPostTags.push(tag);
-                }
-              });
-            } catch (e) {
-              console.error('Error parsing tags:', e);
-            }
-          }
-        });
-        setAllTags(allPostTags);
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    fetchTags();
+    const controller = new AbortController();
+    axios.get(`${baseUrl}/api/posts`, { signal: controller.signal })
+      .then((response) => {
+        const tags = getPostsFromResponse(response.data).flatMap((post) => getPostTags(post.tags));
+        setAllTags([...new Set(tags)].sort((a, b) => a.localeCompare(b)));
+      })
+      .catch(() => {});
+    return () => controller.abort();
   }, []);
 
-  const getText = (html) => {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    return doc.body.textContent;
-  };
-
-  // Format large numbers (e.g., 1.2K, 3.5M, 1.0B)
-  const formatCount = (count) => {
-    if (count >= 1000000000) {
-      return (count / 1000000000).toFixed(1) + 'B';
-    }
-    if (count >= 1000000) {
-      return (count / 1000000).toFixed(1) + 'M';
-    }
-    if (count >= 1000) {
-      return (count / 1000).toFixed(1) + 'K';
-    }
-    return count.toString();
-  };
-
-  const handleTagChange = (e) => {
-    const tag = e.target.value;
-    setSelectedTag(tag || null);
-    if (!tag) {
-      navigate('/');
-    }
-  };
-
-  const clearFilter = () => {
-    setSelectedTag(null);
-    navigate('/');
-  };
-
-  // State for dropdown visibility
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isDropdownOpen && !event.target.closest('.custom-tag-dropdown')) {
-        setIsDropdownOpen(false);
-      }
-    };
+    if (feed.key !== filterKey || feed.status !== "success" || feed.loadMoreStatus !== "idle" || feed.page >= feed.totalPages || !feed.posts.length) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      setFeed((current) => current.key === filterKey && current.loadMoreStatus === "idle" && current.page < current.totalPages
+        ? { ...current, page: current.page + 1, loadMoreStatus: "loading" }
+        : current);
+    }, { rootMargin: "240px 0px", threshold: 0 });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [feed.key, feed.status, feed.loadMoreStatus, feed.page, feed.totalPages, feed.posts.length, filterKey]);
 
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [isDropdownOpen]);
+  const retryFeed = () => {
+    setFeed((current) => ({ ...current, status: current.page === 1 ? "loading" : current.status, loadMoreStatus: current.page === 1 ? "idle" : "loading" }));
+    setRequestVersion((version) => version + 1);
+  };
 
-  if (loading) {
-    return (
-      <div className={`${theme === "dark" ? "dark" : ""} loading-container`}>
-        <div className="loader"></div>
-        <p className={`${theme === "dark" ? "text dark" : "text"}`}>Loading stories...</p>
-      </div>
-    );
-  }
+  const retryFeatured = () => {
+    setFeatured((current) => ({ ...current, status: "loading" }));
+    setFeaturedVersion((version) => version + 1);
+  };
+
+  const handleCategory = (value) => navigate(getBrowseUrl(value, search));
+  const handleSearch = (value) => navigate(getBrowseUrl(activeTag ? "" : category, value));
+  const handleTag = (value) => navigate(`/tag/${encodeURIComponent(value)}`);
+  const visibleFeed = feed.key === filterKey ? feed : createFeed(filterKey);
+  const visibleTags = [...new Set([...allTags, ...featured.posts.flatMap((post) => getPostTags(post.tags)), ...visibleFeed.posts.flatMap((post) => getPostTags(post.tags)), ...(activeTag ? [activeTag] : [])])].sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className={theme === "dark" ? "home dark" : "home"}>
-      <div className={`main-content ${theme === "dark" ? "dark" : ""}`}>
-        <div className={`filter-section ${theme === "dark" ? "dark" : ""}`}>
-          <div className="filters-container">
-            <div className="tag-filter">
-              <div className="custom-tag-dropdown">
-                <button type="button"
-                  className={`dropdown-header ${theme === "dark" ? "dark" : ""} ${isDropdownOpen ? "open" : ""}`}
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  aria-expanded={isDropdownOpen}
-                  aria-label="Filter posts by tag"
-                >
-                  <span>{selectedTag || "Filter by Tag"}</span>
-                  <ChevronDown className="dropdown-arrow" size={16} aria-hidden="true" />
-                </button>
+    <div className="home-page">
+      <header className="home-page__intro">
+        <span className="home-section-kicker">Unsaid · Stories and more</span>
+        <h1>Stories worth slowing down for.</h1>
+        <p>Ideas, experiences, and perspectives from the voices behind Unsaid.</p>
+      </header>
 
-                {isDropdownOpen && (
-                  <div className={`dropdown-content ${theme === "dark" ? "dark" : ""}`}>
-                    <div className="search-container">
-                      <input
-                        type="text"
-                        placeholder="Search tags..."
-                        value={tagSearch}
-                        onChange={(e) => setTagSearch(e.target.value)}
-                        className={theme === "dark" ? "tag-search-input dark" : "tag-search-input"}
-                        autoFocus
-                      />
-                    </div>
-                    <div className="tags-list">
-                      {filteredTags.length > 0 ? (
-                        filteredTags.map((tag, index) => (
-                          <button type="button"
-                            key={index}
-                            className={`tag-option ${theme === 'dark' ? 'dark' : ''}`}
-                            onClick={() => {
-                              setSelectedTag(tag);
-                              setIsDropdownOpen(false);
-                              navigate(`/tag/${tag}`);
-                            }}
-                          >
-                            {tag}
-                          </button>
-                        ))
-                      ) : (
-                        <div className={`no-tags ${theme === 'dark' ? 'dark' : ''}`}>No tags found</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {selectedTag && (
-                <button
-                  onClick={clearFilter}
-                  className="btn-grad"
-                >
-                  Clear Filter
-                </button>
-              )}
+      {!hasFilters && (
+        <section className="home-featured" aria-labelledby="featured-heading">
+          <div className="home-section-heading"><div><span className="home-section-kicker">Editor’s selection</span><h2 id="featured-heading">Featured stories</h2></div></div>
+          {featured.status === "loading" && <HomeSkeleton featured count={2} />}
+          {featured.status === "error" && <div className="home-state home-state--compact" role="alert"><p>Featured stories couldn’t be loaded.</p><button className="ui-button--secondary" type="button" onClick={retryFeatured}><RotateCcw size={16} aria-hidden="true" /> Try again</button></div>}
+          {featured.status === "success" && featured.posts.length > 0 && (
+            <div className="home-featured-grid">
+              {featured.posts.map((post, index) => <PostCard key={post.id} post={post} featured priority={index === 0} theme={theme} baseUrl={baseUrl} />)}
             </div>
+          )}
+        </section>
+      )}
 
-            <div className="post-search-filter">
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (postsSearchQuery.trim()) {
-                  navigate(`/?search=${postsSearchQuery}`);
-                } else {
-                  navigate('/');
-                }
-              }}>
-                <input
-                  type="text"
-                  placeholder="Search posts..."
-                  value={postsSearchQuery}
-                  onChange={(e) => setPostsSearchQuery(e.target.value)}
-                  className={theme === "dark" ? "post-search-input dark" : "post-search-input"}
-                />
-                <button type="submit" className="post-search-button" aria-label="Search posts"><Search size={20} aria-hidden="true" /></button>
-              </form>
-            </div>
+      <HomeFilters activeCategory={category} activeTag={activeTag} searchQuery={search} tags={visibleTags} onSearch={handleSearch} onCategory={handleCategory} onTag={handleTag} onClear={() => navigate("/")} />
 
-            {search && (
-              <button
-                onClick={() => {
-                  setPostsSearchQuery('');
-                  navigate('/');
-                }}
-                className="btn-grad clear-btn"
-              >
-                Clear Search
-              </button>
+      <section className="home-latest" aria-labelledby="latest-heading">
+        <div className="home-section-heading">
+          <div>
+            <span className="home-section-kicker">The feed</span>
+            <h2 id="latest-heading">{activeTag ? `Stories tagged #${activeTag}` : search ? `Results for “${search}”` : category ? `${category === "scitech" ? "Sci-Tech" : category.charAt(0).toUpperCase() + category.slice(1)} stories` : "Latest stories"}</h2>
+          </div>
+          {!hasFilters && <span className="home-section-heading__note">Fresh perspectives, one story at a time <ArrowRight size={16} aria-hidden="true" /></span>}
+        </div>
+        <div className="home-feed-layout">
+          <div className="home-feed-layout__main" aria-live="polite" aria-busy={visibleFeed.status === "loading"}>
+            {visibleFeed.status === "loading" && <HomeSkeleton count={3} />}
+            {visibleFeed.status === "error" && <div className="home-state" role="alert"><h3>We couldn’t load the stories.</h3><p>Check your connection and try again.</p><button className="ui-button--primary" type="button" onClick={retryFeed}><RotateCcw size={16} aria-hidden="true" /> Retry</button></div>}
+            {visibleFeed.status === "success" && visibleFeed.posts.length === 0 && <div className="home-state"><h3>{hasFilters ? "No stories match these filters" : "No stories yet"}</h3><p>{hasFilters ? "Try another category, tag, or search term." : "Check back soon for new stories."}</p>{hasFilters && <button className="ui-button--secondary" type="button" onClick={() => navigate("/")}>Clear filters</button>}</div>}
+            {visibleFeed.posts.length > 0 && (
+              <>
+                <div className="home-feed-list">{visibleFeed.posts.map((post) => <PostCard key={post.id} post={post} theme={theme} baseUrl={baseUrl} />)}</div>
+                {visibleFeed.loadMoreStatus === "loading" && <div className="home-load-more" role="status"><HomeSkeleton count={1} /><p>Loading more stories…</p></div>}
+                {visibleFeed.loadMoreStatus === "error" && <div className="home-state home-state--compact" role="alert"><p>More stories couldn’t be loaded. Your current stories are still here.</p><button className="ui-button--secondary" type="button" onClick={retryFeed}><RotateCcw size={16} aria-hidden="true" /> Retry loading</button></div>}
+                {visibleFeed.loadMoreStatus === "idle" && visibleFeed.page >= visibleFeed.totalPages && <p className="home-feed-end" role="status"><CircleCheck size={17} aria-hidden="true" /> You’re all caught up.</p>}
+                <div ref={sentinelRef} className="home-scroll-sentinel" aria-hidden="true" />
+              </>
             )}
           </div>
-          {selectedTag && (
-            <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginTop: '20px' }}>Posts tagged with: <span className="highlight-tag">{selectedTag}</span></h2>
-          )}
-        {search && (
-            <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginTop: '20px' }}>Search results for: <span className="highlight-tag">{search}</span></h2>
-          )}
+          <aside className="home-sidebar" aria-label="More from Unsaid"><Menu cat={category} /><Newsletter /></aside>
         </div>
-
-        {/* Featured Posts Section */}
-        {featuredPosts.length > 0 && !selectedTag && !search && !cat && (
-          <div className="featured-section" style={{ marginBottom: '40px' }}>
-            <h2 className={theme === "dark" ? "text dark" : "text"} style={{ marginBottom: '25px', color: 'var(--color-primary)' }}>
-              <Star size={22} aria-hidden="true" /> Featured Posts
-            </h2>
-            <div className="posts featured-posts">
-              {featuredPosts.map((post) => (
-                <div className="post featured-post" key={post.id}>
-                  {post?.img ? (
-                    <div className={theme === "dark" ? "img dark" : "img"}>
-                      <Tilt>
-                        <img 
-                          src={post.img} 
-                          alt={post.title}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      </Tilt>
-                    </div>
-                  ) : (
-                    <div className="no-image-placeholder">
-                      <div className="placeholder-content">
-                        <Star className="placeholder-icon" size={28} aria-hidden="true" />
-                        <span className="placeholder-text">Featured Post</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="content">
-                    <Link className="link" to={`/post/${post.id}`}>
-                      <h1 className={theme === "dark" ? "text dark" : "text"}>{post.title}</h1>
-                    </Link>
-                    <p className={theme === "dark" ? "dark" : ""}>
-                      {getText(post.desc)?.substring(0, 150)}...
-                    </p>
-                    <div className="post-meta">
-                      <span className="date">
-                        {new Date(post.date).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </span>
-                      <span className="reading-time">
-                        <BookOpen size={16} aria-hidden="true" /> {calculateReadingTime(post.desc)}
-                      </span>
-                    </div>
-                    <div className="post-author-preview">
-                      <Link to={`/profile/${post.username}`} className="author-avatar-link">
-                        {post.userAvatar ? (
-                          <img 
-                            src={`${URL}${post.userAvatar}`} 
-                            alt={post.username}
-                            className="post-author-avatar"
-                          />
-                        ) : (
-                          <div className="post-author-avatar-placeholder">
-                            {post.username?.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                      </Link>
-                      <span className="author-name">@{post.username}</span>
-                    </div>
-                    <div className="post-actions">
-                      <BookmarkButton postId={post.id} theme={theme} />
-                      <Link className="link" to={`/post/${post.id}`}>
-                        <button className="btn-grad">Read More</button>
-                      </Link>
-                    </div>
-
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="posts">
-          {console.log('Rendering posts, count:', posts ? posts.length : 0)}
-          {posts && posts.length > 0 ? (
-            posts.map((post) => (
-              <div className="post" key={post.id}>
-                {post?.img ? (
-                  <div className={theme === "dark" ? "img dark" : "img"}>
-                    <Tilt>
-                      <img 
-                        src={post.img} 
-                        alt={post.title}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    </Tilt>
-                  </div>
-                ) : (
-                  <div className="no-image-placeholder">
-                    <div className="placeholder-content">
-                      <FileText className="placeholder-icon" size={28} aria-hidden="true" />
-                      <span className="placeholder-text">Featured Post</span>
-                    </div>
-                  </div>
-                )}
-                <div className="content">
-                  <Link className="link" to={`/post/${post.id}`}>
-                    <h1 className={theme === "dark" ? "text dark" : "text"}>
-                      {post.title}
-                    </h1>
-                  </Link>
-                  <p className={theme === "dark" ? "dark" : ""}>
-                    {getText(post.desc)}
-                  </p>
-                  <div className="post-tags">
-                    {post.tags && (
-                      <>
-                        <strong className={theme === 'dark' ? 'dark' : ''}>Tags:</strong>
-                        {(typeof post.tags === 'string' ? JSON.parse(post.tags) : post.tags)
-                          .map((tag, idx) => (
-                            <span
-                              key={idx}
-                              className="tag"
-                              onClick={() => {
-                                setSelectedTag(tag);
-                                navigate(`/tag/${tag}`);
-                              }}
-                            >
-                              #{tag}
-                            </span>
-                          ))
-                        }
-                      </>
-                    )}
-                  </div>
-                  <div className="post-actions">
-                    {/* Reaction and Bookmark Buttons */}
-                    <ReactionButtons postId={post.id} theme={theme} />
-                    <BookmarkButton postId={post.id} theme={theme} />
-                    
-                    {post.views > 0 && (
-                      <div className="view-count" title="Views">
-                        <Eye className="view-icon" size={16} aria-hidden="true" />
-                        <span className="view-count-value">{formatCount(post.views)}</span>
-                      </div>
-                    )}
-                    <Link to={`/post/${post.id}`}>
-                      <button className="btn-grad">Read More</button>
-                    </Link>
-                  </div>
-
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="no-posts">
-              <p className={theme === "dark" ? "text dark" : "text"}>No posts found for this filter.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Infinite Scroll Sentinel - Triggers auto-load when visible */}
-        <div id="sentinel" style={{ height: '100px', margin: '20px 0' }}></div>
-        
-        {/* Loading Indicator for Infinite Scroll - Subtle spinner at bottom */}
-        {isLoadingMore && (
-          <div className="infinite-scroll-loading" style={{ 
-            textAlign: 'center', 
-            padding: '20px',
-            marginTop: '20px',
-            marginBottom: '20px'
-          }}>
-            <div style={{
-              display: 'inline-block',
-              width: '40px',
-              height: '40px',
-              border: '4px solid var(--color-border)',
-              borderTop: '4px solid var(--color-primary)',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }} />
-            <p className={theme === "dark" ? "text dark" : "text"} style={{ 
-              fontSize: '14px',
-              marginTop: '10px',
-              color: 'var(--color-text-subtle)'
-            }}>
-              Loading more posts...
-            </p>
-          </div>
-        )}
-        
-        {/* End of Posts Message */}
-        {page >= totalPages && posts.length > 0 && !isLoadingMore && (
-          <div className="end-of-posts" style={{ textAlign: 'center', padding: '40px 20px', marginTop: '30px' }}>
-            <p className={theme === "dark" ? "text dark" : "text"} style={{ color: 'var(--color-text-subtle)', fontSize: '16px' }}>
-              <CircleCheck size={18} aria-hidden="true" /> You've reached the end!
-            </p>
-          </div>
-        )}
-      </div>
-      <div className="sidebar-content">
-        <Menu cat={catParam} />
-        <Newsletter />
-      </div >
-    </div >
+      </section>
+    </div>
   );
-};
-
-export default Home;
+}
