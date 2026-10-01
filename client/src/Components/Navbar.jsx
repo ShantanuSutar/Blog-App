@@ -36,6 +36,7 @@ const Navbar = () => {
   const locationParams = new URLSearchParams(location.search);
   const activeCategory = isBrowseRoute ? locationParams.get("cat") : null;
   const urlSearchQuery = isBrowseRoute ? locationParams.get("search") || "" : "";
+  const activityIsActive = location.pathname === "/feed";
   const avatarBaseUrl = import.meta.env.VITE_BASE_URL;
 
   const closePanels = () => {
@@ -170,7 +171,7 @@ const Navbar = () => {
 
           {currentUser ? (
             <div className="desktop-account-actions">
-              <Link to="/feed" className="ui-button--icon nav-icon-button" aria-label="Activity feed" title="Activity feed"><Activity size={19} aria-hidden="true" /></Link>
+              <Link to="/feed" className="ui-button--icon nav-icon-button" aria-label="Activity feed" aria-current={activityIsActive ? "page" : undefined} title="Activity feed"><Activity size={19} aria-hidden="true" /></Link>
               <Link to="/bookmarks" className="ui-button--icon nav-icon-button" aria-label="Bookmarks" title="Bookmarks"><Bookmark size={19} aria-hidden="true" /></Link>
               <Link to="/write" className="ui-button--primary nav-write-action"><PenLine size={17} aria-hidden="true" /> Write</Link>
               <div className="profile-control">
@@ -198,6 +199,7 @@ const Navbar = () => {
                       <span className="ui-caption">Your account</span>
                     </div>
                     <Link to={profileUrl} onClick={closePanels}><UserRound size={17} aria-hidden="true" /> Profile</Link>
+                    <Link to="/feed" onClick={closePanels} aria-current={activityIsActive ? "page" : undefined}><Activity size={17} aria-hidden="true" /> Activity</Link>
                     <Link to="/drafts" onClick={closePanels}><FileText size={17} aria-hidden="true" /> Drafts</Link>
                     <Link to="/scheduled" onClick={closePanels}><CalendarClock size={17} aria-hidden="true" /> Scheduled posts</Link>
                     <Link to="/bookmarks" onClick={closePanels}><Bookmark size={17} aria-hidden="true" /> Bookmarks</Link>
@@ -260,7 +262,7 @@ const Navbar = () => {
               <div className="mobile-quick-links">
                 <Link to="/write" onClick={closePanels}><PenLine size={18} aria-hidden="true" /> Write a story</Link>
                 <Link to="/bookmarks" onClick={closePanels}><Bookmark size={18} aria-hidden="true" /> Bookmarks</Link>
-                <Link to="/feed" onClick={closePanels}><Activity size={18} aria-hidden="true" /> Activity feed</Link>
+                <Link to="/feed" onClick={closePanels} aria-current={activityIsActive ? "page" : undefined}><Activity size={18} aria-hidden="true" /> Activity feed</Link>
                 <Link to={profileUrl} onClick={closePanels}><UserRound size={18} aria-hidden="true" /> Profile</Link>
                 <Link to="/drafts" onClick={closePanels}><FileText size={18} aria-hidden="true" /> Drafts</Link>
                 <Link to="/scheduled" onClick={closePanels}><CalendarClock size={18} aria-hidden="true" /> Scheduled posts</Link>

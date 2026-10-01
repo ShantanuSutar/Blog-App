@@ -107,6 +107,8 @@
 .nav-icon-button {
   flex: 0 0 auto;
   border-radius: var(--radius-md);
+
+  &[aria-current="page"] { background: var(--color-primary-soft); color: var(--color-primary); }
 }
 
 .theme-toggle svg { transition: transform var(--transition-base); }
@@ -184,6 +186,8 @@
 
   &:hover,
   &:focus-visible { background: var(--color-surface-hover); color: var(--color-text-primary); }
+
+  &[aria-current="page"] { background: var(--color-primary-soft); color: var(--color-primary); }
 }
 
 .nav-search-panel {

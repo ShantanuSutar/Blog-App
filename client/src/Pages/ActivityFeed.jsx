@@ -1,144 +1,189 @@
-import React, { useEffect, useState, useContext } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { Activity, CircleCheck, LoaderCircle, LogIn, RotateCcw, Users } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import api from "../api/axios.js";
-import ActivityCard from "../Components/ActivityCard.jsx";
-import moment from "moment";
+import ActivityItem from "../Components/activity/ActivityItem.jsx";
 
-const ActivityFeed = () => {
+const filters = [
+  { label: "All", value: "all" },
+  { label: "Posts", value: "posts" },
+  { label: "Comments", value: "comments" },
+  { label: "Reactions", value: "reactions" },
+  { label: "Follows", value: "follows" },
+];
+
+function ActivitySkeleton({ count = 5 }) {
+  return (
+    <div className="activity-skeleton-list" role="status" aria-label="Loading activity">
+      {Array.from({ length: count }, (_, index) => (
+        <div className="activity-skeleton" aria-hidden="true" key={index}>
+          <span className="activity-skeleton__avatar" />
+          <span className="activity-skeleton__body">
+            <span className="activity-skeleton__line activity-skeleton__line--title" />
+            <span className="activity-skeleton__line" />
+            <span className="activity-skeleton__line activity-skeleton__line--short" />
+          </span>
+        </div>
+      ))}
+      <span className="sr-only">Loading activity…</span>
+    </div>
+  );
+}
+
+export default function ActivityFeed() {
   const { currentUser } = useContext(AuthContext);
   const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [filter, setFilter] = useState("all"); // all, posts, comments, reactions, follows
-  const URL = import.meta.env.VITE_BASE_URL;
+  const [status, setStatus] = useState(currentUser ? "loading" : "idle");
+  const [loadMoreStatus, setLoadMoreStatus] = useState("idle");
+  const [requestVersion, setRequestVersion] = useState(0);
+  const loadLockRef = useRef(false);
 
   useEffect(() => {
-    if (!currentUser) return;
-    
-    fetchActivityFeed();
-  }, [page, filter]);
-
-  const fetchActivityFeed = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get(`/api/activity/feed?page=${page}&limit=20&filter=${filter}`);
-      
-      if (page === 1) {
-        setActivities(res.data.activities);
-      } else {
-        setActivities(prev => [...prev, ...res.data.activities]);
-      }
-      
-      setTotalPages(res.data.totalPages);
-    } catch (err) {
-      console.error("Error fetching activity feed:", err);
-    } finally {
-      setLoading(false);
+    if (!currentUser) {
+      setActivities([]);
+      setStatus("idle");
+      return undefined;
     }
+
+    const controller = new AbortController();
+    if (page === 1) setStatus("loading");
+    else setLoadMoreStatus("loading");
+
+    const query = new URLSearchParams({ page: String(page), limit: "20", filter });
+    api.get(`/api/activity/feed?${query.toString()}`, { signal: controller.signal })
+      .then((response) => {
+        const nextActivities = Array.isArray(response.data?.activities) ? response.data.activities : [];
+        setActivities((current) => {
+          if (page === 1) return nextActivities;
+          const seen = new Set(current.map((activity) => activity.id));
+          return [...current, ...nextActivities.filter((activity) => !seen.has(activity.id))];
+        });
+        const reportedPages = Number(response.data?.totalPages);
+        setTotalPages(Number.isFinite(reportedPages) && reportedPages > 0 ? reportedPages : 1);
+        setStatus("success");
+        setLoadMoreStatus("idle");
+        loadLockRef.current = false;
+      })
+      .catch((error) => {
+        if (error.code === "ERR_CANCELED") return;
+        if (page === 1) setStatus("error");
+        else setLoadMoreStatus("error");
+        loadLockRef.current = false;
+      });
+
+    return () => controller.abort();
+  }, [currentUser, filter, page, requestVersion]);
+
+  const selectFilter = (value) => {
+    if (value === filter) return;
+    setFilter(value);
+    setActivities([]);
+    setPage(1);
+    setTotalPages(1);
+    setStatus("loading");
+    setLoadMoreStatus("idle");
+    loadLockRef.current = false;
   };
 
-  const handleLoadMore = () => {
-    if (page < totalPages) {
-      setPage(prev => prev + 1);
-    }
+  const retry = () => {
+    if (page === 1) setStatus("loading");
+    else setLoadMoreStatus("loading");
+    setRequestVersion((version) => version + 1);
   };
 
-  const getFilterClass = (filterName) => {
-    return `filter-btn ${filter === filterName ? 'active' : ''}`;
+  const loadMore = () => {
+    if (loadLockRef.current || loadMoreStatus !== "idle" || page >= totalPages) return;
+    loadLockRef.current = true;
+    setLoadMoreStatus("loading");
+    setPage((current) => current + 1);
   };
 
   if (!currentUser) {
     return (
-      <div className="activity-feed-page">
-        <div className="login-prompt">
-          <h2>Please login to view your activity feed</h2>
-          <Link to="/login" className="btn-grad">Login</Link>
+      <section className="activity-page" aria-labelledby="activity-heading">
+        <header className="activity-page__header">
+          <span className="home-section-kicker">Your network</span>
+          <h1 id="activity-heading">Activity</h1>
+          <p>Follow conversations and stories from writers across Unsaid.</p>
+        </header>
+        <div className="activity-state">
+          <LogIn size={30} strokeWidth={1.5} aria-hidden="true" />
+          <h2>Sign in to view activity</h2>
+          <p>Your personalized feed is available after you log in.</p>
+          <Link className="ui-button--primary" to="/login" state={{ from: "/feed" }}><LogIn size={17} aria-hidden="true" /> Log in</Link>
         </div>
-      </div>
+      </section>
     );
   }
 
+  const activeFilter = filters.find((item) => item.value === filter)?.label || "activity";
+  const hasMore = page < totalPages;
+
   return (
-    <div className="activity-feed-page">
-      <div className="feed-header">
-        <h1>Your Activity Feed</h1>
-        <p className="feed-subtitle">Stay updated with activities from users you follow</p>
+    <section className="activity-page" aria-labelledby="activity-heading">
+      <header className="activity-page__header">
+        <span className="home-section-kicker">Your network</span>
+        <h1 id="activity-heading">Activity</h1>
+        <p>Recent posts and interactions from writers you follow, plus activity involving you.</p>
+      </header>
+
+      <div className="activity-filters" role="group" aria-label="Filter activity">
+        {filters.map(({ label, value }) => (
+          <button className={`activity-filter${filter === value ? " is-active" : ""}`} type="button" aria-pressed={filter === value} onClick={() => selectFilter(value)} key={value}>{label}</button>
+        ))}
       </div>
 
-      {/* Filter Tabs */}
-      <div className="activity-filters">
-        <button 
-          className={getFilterClass('all')}
-          onClick={() => { setFilter('all'); setPage(1); }}
-        >
-          All
-        </button>
-        <button 
-          className={getFilterClass('posts')}
-          onClick={() => { setFilter('posts'); setPage(1); }}
-        >
-          Posts
-        </button>
-        <button 
-          className={getFilterClass('comments')}
-          onClick={() => { setFilter('comments'); setPage(1); }}
-        >
-          Comments
-        </button>
-        <button 
-          className={getFilterClass('reactions')}
-          onClick={() => { setFilter('reactions'); setPage(1); }}
-        >
-          Reactions
-        </button>
-        <button 
-          className={getFilterClass('follows')}
-          onClick={() => { setFilter('follows'); setPage(1); }}
-        >
-          Follows
-        </button>
-      </div>
+      <div className="activity-page__content" aria-live="polite" aria-busy={status === "loading" || loadMoreStatus === "loading"}>
+        {status === "loading" && <ActivitySkeleton />}
 
-      {/* Activities List */}
-      <div className="activities-container">
-        {activities.length === 0 && !loading ? (
-          <div className="empty-feed">
-            <h3>No activities yet</h3>
-            <p>Start following users to see their activities in your feed!</p>
+        {status === "error" && (
+          <div className="activity-state" role="alert">
+            <Activity size={30} strokeWidth={1.5} aria-hidden="true" />
+            <h2>Activity couldn’t be loaded</h2>
+            <p>Check your connection and try again.</p>
+            <button className="ui-button--primary" type="button" onClick={retry}><RotateCcw size={17} aria-hidden="true" /> Retry</button>
           </div>
-        ) : (
+        )}
+
+        {status === "success" && activities.length === 0 && (
+          <div className="activity-state">
+            <Users size={30} strokeWidth={1.5} aria-hidden="true" />
+            <h2>{filter === "all" ? "No activity yet" : `No ${activeFilter.toLocaleLowerCase()} yet`}</h2>
+            <p>{filter === "all" ? "Follow writers and join conversations to build your activity feed." : "Try another filter or check back after more activity."}</p>
+            {filter !== "all" && <button className="ui-button--secondary" type="button" onClick={() => selectFilter("all")}>View all activity</button>}
+          </div>
+        )}
+
+        {activities.length > 0 && (
           <>
-            <div className="activities-list">
-              {activities.map((activity) => (
-                <ActivityCard key={activity.id} activity={activity} />
-              ))}
-            </div>
-            
-            {page < totalPages && (
-              <div className="load-more-container">
-                <button 
-                  className="btn-grad load-more-btn"
-                  onClick={handleLoadMore}
-                  disabled={loading}
-                >
-                  {loading ? "Loading..." : "Load More"}
+            <ol className="activity-list" aria-label="Recent activity">
+              {activities.map((activity) => <ActivityItem activity={activity} key={activity.id} />)}
+            </ol>
+
+            {loadMoreStatus === "error" && (
+              <div className="activity-load-state" role="alert">
+                <span>More activity couldn’t be loaded.</span>
+                <button className="ui-button--secondary" type="button" onClick={retry}><RotateCcw size={16} aria-hidden="true" /> Try again</button>
+              </div>
+            )}
+
+            {hasMore && loadMoreStatus !== "error" && (
+              <div className="activity-load-state">
+                <button className="ui-button--secondary" type="button" onClick={loadMore} disabled={loadMoreStatus === "loading"} aria-busy={loadMoreStatus === "loading"}>
+                  {loadMoreStatus === "loading" && <LoaderCircle className="interaction-spinner" size={17} aria-hidden="true" />}
+                  {loadMoreStatus === "loading" ? "Loading…" : "Load more"}
                 </button>
               </div>
             )}
+
+            {!hasMore && loadMoreStatus === "idle" && <p className="activity-feed-end"><CircleCheck size={17} aria-hidden="true" /> You’re all caught up.</p>}
           </>
         )}
-
-        {loading && page === 1 && (
-          <div className="loading-container">
-            <div className="loader"></div>
-            <p>Loading activities...</p>
-          </div>
-        )}
       </div>
-    </div>
+    </section>
   );
-};
-
-export default ActivityFeed;
+}
