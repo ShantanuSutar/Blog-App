@@ -15,7 +15,7 @@ const formatCount = (count) => {
   return count.toString();
 };
 
-const BookmarkButton = ({ postId, theme }) => {
+const BookmarkButton = ({ postId, theme, postTitle }) => {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -101,7 +101,9 @@ const BookmarkButton = ({ postId, theme }) => {
           className={`btn-grad bookmark-btn ${isBookmarked ? 'active' : ''}`}
           onClick={handleBookmark}
           title={currentUser ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Login to bookmark"}
-          aria-label={currentUser ? (isBookmarked ? 'Remove bookmark' : 'Add bookmark') : 'Log in to bookmark'}
+          aria-label={currentUser
+            ? `${isBookmarked ? 'Remove bookmark for' : 'Bookmark'} ${postTitle || 'this post'}`
+            : `Log in to bookmark ${postTitle || 'this post'}`}
           aria-pressed={isBookmarked}
           aria-busy={isProcessing}
           disabled={isProcessing}

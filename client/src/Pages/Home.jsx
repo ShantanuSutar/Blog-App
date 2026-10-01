@@ -168,7 +168,7 @@ export default function Home() {
           {featured.status === "error" && <div className="home-state home-state--compact" role="alert"><p>Featured stories couldn’t be loaded.</p><button className="ui-button--secondary" type="button" onClick={retryFeatured}><RotateCcw size={16} aria-hidden="true" /> Try again</button></div>}
           {featured.status === "success" && featured.posts.length > 0 && (
             <div className="home-featured-grid">
-              {featured.posts.map((post, index) => <PostCard key={post.id} post={post} featured priority={index === 0} theme={theme} baseUrl={baseUrl} />)}
+              {featured.posts.map((post, index) => <PostCard key={post.id} post={post} variant={index === 0 ? "featured-primary" : "featured"} theme={theme} baseUrl={baseUrl} />)}
             </div>
           )}
         </section>

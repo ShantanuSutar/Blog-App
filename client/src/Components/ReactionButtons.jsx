@@ -15,7 +15,7 @@ const formatCount = (count) => {
   return count.toString();
 };
 
-const ReactionButtons = ({ postId, commentId, theme }) => {
+const ReactionButtons = ({ postId, commentId, theme, postTitle }) => {
   const [userReaction, setUserReaction] = useState(null);
   const [reactions, setReactions] = useState({});
   const [showPicker, setShowPicker] = useState(false);
@@ -173,7 +173,9 @@ const ReactionButtons = ({ postId, commentId, theme }) => {
           className={`reaction-main ${userReaction ? 'active' : ''}`}
           onClick={() => handleReaction(userReaction || 'like')}
           title={currentUser ? "React or hover for more" : "Login to react"}
-          aria-label={userReaction ? `Remove ${userReaction} reaction` : 'Like this post'}
+          aria-label={userReaction
+            ? `Remove ${userReaction} reaction${postTitle ? ` from ${postTitle}` : ''}`
+            : `Like ${postTitle || (commentId ? 'this comment' : 'this post')}`}
           aria-pressed={Boolean(userReaction)}
           aria-busy={isProcessing}
           disabled={isProcessing}
@@ -203,7 +205,7 @@ const ReactionButtons = ({ postId, commentId, theme }) => {
                   backgroundColor: userReaction === reaction.type ? reaction.softColor : 'var(--color-surface)'
                 }}
                 title={reaction.label}
-                aria-label={reaction.label}
+                aria-label={postTitle ? `${reaction.label} ${postTitle}` : reaction.label}
                 aria-pressed={userReaction === reaction.type}
                 disabled={isProcessing}
               >

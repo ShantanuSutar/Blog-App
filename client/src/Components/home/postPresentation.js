@@ -4,7 +4,7 @@ export const getPostTags = (value) => {
   try {
     const tags = typeof value === "string" ? JSON.parse(value) : value;
     return Array.isArray(tags)
-      ? tags.filter((tag) => typeof tag === "string" && tag.trim()).map((tag) => tag.trim())
+      ? [...new Set(tags.filter((tag) => typeof tag === "string" && tag.trim()).map((tag) => tag.trim()))]
       : [];
   } catch {
     return [];

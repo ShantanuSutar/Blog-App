@@ -13,11 +13,11 @@ function PostImage({ post, featured, priority }) {
   const hasImage = Boolean(post.img) && !failed;
 
   return (
-    <Link className="story-card__image-link" to={`/post/${post.id}`} aria-label={`Read ${post.title}`}>
+    <div className="story-card__image">
       {hasImage ? (
         <img
           src={post.img}
-          alt={post.title || "Story cover"}
+          alt={post.imgAlt || ""}
           loading={priority ? "eager" : "lazy"}
           decoding="async"
           onError={() => setFailed(true)}
@@ -28,7 +28,7 @@ function PostImage({ post, featured, priority }) {
           <span>Unsaid</span>
         </span>
       )}
-    </Link>
+    </div>
   );
 }
 
@@ -53,41 +53,44 @@ function Author({ post, baseUrl }) {
   );
 }
 
-export default function PostCard({ post, featured = false, priority = false, theme, baseUrl }) {
+export default function PostCard({ post, variant = "standard", theme, baseUrl }) {
+  const featured = variant !== "standard";
+  const primary = variant === "featured-primary";
   const tags = getPostTags(post.tags).slice(0, featured ? 2 : 3);
   const date = formatPostDate(post.date);
-  const excerpt = getPostExcerpt(post.desc, featured ? 170 : 155);
+  const excerpt = getPostExcerpt(post.desc, primary ? 180 : featured ? 155 : 150);
   const views = formatViewCount(post.views);
-  const readingTime = post.desc ? calculateReadingTime(post.desc) : "";
+  const readingTime = excerpt ? calculateReadingTime(post.desc) : "";
+  const hasAuthor = Boolean(post.username);
 
   return (
-    <article className={`story-card ${featured ? "story-card--featured" : ""}`}>
-      <PostImage key={post.img || "no-image"} post={post} featured={featured} priority={priority} />
+    <article className={`story-card ${featured ? "story-card--featured" : ""} ${primary ? "story-card--featured-primary" : ""}`}>
+      <PostImage key={post.img || "no-image"} post={post} featured={featured} priority={primary} />
       <div className="story-card__body">
-        {(post.cat || tags.length > 0) && (
-          <div className="story-card__taxonomy">
-            {post.cat && <span className="story-card__category">{categories[post.cat] || post.cat}</span>}
-            {tags.map((tag) => (
-              <Link className="ui-tag story-card__tag" key={tag} to={`/tag/${encodeURIComponent(tag)}`}>#{tag}</Link>
-            ))}
-          </div>
-        )}
+        {post.cat && <span className="story-card__category">{categories[post.cat] || post.cat}</span>}
         <h3 className="story-card__title">
           <Link to={`/post/${post.id}`}>{post.title}</Link>
         </h3>
         {excerpt && <p className="story-card__excerpt">{excerpt}</p>}
-        <div className="story-card__meta ui-meta">
-          <Author post={post} baseUrl={baseUrl} />
-          {date && <><span className="story-card__dot" aria-hidden="true">·</span><time dateTime={new Date(post.date).toISOString()}>{date}</time></>}
-          {readingTime && <><span className="story-card__dot" aria-hidden="true">·</span><span className="story-card__reading"><BookOpen size={14} aria-hidden="true" />{readingTime}</span></>}
-        </div>
+        {(hasAuthor || date || readingTime) && (
+          <div className="story-card__meta ui-meta">
+            <Author post={post} baseUrl={baseUrl} />
+            {date && <><span className="story-card__dot" aria-hidden="true">·</span><time dateTime={new Date(post.date).toISOString()}>{date}</time></>}
+            {readingTime && <><span className="story-card__dot" aria-hidden="true">·</span><span className="story-card__reading"><BookOpen size={15} aria-hidden="true" />{readingTime}</span></>}
+          </div>
+        )}
+        {tags.length > 0 && (
+          <div className="story-card__tags" aria-label="Story tags">
+            {tags.map((tag) => <Link className="ui-tag story-card__tag" key={tag} to={`/tag/${encodeURIComponent(tag)}`}>#{tag}</Link>)}
+          </div>
+        )}
         <div className="story-card__footer">
           <div className="story-card__engagement">
-            {!featured && <ReactionButtons postId={post.id} theme={theme} />}
-            <BookmarkButton postId={post.id} theme={theme} />
+            {!featured && <ReactionButtons postId={post.id} theme={theme} postTitle={post.title} />}
+            <BookmarkButton postId={post.id} theme={theme} postTitle={post.title} />
             {views && <span className="story-card__views ui-meta" aria-label={`${post.views} views`}><Eye size={17} aria-hidden="true" />{views}</span>}
           </div>
-          <Link className="story-card__read-link" to={`/post/${post.id}`}>Read story <ArrowUpRight size={16} aria-hidden="true" /></Link>
+          <span className="story-card__read-link" aria-hidden="true">Read story <ArrowUpRight size={16} /></span>
         </div>
       </div>
     </article>
