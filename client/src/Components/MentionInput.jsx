@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import MentionAutocomplete from './MentionAutocomplete.jsx';
 
-const MentionInput = ({ value, onChange, placeholder }) => {
+const MentionInput = ({ id, value, onChange, placeholder, ariaLabel }) => {
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
@@ -167,11 +167,13 @@ const MentionInput = ({ value, onChange, placeholder }) => {
   return (
     <div className="mention-input-container" ref={textareaRef}>
       <textarea
+        id={id}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         placeholder={placeholder}
+        aria-label={ariaLabel}
       />
       {showMentions && (
         <MentionAutocomplete

@@ -1,9 +1,12 @@
 import { useThemeContext } from "../Context/theme";
 import { Link } from 'react-router-dom';
+import { resolveMediaUrl } from "./home/postPresentation";
 
-const Comment = ({ c }) => {
-  const { comment, username, img: userImg } = c;
-  const { theme, setTheme } = useThemeContext();
+const Comment = ({ c, baseUrl = "" }) => {
+  const { comment, username, img: userImg, created_at: createdAt } = c;
+  const { theme } = useThemeContext();
+  const avatar = resolveMediaUrl(userImg, baseUrl);
+  const profileUrl = `/profile/${encodeURIComponent(username || "")}`;
   
   // Parse mentions and create clickable links
   const parseMentions = (text) => {
@@ -44,27 +47,25 @@ const Comment = ({ c }) => {
   };
 
   return (
-    <div className="comment">
+    <article className="comment">
       <div className="user">
-        <div className="userImg">
-          {userImg ? (
-            <img src={userImg} alt="" />
+        <Link className="userImg" to={profileUrl} aria-label={`View ${username}'s profile`}>
+          {avatar ? (
+            <img src={avatar} alt="" loading="lazy" />
           ) : (
-            <img
-              src="https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg"
-              alt=""
-            />
+            <span aria-hidden="true">{username?.charAt(0).toUpperCase() || "?"}</span>
           )}
-        </div>
-
-        {/* user image or random image */}
+        </Link>
 
         <div className={theme === "dark" ? "userInfo dark" : "userInfo"}>
-          <span>{username}</span>
+          <div className="comment__meta">
+            <Link to={profileUrl}>{username}</Link>
+            {createdAt && <time dateTime={createdAt}>{new Date(createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</time>}
+          </div>
           <p>{parseMentions(comment)}</p>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 

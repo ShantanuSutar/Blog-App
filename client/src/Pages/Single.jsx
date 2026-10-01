@@ -1,231 +1,303 @@
-import React, { useEffect, useState, useContext } from "react";
-import { Pencil, Share2, Copy, ExternalLink, Trash2 } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import Menu from "../Components/Menu.jsx";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { BookOpen, ImageOff, MessageCircle, RotateCcw } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
-import moment from "moment";
-
 import { AuthContext } from "../AuthContext/authContext.jsx";
+import ArticleActions from "../Components/article/ArticleActions.jsx";
+import ArticleAuthor from "../Components/article/ArticleAuthor.jsx";
 import Comment from "../Components/Comment.jsx";
-import { useThemeContext } from "../Context/theme.jsx";
-import { calculateReadingTime } from "../utils/readingTime";
-import ReactionButtons from "../Components/ReactionButtons.jsx";
-import BookmarkButton from "../Components/BookmarkButton.jsx";
 import MentionInput from "../Components/MentionInput.jsx";
+import Menu from "../Components/Menu.jsx";
+import { useThemeContext } from "../Context/theme.jsx";
+import { formatPostDate, getPostTags, resolveMediaUrl } from "../Components/home/postPresentation";
+import { calculateReadingTime } from "../utils/readingTime";
 
-const Single = () => {
-  const { theme, setTheme } = useThemeContext();
-  const [loading, setLoading] = useState(false);
-  const [post, setPost] = useState({});
-  const [comments, setComments] = useState([]);
-  const [comment, setComment] = useState("");
-  const location = useLocation();
+const baseUrl = import.meta.env.VITE_BASE_URL || "";
+
+const categoryLabels = {
+  art: "Art",
+  science: "Science",
+  technology: "Technology",
+  cinema: "Cinema",
+  design: "Design",
+  food: "Food",
+};
+
+function ArticleCover({ image, title }) {
+  const [failed, setFailed] = useState(false);
+  const source = resolveMediaUrl(image, baseUrl);
+
+  return (
+    <figure className="article-cover">
+      {source && !failed ? (
+        <img
+          src={source}
+          alt={`Cover for ${title}`}
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="article-cover__fallback" role="img" aria-label={`No cover image available for ${title}`}>
+          <ImageOff size={28} aria-hidden="true" />
+          <span>No cover image</span>
+        </div>
+      )}
+    </figure>
+  );
+}
+
+function InlineAuthor({ post }) {
+  const [failed, setFailed] = useState(false);
+  const avatar = resolveMediaUrl(post.userAvatar, baseUrl);
+  const username = post.username || "Unknown author";
+
+  return (
+    <Link className="article-byline__author" to={`/profile/${encodeURIComponent(username)}`}>
+      <span className="article-byline__avatar" aria-hidden="true">
+        {avatar && !failed ? (
+          <img src={avatar} alt="" onError={() => setFailed(true)} />
+        ) : (
+          username.charAt(0).toUpperCase()
+        )}
+      </span>
+      <span>{username}</span>
+    </Link>
+  );
+}
+
+function ArticlePageSkeleton() {
+  return (
+    <div className="article-state article-state--loading" aria-live="polite" aria-busy="true">
+      <span className="sr-only">Loading article</span>
+      <div className="article-skeleton__line article-skeleton__line--label" />
+      <div className="article-skeleton__line article-skeleton__line--title" />
+      <div className="article-skeleton__line article-skeleton__line--title-short" />
+      <div className="article-skeleton__line article-skeleton__line--meta" />
+      <div className="article-skeleton__cover" />
+    </div>
+  );
+}
+
+export default function Single() {
+  const { id: postId } = useParams();
   const navigate = useNavigate();
-  const URL = import.meta.env.VITE_BASE_URL;
-
-  const postId = location.pathname.split("/")[2];
+  const { theme } = useThemeContext();
   const { currentUser } = useContext(AuthContext);
+  const [postState, setPostState] = useState({ status: "loading", post: null });
+  const [postVersion, setPostVersion] = useState(0);
+  const [author, setAuthor] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentsStatus, setCommentsStatus] = useState("loading");
+  const [comment, setComment] = useState("");
+  const [commentStatus, setCommentStatus] = useState("idle");
+  const [commentError, setCommentError] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
-  // Reading time helper (using centralized utility with configurable WPM)
-  // Default is 200 WPM, but you can customize per post category if needed
-
-  const [copySuccess, setCopySuccess] = useState(false);
-
-  const handleShare = (platform) => {
-    const url = window.location.href;
-    const text = `Check out this post: ${post.title}`;
-    let shareUrl = "";
-
-    switch (platform) {
-      case 'twitter':
-        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-        break;
-      case 'facebook':
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-        break;
-      case 'linkedin':
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
-        break;
-      default:
-        return;
-    }
-    window.open(shareUrl, '_blank');
-  };
-
-  const handleCopyLink = async () => {
+  const loadComments = useCallback(async (signal) => {
+    setCommentsStatus("loading");
     try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (err) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = window.location.href;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    }
-  };
-
-  const fetchComments = async () => {
-    try {
-      const res = await axios.get(`${URL}/api/comments/${postId}`);
-      setComments(res.data);
+      const response = await axios.get(`${baseUrl}/api/comments/${postId}`, { signal });
+      setComments(Array.isArray(response.data) ? response.data : []);
+      setCommentsStatus("success");
     } catch (error) {
-      console.log(error);
+      if (error.name !== "CanceledError" && error.code !== "ERR_CANCELED") {
+        setComments([]);
+        setCommentsStatus("error");
+      }
+    }
+  }, [postId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setPostState({ status: "loading", post: null });
+
+    axios.get(`${baseUrl}/api/posts/${postId}`, { signal: controller.signal })
+      .then((response) => setPostState({ status: "success", post: response.data }))
+      .catch((error) => {
+        if (error.name === "CanceledError" || error.code === "ERR_CANCELED") return;
+        setPostState({ status: error.response?.status === 404 ? "missing" : "error", post: null });
+      });
+
+    return () => controller.abort();
+  }, [postId, postVersion]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadComments(controller.signal);
+    return () => controller.abort();
+  }, [loadComments]);
+
+  useEffect(() => {
+    const username = postState.post?.username;
+    if (!username) {
+      setAuthor(null);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    api.get(`/api/users/${encodeURIComponent(username)}`, { signal: controller.signal })
+      .then((response) => setAuthor(response.data))
+      .catch((error) => {
+        if (error.name !== "CanceledError" && error.code !== "ERR_CANCELED") setAuthor(null);
+      });
+    return () => controller.abort();
+  }, [postState.post?.username]);
+
+  const post = postState.post;
+  const articleHtml = useMemo(
+    () => (post?.desc || "").replace(/<h1(\s|>)/gi, "<h2$1").replace(/<\/h1>/gi, "</h2>"),
+    [post?.desc],
+  );
+
+  const handleAddComment = async () => {
+    const value = comment.trim();
+    if (!value || commentStatus === "loading") return;
+    setCommentStatus("loading");
+    setCommentError("");
+
+    try {
+      await api.post(`/api/comments/${postId}`, { comment: value });
+      setComment("");
+      await loadComments();
+      setCommentStatus("success");
+    } catch {
+      setCommentStatus("error");
+      setCommentError("Your comment could not be posted. Please try again.");
     }
   };
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await axios.get(`${URL}/api/posts/${postId}`);
-        setPost(res.data);
-      } catch (err) {
-        console.log(err);
-      }
-    };
 
-    fetchData();
-    fetchComments();
-
-  }, [postId, currentUser, URL]);
-
-  const handleDelete = async (e) => {
-    e.preventDefault();
+  const handleDelete = async () => {
+    if (!window.confirm("Delete this article? This action cannot be undone.")) return;
+    setDeleting(true);
     try {
       await api.delete(`/api/posts/${postId}`);
       navigate("/");
-    } catch (err) {
-      console.log(err);
+    } catch {
+      setDeleting(false);
     }
   };
 
-  //Parsing String to HTML
-  const MyComponent = ({ htmlContent }) => {
-    return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
-  };
+  if (postState.status === "loading") return <ArticlePageSkeleton />;
 
-  const handleAddComment = async () => {
-    if (!comment) return;
+  if (postState.status === "error" || postState.status === "missing") {
+    const missing = postState.status === "missing";
+    return (
+      <section className="article-state" aria-labelledby="article-state-title">
+        <BookOpen size={32} aria-hidden="true" />
+        <h1 id="article-state-title">{missing ? "This story is unavailable" : "We couldn't load this story"}</h1>
+        <p>{missing ? "It may have been removed or the link may be incorrect." : "Check your connection, then try again."}</p>
+        {missing ? (
+          <Link className="ui-button--primary" to="/">Browse stories</Link>
+        ) : (
+          <button className="ui-button--secondary" type="button" onClick={() => setPostVersion((version) => version + 1)}>
+            <RotateCcw size={18} aria-hidden="true" /> Try again
+          </button>
+        )}
+      </section>
+    );
+  }
 
-    try {
-      setLoading(true);
-      await api.post(`/api/comments/${postId}`, {
-        comment,
-      });
-      fetchComments();
-      setComment("");
-    } catch (err) {
-      console.log(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const tags = getPostTags(post);
+  const date = formatPostDate(post.date);
+  const readingTime = calculateReadingTime(post.desc);
+  const category = post.cat && categoryLabels[post.cat] ? categoryLabels[post.cat] : post.cat;
+  const isOwner = currentUser?.username === post.username;
 
   return (
-    <div className={`single ${theme === "dark" ? "dark" : ""}`}>
-      <div className="content">
-        <img src={post?.img} alt="" />
-        <div className="user">
-          <Link to={`/profile/${post.username}`} className="author-link">
-            {post.userAvatar ? (
-              <img 
-                src={`${URL}${post.userAvatar}`} 
-                alt={post.username}
-                className="author-avatar"
-              />
-            ) : (
-              <img
-                src="https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg"
-                alt=""
-                className="author-avatar"
-              />
-            )}
-          </Link>
-
-          {/* user image or random image */}
-
-          <div className="info">
-            <Link to={`/profile/${post.username}`} className="author-name-link">
-              <span className={theme === "dark" ? "dark" : ""}>
-                {post.username}
-              </span>
-            </Link>
-            <p className={theme === "dark" ? "dark" : ""}>
-              Posted {moment(post.date).fromNow()} • {calculateReadingTime(post.desc)}
-            </p>
-          </div>
-          <div className="user-actions">
-            {/* Reaction and Bookmark Buttons */}
-            <ReactionButtons postId={postId} theme={theme} />
-            <BookmarkButton postId={postId} theme={theme} />
-            <div className="icon share-icon">
-              <button type="button" className="share-trigger ui-button--icon" aria-label="Share post"><Share2 size={20} aria-hidden="true" /></button>
-              <div className="share-menu">
-                <button type="button" onClick={handleCopyLink} className="share-btn copy-link ui-button--icon" aria-label="Copy post link"><Copy size={18} aria-hidden="true" /></button>
-                <button type="button" onClick={() => handleShare('twitter')} className="share-btn twitter ui-button--ghost"><ExternalLink size={16} aria-hidden="true" />Twitter</button>
-                <button type="button" onClick={() => handleShare('facebook')} className="share-btn facebook ui-button--ghost"><ExternalLink size={16} aria-hidden="true" />Facebook</button>
-                <button type="button" onClick={() => handleShare('linkedin')} className="share-btn linkedin ui-button--ghost"><ExternalLink size={16} aria-hidden="true" />LinkedIn</button>
-                {copySuccess && <span className="copy-success-toast">Link copied!</span>}
+    <div className="article-layout">
+      <div className="article-main">
+        <article className="article-page">
+          <header className="article-header">
+            {(category || tags.length > 0) && (
+              <div className="article-taxonomy" aria-label="Article topics">
+                {category && <Link className="article-category" to={`/?cat=${encodeURIComponent(post.cat)}`}>{category}</Link>}
+                {tags.slice(0, 3).map((tag) => (
+                  <Link key={tag} className="article-topic" to={`/tag/${encodeURIComponent(tag)}`}>#{tag}</Link>
+                ))}
               </div>
+            )}
+            <h1>{post.title}</h1>
+            {post.excerpt && <p className="article-deck">{post.excerpt}</p>}
+            <div className="article-header__meta">
+              <div className="article-byline">
+                <InlineAuthor post={post} />
+                {date && <><span className="article-byline__dot" aria-hidden="true" /> <time dateTime={post.date}>{date}</time></>}
+                <span className="article-byline__dot" aria-hidden="true" />
+                <span>{readingTime}</span>
+              </div>
+              <ArticleActions post={post} postId={postId} theme={theme} isOwner={isOwner} onDelete={handleDelete} deleting={deleting} />
             </div>
-          </div>
-          {currentUser?.username === post?.username && (
-            <div className="edit">
-              <Link to={`/write?edit=${post.id}`} state={post} aria-label="Edit post" className="ui-button--icon">
-                <Pencil size={20} aria-hidden="true" />
-              </Link>
-              <button type="button" className="ui-button--icon" aria-label="Delete post" onClick={handleDelete}><Trash2 size={20} aria-hidden="true" /></button>
-            </div>
+          </header>
+
+          <ArticleCover image={post.img} title={post.title} />
+
+          <div className="article-prose" dangerouslySetInnerHTML={{ __html: articleHtml }} />
+
+          {tags.length > 0 && (
+            <footer className="article-footer">
+              <span>Topics</span>
+              <div className="article-footer__tags">
+                {tags.map((tag) => <Link key={tag} to={`/tag/${encodeURIComponent(tag)}`}>#{tag}</Link>)}
+              </div>
+            </footer>
           )}
-        </div>
-        <h1 className={theme === "dark" ? "text dark" : "text"}>
-          {post.title}
-        </h1>
-        <p className={theme === "dark" ? "text dark" : "text"}>
-          {/* {getText(post.desc)} */}
-          <MyComponent htmlContent={post.desc} />
-        </p>
-        <div className="comments">
-          <h2 className={theme === "dark" ? "dark" : ""}>Comments</h2>
+        </article>
+
+        <ArticleAuthor author={author} fallbackPost={post} baseUrl={baseUrl} currentUser={currentUser} />
+
+        <section className="article-comments" aria-labelledby="comments-title">
+          <header className="article-comments__header">
+            <div>
+              <span className="article-comments__eyebrow">Join the conversation</span>
+              <h2 id="comments-title">Comments</h2>
+            </div>
+            {commentsStatus === "success" && <span>{comments.length}</span>}
+          </header>
+
           {currentUser ? (
-            <div className="addComment">
+            <div className="article-comment-form">
+              <label htmlFor="article-comment">Add a thoughtful response</label>
               <MentionInput
+                id="article-comment"
                 value={comment}
                 onChange={setComment}
-                placeholder="Type Here... Use @ to mention someone"
+                placeholder="Write a comment… Use @ to mention someone"
+                ariaLabel="Comment text"
               />
-              <button className="btn-grad" onClick={handleAddComment}>
-                {loading ? "Please wait ..." : "Comment"}
-              </button>
+              <div className="article-comment-form__footer">
+                <span className="article-comment-form__error" role="alert">{commentError}</span>
+                <button className="ui-button--primary" type="button" onClick={handleAddComment} disabled={!comment.trim() || commentStatus === "loading"} aria-busy={commentStatus === "loading"}>
+                  {commentStatus === "loading" ? "Posting…" : "Post comment"}
+                </button>
+              </div>
             </div>
           ) : (
-            <div
-              className={theme === "dark" ? "addComment dark" : "addComment"}
-            >
-              Wanna write a comment...?
-              <Link
-                className={theme === "dark" ? "text dark" : "text"}
-                to={"/login"}
-              >
-                Login
-              </Link>
+            <div className="article-comments__login">
+              <MessageCircle size={22} aria-hidden="true" />
+              <p><Link to="/login">Log in</Link> to add your perspective.</p>
             </div>
           )}
-          {comments.map((c) => {
-            return <Comment key={c.id} c={c} />;
-          })}
-        </div>
+
+          {commentsStatus === "loading" && <div className="article-comments__status" role="status">Loading comments…</div>}
+          {commentsStatus === "error" && (
+            <div className="article-comments__status article-comments__status--error" role="alert">
+              <span>Comments couldn't be loaded.</span>
+              <button className="ui-button--ghost" type="button" onClick={() => loadComments()}>Try again</button>
+            </div>
+          )}
+          {commentsStatus === "success" && comments.length === 0 && <p className="article-comments__empty">No comments yet. Start the conversation.</p>}
+          {commentsStatus === "success" && comments.length > 0 && (
+            <div className="article-comments__list">
+              {comments.map((item) => <Comment key={item.id} c={item} baseUrl={baseUrl} />)}
+            </div>
+          )}
+        </section>
       </div>
-      <div className="sidebar-content">
+
+      <aside className="article-sidebar" aria-label="More stories">
         <Menu cat={post.cat} />
-      </div>
+      </aside>
     </div>
   );
-};
-
-export default Single;
+}

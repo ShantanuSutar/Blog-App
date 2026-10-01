@@ -4,7 +4,7 @@ import { ArrowUpRight, BookOpen, Eye, ImageOff } from "lucide-react";
 import BookmarkButton from "../BookmarkButton.jsx";
 import ReactionButtons from "../ReactionButtons.jsx";
 import { calculateReadingTime } from "../../utils/readingTime";
-import { formatPostDate, formatViewCount, getPostExcerpt, getPostTags } from "./postPresentation";
+import { formatPostDate, formatViewCount, getPostExcerpt, getPostTags, resolveMediaUrl } from "./postPresentation";
 
 const categories = { art: "Art", scitech: "Sci-Tech", sports: "Sports", cinema: "Cinema", food: "Food", travel: "Travel" };
 
@@ -35,11 +35,7 @@ function PostImage({ post, featured, priority }) {
 function Author({ post, baseUrl }) {
   const [avatarFailed, setAvatarFailed] = useState(false);
   if (!post.username) return null;
-  const avatarUrl = post.userAvatar
-    ? /^https?:\/\//i.test(post.userAvatar)
-      ? post.userAvatar
-      : `${(baseUrl || "").replace(/\/$/, "")}/${post.userAvatar.replace(/^\/+/, "")}`
-    : null;
+  const avatarUrl = resolveMediaUrl(post.userAvatar, baseUrl);
 
   return (
     <Link className="story-card__author" to={`/profile/${encodeURIComponent(post.username)}`}>

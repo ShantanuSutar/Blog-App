@@ -30,3 +30,9 @@ export const formatViewCount = (value) => {
   if (!Number.isFinite(count) || count <= 0) return "";
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(count);
 };
+
+export const resolveMediaUrl = (value, baseUrl = "") => {
+  if (!value) return "";
+  if (/^(https?:)?\/\//i.test(value) || value.startsWith("data:") || value.startsWith("blob:")) return value;
+  return `${baseUrl.replace(/\/$/, "")}/${value.replace(/^\/+/, "")}`;
+};
