@@ -1,105 +1,102 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import api from '../api/axios';
-import { X } from 'lucide-react';
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { LoaderCircle, RotateCcw, Users, X } from "lucide-react";
+import { AuthContext } from "../AuthContext/authContext.jsx";
+import api from "../api/axios.js";
+import FollowButton from "./FollowButton.jsx";
+import ProfileAvatar from "./ProfileAvatar.jsx";
 
-const FollowersModal = ({ userId, isOpen, onClose, type }) => {
+export default function FollowersModal({ userId, isOpen, onClose, type }) {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const URL = import.meta.env.VITE_BASE_URL;
+  const [status, setStatus] = useState("idle");
+  const dialogRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const { currentUser } = useContext(AuthContext);
+  const title = type === "followers" ? "Followers" : "Following";
+
+  const fetchUsers = useCallback((signal) => {
+    setStatus("loading");
+    return api.get(`/api/follows/${userId}/${type}`, { signal })
+      .then((response) => {
+        setUsers(response.data[type] || []);
+        setStatus("success");
+      })
+      .catch((error) => {
+        if (error.code !== "ERR_CANCELED") setStatus("error");
+      });
+  }, [type, userId]);
 
   useEffect(() => {
-    if (isOpen && userId) {
-      fetchUsers();
-    }
-  }, [userId, isOpen, type]);
-
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const endpoint = type === 'followers' 
-        ? `/api/follows/${userId}/followers`
-        : `/api/follows/${userId}/following`;
-      
-      const res = await api.get(endpoint);
-      setUsers(res.data[type] || []);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClose = () => {
+    if (!isOpen || !userId) return undefined;
+    const controller = new AbortController();
+    previousFocusRef.current = document.activeElement;
     setUsers([]);
-    onClose();
-  };
+    fetchUsers(controller.signal);
 
-  const handleUserClick = (username) => {
-    handleClose();
-    navigate(`/profile/${username}`);
-  };
+    const frame = requestAnimationFrame(() => dialogRef.current?.focus());
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      controller.abort();
+      cancelAnimationFrame(frame);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus?.();
+    };
+  }, [fetchUsers, isOpen, userId]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={handleClose}>
-      <div className="followers-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>
-            {type === 'followers' ? 'Followers' : 'Following'}
-          </h2>
-          <button type="button" className="modal-close" onClick={handleClose} aria-label="Close followers dialog">
-            <X size={20} aria-hidden="true" />
-          </button>
-        </div>
-        
-        <div className="modal-content">
-          {loading ? (
-            <div className="modal-loading">
-              <div className="loader"></div>
-              <p>Loading...</p>
-            </div>
-          ) : users.length === 0 ? (
-            <div className="no-users">
-              <p>No {type} yet</p>
-            </div>
-          ) : (
-            <div className="users-list">
-              {users.map((user) => (
-                <div 
-                  key={user.id} 
-                  className="user-item"
-                  onClick={() => handleUserClick(user.username)}
-                >
-                  <div className="user-avatar-small">
-                    {user.avatar ? (
-                      <img 
-                        src={`${URL}${user.avatar}`} 
-                        alt={user.username}
-                      />
-                    ) : (
-                      <div className="avatar-placeholder-small">
-                        {user.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="user-info">
-                    <span className="user-username">@{user.username}</span>
-                    {user.bio && (
-                      <span className="user-bio">{user.bio}</span>
-                    )}
-                  </div>
-                </div>
+    <div className="followers-dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="followers-dialog" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`followers-dialog-${type}`} tabIndex={-1}>
+        <header className="followers-dialog__header">
+          <div><span className="profile-kicker">Community</span><h2 id={`followers-dialog-${type}`}>{title}</h2></div>
+          <button className="ui-button--icon" type="button" onClick={onClose} aria-label={`Close ${title.toLowerCase()} dialog`}><X size={20} aria-hidden="true" /></button>
+        </header>
+
+        <div className="followers-dialog__content" aria-live="polite" aria-busy={status === "loading"}>
+          {status === "loading" && <div className="profile-state profile-state--compact"><LoaderCircle className="profile-spinner" size={26} aria-hidden="true" /><p>Loading {title.toLowerCase()}…</p></div>}
+          {status === "error" && <div className="profile-state profile-state--compact" role="alert"><p>We couldn’t load this list.</p><button className="ui-button--secondary" type="button" onClick={() => fetchUsers()}><RotateCcw size={16} aria-hidden="true" /> Retry</button></div>}
+          {status === "success" && users.length === 0 && <div className="profile-state profile-state--compact"><Users size={28} strokeWidth={1.5} aria-hidden="true" /><p>No {title.toLowerCase()} yet.</p></div>}
+          {status === "success" && users.length > 0 && (
+            <ul className="followers-list">
+              {users.map((listedUser) => (
+                <li className="followers-list__item" key={listedUser.id}>
+                  <Link className="followers-list__identity" to={`/profile/${encodeURIComponent(listedUser.username)}`} onClick={onClose}>
+                    <ProfileAvatar source={listedUser.avatar} username={listedUser.username} className="profile-avatar--small" />
+                    <span><strong>@{listedUser.username}</strong>{listedUser.bio && <small>{listedUser.bio}</small>}</span>
+                  </Link>
+                  {currentUser?.id !== listedUser.id && <FollowButton userId={listedUser.id} username={listedUser.username} />}
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
-};
-
-export default FollowersModal;
+}
