@@ -22,8 +22,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const registrationSuccess = Boolean(location.state?.registrationSuccess);
+  const requestedDestination = location.state?.from;
+  const destination = typeof requestedDestination === "string"
+    && requestedDestination.startsWith("/")
+    && !requestedDestination.startsWith("//")
+    ? requestedDestination
+    : "/";
 
-  if (currentUser) return <Navigate to="/" replace />;
+  if (currentUser) return <Navigate to={destination} replace />;
 
   const updateField = (field, value) => {
     setInputs((current) => ({ ...current, [field]: value }));
@@ -46,7 +52,7 @@ export default function Login() {
     setFormError("");
     try {
       await login({ username: inputs.username.trim(), password: inputs.password });
-      navigate("/", { replace: true });
+      navigate(destination, { replace: true });
     } catch (error) {
       setFormError(mapLoginError(error));
       setLoading(false);

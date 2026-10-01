@@ -278,11 +278,11 @@
   align-items: center;
   gap: var(--space-3);
 
-  .reaction-container,
-  .bookmark-container { gap: 0; }
+  .reaction-control,
+  .bookmark-control { gap: 0; }
 
-  .reaction-main-wrapper .reaction-main,
-  .bookmark-content-wrapper .bookmark-btn {
+  .reaction-control__trigger,
+  .bookmark-control__button {
     width: 44px;
     height: 44px;
     min-height: 44px;
@@ -301,10 +301,10 @@
     svg { flex-shrink: 0; }
   }
 
-  .bookmark-content-wrapper .bookmark-btn.active { color: var(--color-primary); }
+  .bookmark-control__button.is-active { color: var(--color-primary); }
 
-  .reaction-count,
-  .bookmark-count { padding: 0; font-size: var(--font-size-caption); }
+  .reaction-control__count,
+  .bookmark-control__count { padding: 0; font-size: var(--font-size-caption); }
 }
 
 .story-card__views {

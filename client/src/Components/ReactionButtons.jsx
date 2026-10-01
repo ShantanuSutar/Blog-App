@@ -1,236 +1,208 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { ThumbsUp, Heart, PartyPopper } from 'lucide-react';
-import api from '../api/axios';
-import { AuthContext } from '../AuthContext/authContext.jsx';
-import { useNavigate } from 'react-router-dom';
+import { useContext, useEffect, useId, useRef, useState } from "react";
+import { Heart, LoaderCircle, PartyPopper, ThumbsUp } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import api from "../api/axios";
+import { AuthContext } from "../AuthContext/authContext.jsx";
 
-// Helper function to format large numbers
+const REACTION_TYPES = [
+  { type: "like", icon: ThumbsUp, label: "Like" },
+  { type: "love", icon: Heart, label: "Love" },
+  { type: "celebrate", icon: PartyPopper, label: "Celebrate" },
+];
+
 const formatCount = (count) => {
-  if (count >= 1000000) {
-    return (count / 1000000).toFixed(1) + 'M';
-  }
-  if (count >= 1000) {
-    return (count / 1000).toFixed(1) + 'K';
-  }
-  return count.toString();
+  const numericCount = Number(count) || 0;
+  if (numericCount >= 1000000) return `${(numericCount / 1000000).toFixed(1)}M`;
+  if (numericCount >= 1000) return `${(numericCount / 1000).toFixed(1)}K`;
+  return numericCount.toString();
 };
 
-const ReactionButtons = ({ postId, commentId, theme, postTitle }) => {
+const countFor = (reactions, type) => Number(reactions[type]?.count) || 0;
+
+const updateReactionCounts = (reactions, previousType, nextType) => {
+  const next = { ...reactions };
+  const adjust = (type, delta) => {
+    if (!type) return;
+    const current = next[type] || { count: 0, users: [] };
+    next[type] = { ...current, count: Math.max(0, (Number(current.count) || 0) + delta) };
+  };
+
+  if (previousType === nextType) adjust(previousType, -1);
+  else {
+    adjust(previousType, -1);
+    adjust(nextType, 1);
+  }
+  return next;
+};
+
+export default function ReactionButtons({ postId, commentId, postTitle }) {
   const [userReaction, setUserReaction] = useState(null);
   const [reactions, setReactions] = useState({});
-  const [showPicker, setShowPicker] = useState(false);
-  const [hoverTimeout, setHoverTimeout] = useState(null);
+  const [loadStatus, setLoadStatus] = useState("loading");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [feedback, setFeedback] = useState("");
   const { currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
-
-  const reactionTypes = [
-    { type: 'like', icon: ThumbsUp, color: 'var(--color-reaction-like)', softColor: 'var(--color-reaction-like-soft)', label: 'Like' },
-    { type: 'love', icon: Heart, color: 'var(--color-reaction-love)', softColor: 'var(--color-reaction-love-soft)', label: 'Love' },
-    { type: 'celebrate', icon: PartyPopper, color: 'var(--color-reaction-celebrate)', softColor: 'var(--color-reaction-celebrate-soft)', label: 'Celebrate' }
-  ];
-
-  const fetchReactions = async () => {
-    try {
-      const endpoint = postId 
-        ? `/api/reactions/post/${postId}`
-        : `/api/reactions/comment/${commentId}`;
-      const res = await api.get(endpoint);
-      setReactions(res.data.grouped || {});
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const fetchUserReaction = async () => {
-    if (!currentUser?.token) return;
-    
-    try {
-      const endpoint = postId
-        ? `/api/reactions/check/post/${postId}`
-        : `/api/reactions/check/comment/${commentId}`;
-      const res = await api.get(endpoint, {
-        headers: {
-          Authorization: `Bearer ${currentUser.token}`
-        }
-      });
-      setUserReaction(res.data.reaction);
-    } catch (err) {
-      // Silently fail - user might not be logged in
-    }
-  };
+  const location = useLocation();
+  const controlRef = useRef(null);
+  const pickerId = useId();
+  const targetLabel = postTitle || (commentId ? "this comment" : "this story");
+  const loading = loadStatus === "loading";
 
   useEffect(() => {
-    fetchReactions();
-    fetchUserReaction();
-    
-    // Cleanup timeout on unmount
-    return () => {
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
+    const controller = new AbortController();
+    let active = true;
+    const load = async () => {
+      setLoadStatus("loading");
+      setFeedback("");
+      try {
+        const reactionsEndpoint = postId
+          ? `/api/reactions/post/${postId}`
+          : `/api/reactions/comment/${commentId}`;
+        const requests = [api.get(reactionsEndpoint, { signal: controller.signal })];
+        if (currentUser) {
+          const userEndpoint = postId
+            ? `/api/reactions/check/post/${postId}`
+            : `/api/reactions/check/comment/${commentId}`;
+          requests.push(api.get(userEndpoint, { signal: controller.signal }));
+        }
+        const [reactionsResponse, userResponse] = await Promise.all(requests);
+        if (!active) return;
+        setReactions(reactionsResponse.data?.grouped || {});
+        setUserReaction(currentUser ? userResponse?.data?.reaction || null : null);
+        setLoadStatus("success");
+      } catch (error) {
+        if (!active || error.code === "ERR_CANCELED") return;
+        setLoadStatus("error");
       }
     };
-  }, [postId, commentId, hoverTimeout]);
 
-  const handleReaction = async (type) => {
+    load();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [commentId, currentUser, postId]);
+
+  useEffect(() => {
+    if (!pickerOpen) return undefined;
+    const closeOutside = (event) => {
+      if (!controlRef.current?.contains(event.target)) setPickerOpen(false);
+    };
+    const closeEscape = (event) => {
+      if (event.key === "Escape") {
+        setPickerOpen(false);
+        controlRef.current?.querySelector(".reaction-control__trigger")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeEscape);
+    };
+  }, [pickerOpen]);
+
+  const handleTrigger = () => {
+    if (loading) return;
     if (!currentUser) {
-      navigate('/login');
+      navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       return;
     }
+    setFeedback("");
+    setPickerOpen((open) => !open);
+  };
 
-    if (isProcessing) return;
+  const handleReaction = async (type) => {
+    if (!currentUser || isProcessing) return;
+    const previousReaction = userReaction;
+    const previousCounts = reactions;
+    const nextReaction = previousReaction === type ? null : type;
+
     setIsProcessing(true);
+    setFeedback("");
+    setUserReaction(nextReaction);
+    setReactions(updateReactionCounts(previousCounts, previousReaction, type));
 
     try {
-      const res = await api.post('/api/reactions', {
-        postId,
-        commentId,
-        reactionType: type
-      }, {
-        headers: {
-          Authorization: `Bearer ${currentUser.token}`
-        }
-      });
-
-      // Handle all three cases: added, updated, removed
-      if (res.data.action === 'added' || res.data.action === 'updated') {
-        setUserReaction(type);
-      } else if (res.data.action === 'removed') {
-        setUserReaction(null);
-      }
-
-      // Refresh reactions - keep picker open for better UX
-      await fetchReactions();
-    } catch (err) {
-      console.error('Reaction error:', err);
-      if (err.response?.status === 401) {
-        navigate('/login');
+      const response = await api.post("/api/reactions", { postId, commentId, reactionType: type });
+      setUserReaction(response.data?.action === "removed" ? null : type);
+      setPickerOpen(false);
+    } catch (error) {
+      setUserReaction(previousReaction);
+      setReactions(previousCounts);
+      if (error.response?.status === 401) {
+        navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
+      } else {
+        setFeedback("Reaction could not be saved. Try again.");
       }
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Handle mouse enter main button - clear any pending close timeout
-  const handleMainMouseEnter = () => {
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
-      setHoverTimeout(null);
-    }
-    if (currentUser) {
-      setShowPicker(true);
-    }
-  };
-
-  // Handle mouse leave main button - delay closing to allow transition to picker
-  const handleMainMouseLeave = () => {
-    const timeout = setTimeout(() => {
-      setShowPicker(false);
-    }, 300);
-    setHoverTimeout(timeout);
-  };
-
-  // Handle mouse enter picker - clear any pending close timeout
-  const handlePickerMouseEnter = () => {
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
-      setHoverTimeout(null);
-    }
-  };
-
-  // Handle mouse leave picker - close after delay
-  const handlePickerMouseLeave = () => {
-    const timeout = setTimeout(() => {
-      setShowPicker(false);
-    }, 200);
-    setHoverTimeout(timeout);
-  };
-
-  const getTotalCount = () => {
-    return Object.values(reactions).reduce((sum, r) => sum + r.count, 0);
-  };
-
-  const getCurrentReaction = () => {
-    if (!userReaction) return reactionTypes[0]; // Default to like
-    return reactionTypes.find(r => r.type === userReaction) || reactionTypes[0];
-  };
-  const CurrentIcon = getCurrentReaction().icon;
+  const selected = REACTION_TYPES.find((reaction) => reaction.type === userReaction);
+  const TriggerIcon = selected?.icon || ThumbsUp;
+  const totalCount = REACTION_TYPES.reduce((sum, reaction) => sum + countFor(reactions, reaction.type), 0);
 
   return (
-    <div className="reaction-container">
-      {/* Main reaction button with hover picker */}
-      <div 
-        className="reaction-main-wrapper"
-        onMouseEnter={handleMainMouseEnter}
-        onMouseLeave={handleMainMouseLeave}
-        onFocus={() => currentUser && setShowPicker(true)}
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) setShowPicker(false);
-        }}
+    <div
+      className="reaction-control"
+      ref={controlRef}
+      data-reaction={userReaction || undefined}
+    >
+      <button
+        type="button"
+        className={`reaction-control__trigger${userReaction ? " is-active" : ""}`}
+        onClick={handleTrigger}
+        aria-label={currentUser
+          ? `${selected ? `${selected.label} selected. ` : ""}Choose a reaction for ${targetLabel}`
+          : `Log in to react to ${targetLabel}`}
+        aria-expanded={pickerOpen}
+        aria-controls={pickerId}
+        aria-haspopup="menu"
+        aria-busy={isProcessing || loading}
+        title={currentUser ? "Choose a reaction" : "Log in to react"}
+        disabled={isProcessing || loading}
       >
-        {/* Single main button */}
-        <button
-          className={`reaction-main ${userReaction ? 'active' : ''}`}
-          onClick={() => handleReaction(userReaction || 'like')}
-          title={currentUser ? "React or hover for more" : "Login to react"}
-          aria-label={userReaction
-            ? `Remove ${userReaction} reaction${postTitle ? ` from ${postTitle}` : ''}`
-            : `Like ${postTitle || (commentId ? 'this comment' : 'this post')}`}
-          aria-pressed={Boolean(userReaction)}
-          aria-busy={isProcessing}
-          disabled={isProcessing}
-        >
-          <CurrentIcon size={20} aria-hidden="true" fill={userReaction === 'love' ? 'currentColor' : 'none'} />
-        </button>
+        {isProcessing ? (
+          <LoaderCircle className="interaction-spinner" size={20} aria-hidden="true" />
+        ) : (
+          <TriggerIcon size={20} fill={userReaction === "love" ? "currentColor" : "none"} aria-hidden="true" />
+        )}
+      </button>
 
-        {/* Hover reaction picker */}
-        {showPicker && currentUser && (
-          <div 
-            className="reaction-picker-hover"
-            onMouseEnter={handlePickerMouseEnter}
-            onMouseLeave={handlePickerMouseLeave}
-          >
-            {reactionTypes.map((reaction) => {
-              const Icon = reaction.icon;
-              return (
+      {totalCount > 0 && <span className="reaction-control__count" aria-label={`${totalCount} reactions`}>{formatCount(totalCount)}</span>}
+
+      {pickerOpen && currentUser && (
+        <div className="reaction-control__picker" id={pickerId} role="menu" aria-label={`React to ${targetLabel}`}>
+          {REACTION_TYPES.map(({ type, icon: Icon, label }) => {
+            const active = userReaction === type;
+            const count = countFor(reactions, type);
+            return (
               <button
-                key={reaction.type}
-                className={`reaction-option-hover ${userReaction === reaction.type ? 'selected' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleReaction(reaction.type);
-                }}
-                style={{
-                  borderColor: userReaction === reaction.type ? reaction.color : 'var(--color-border)',
-                  backgroundColor: userReaction === reaction.type ? reaction.softColor : 'var(--color-surface)'
-                }}
-                title={reaction.label}
-                aria-label={postTitle ? `${reaction.label} ${postTitle}` : reaction.label}
-                aria-pressed={userReaction === reaction.type}
+                key={type}
+                type="button"
+                className={`reaction-control__option${active ? " is-active" : ""}`}
+                data-reaction={type}
+                role="menuitemradio"
+                aria-checked={active}
+                aria-label={`${label}, ${count} ${count === 1 ? "reaction" : "reactions"}`}
+                onClick={() => handleReaction(type)}
                 disabled={isProcessing}
               >
-                <Icon size={22} aria-hidden="true" fill={userReaction === reaction.type && reaction.type === 'love' ? 'currentColor' : 'none'} />
+                <Icon size={20} fill={active && type === "love" ? "currentColor" : "none"} aria-hidden="true" />
+                <span>{label}</span>
+                <span className="reaction-control__option-count" aria-hidden="true">{formatCount(count)}</span>
               </button>
-            );})}
-          </div>
-        )}
-
-        {/* Login prompt for non-authenticated users */}
-        {!currentUser && showPicker && (
-          <div className="reaction-login-prompt">
-            <span>Login to react</span>
-          </div>
-        )}
-      </div>
-
-      {/* Reaction count display */}
-      {getTotalCount() > 0 && (
-        <div className="reaction-count">
-          {formatCount(getTotalCount())}
+            );
+          })}
         </div>
       )}
+
+      {loadStatus === "error" && <span className="sr-only" role="status">Reaction counts are temporarily unavailable.</span>}
+      {feedback && <span className="interaction-feedback" role="alert">{feedback}</span>}
     </div>
   );
-};
-
-export default ReactionButtons;
+}

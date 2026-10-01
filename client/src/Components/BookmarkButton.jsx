@@ -1,124 +1,110 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Bookmark } from 'lucide-react';
-import api from '../api/axios';
-import { AuthContext } from '../AuthContext/authContext.jsx';
-import { useNavigate } from 'react-router-dom';
+import { useContext, useEffect, useState } from "react";
+import { Bookmark, BookmarkCheck, LoaderCircle } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import api from "../api/axios";
+import { AuthContext } from "../AuthContext/authContext.jsx";
 
-// Helper function to format large numbers
 const formatCount = (count) => {
-  if (count >= 1000000) {
-    return (count / 1000000).toFixed(1) + 'M';
-  }
-  if (count >= 1000) {
-    return (count / 1000).toFixed(1) + 'K';
-  }
-  return count.toString();
+  const numericCount = Number(count) || 0;
+  if (numericCount >= 1000000) return `${(numericCount / 1000000).toFixed(1)}M`;
+  if (numericCount >= 1000) return `${(numericCount / 1000).toFixed(1)}K`;
+  return numericCount.toString();
 };
 
-const BookmarkButton = ({ postId, theme, postTitle }) => {
+export default function BookmarkButton({ postId, postTitle }) {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkCount, setBookmarkCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [feedback, setFeedback] = useState("");
   const { currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
-  const isDark = theme === 'dark';
+  const location = useLocation();
+  const targetLabel = postTitle || "this story";
 
-  // Fetch bookmark status and count
   useEffect(() => {
-    fetchBookmarkData();
-  }, [postId]);
-
-  const fetchBookmarkData = async () => {
-    try {
-      // Fetch count for the post (all users)
-      const countRes = await api.post('/api/bookmarks/counts', { 
-        postIds: [postId] 
-      });
-      setBookmarkCount(countRes.data[postId] || 0);
-
-      // Fetch user's bookmark status for this specific post
-      if (currentUser) {
-        const statusRes = await api.get(`/api/bookmarks/check/${postId}`);
-        setIsBookmarked(statusRes.data);
+    const controller = new AbortController();
+    let active = true;
+    const load = async () => {
+      setIsLoading(true);
+      setFeedback("");
+      if (!currentUser) setIsBookmarked(false);
+      try {
+        const requests = [api.post("/api/bookmarks/counts", { postIds: [postId] }, { signal: controller.signal })];
+        if (currentUser) requests.push(api.get(`/api/bookmarks/check/${postId}`, { signal: controller.signal }));
+        const [countResponse, statusResponse] = await Promise.all(requests);
+        if (!active) return;
+        setBookmarkCount(Number(countResponse.data?.[postId]) || 0);
+        setIsBookmarked(currentUser ? Boolean(statusResponse?.data) : false);
+      } catch (error) {
+        if (error.code !== "ERR_CANCELED" && active) setBookmarkCount(0);
+      } finally {
+        if (active) setIsLoading(false);
       }
-    } catch (err) {
-      console.error('Error fetching bookmark data:', err);
-    }
-  };
+    };
 
-  const handleBookmark = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    load();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [currentUser, postId]);
+
+  const handleBookmark = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
 
     if (!currentUser) {
-      navigate('/login');
+      navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       return;
     }
+    if (isLoading || isProcessing) return;
 
-    if (isProcessing) return;
+    const previousBookmarked = isBookmarked;
+    const previousCount = bookmarkCount;
+    const nextBookmarked = !previousBookmarked;
     setIsProcessing(true);
+    setFeedback("");
+    setIsBookmarked(nextBookmarked);
+    setBookmarkCount((count) => Math.max(0, count + (nextBookmarked ? 1 : -1)));
 
     try {
-      if (isBookmarked) {
-        // Remove bookmark
-        const res = await api.delete(`/api/bookmarks/${postId}`);
-        
-        if (res.status === 200) {
-          setIsBookmarked(false);
-          setBookmarkCount(prev => Math.max(0, prev - 1));
-        }
+      if (nextBookmarked) await api.post("/api/bookmarks", { postId });
+      else await api.delete(`/api/bookmarks/${postId}`);
+    } catch (error) {
+      setIsBookmarked(previousBookmarked);
+      setBookmarkCount(previousCount);
+      if (error.response?.status === 401) {
+        navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       } else {
-        // Add bookmark
-        const res = await api.post('/api/bookmarks', { postId });
-        
-        // Handle both 200 and 201 status codes
-        if (res.status === 200 || res.status === 201) {
-          setIsBookmarked(true);
-          setBookmarkCount(prev => prev + 1);
-        }
-      }
-    } catch (err) {
-      console.error('Bookmark error:', err);
-      // If 409 conflict (already bookmarked), treat as success
-      if (err.response?.status === 409) {
-        setIsBookmarked(true);
-        return;
-      }
-      if (err.response?.status === 401) {
-        navigate('/login');
+        setFeedback("Bookmark could not be updated. Try again.");
       }
     } finally {
-      setTimeout(() => {
-        setIsProcessing(false);
-      }, 300);
+      setIsProcessing(false);
     }
   };
 
+  const Icon = isBookmarked ? BookmarkCheck : Bookmark;
   return (
-    <div className="bookmark-container">
-      <div className="bookmark-content-wrapper">
-        <button
-          className={`btn-grad bookmark-btn ${isBookmarked ? 'active' : ''}`}
-          onClick={handleBookmark}
-          title={currentUser ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Login to bookmark"}
-          aria-label={currentUser
-            ? `${isBookmarked ? 'Remove bookmark for' : 'Bookmark'} ${postTitle || 'this post'}`
-            : `Log in to bookmark ${postTitle || 'this post'}`}
-          aria-pressed={isBookmarked}
-          aria-busy={isProcessing}
-          disabled={isProcessing}
-        >
-          <Bookmark size={20} fill={isBookmarked ? 'currentColor' : 'none'} aria-hidden="true" />
-        </button>
-        
-        {bookmarkCount > 0 && (
-          <span className="bookmark-count" title="Bookmarks">
-            {formatCount(bookmarkCount)}
-          </span>
-        )}
-      </div>
+    <div className="bookmark-control">
+      <button
+        type="button"
+        className={`bookmark-control__button${isBookmarked ? " is-active" : ""}`}
+        onClick={handleBookmark}
+        title={currentUser ? (isBookmarked ? "Remove bookmark" : "Save story") : "Log in to save this story"}
+        aria-label={currentUser
+          ? `${isBookmarked ? "Remove bookmark from" : "Save"} ${targetLabel}`
+          : `Log in to save ${targetLabel}`}
+        aria-pressed={isBookmarked}
+        aria-busy={isLoading || isProcessing}
+        disabled={isLoading || isProcessing}
+      >
+        {isProcessing
+          ? <LoaderCircle className="interaction-spinner" size={20} aria-hidden="true" />
+          : <Icon size={20} fill={isBookmarked ? "currentColor" : "none"} aria-hidden="true" />}
+      </button>
+      {bookmarkCount > 0 && <span className="bookmark-control__count" aria-label={`${bookmarkCount} bookmarks`}>{formatCount(bookmarkCount)}</span>}
+      {feedback && <span className="interaction-feedback" role="alert">{feedback}</span>}
     </div>
   );
-};
-
-export default BookmarkButton;
+}

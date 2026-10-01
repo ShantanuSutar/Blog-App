@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { BookOpen, ImageOff, MessageCircle, RotateCcw } from "lucide-react";
+import { BookOpen, ImageOff, LoaderCircle, MessageCircle, RotateCcw, Send } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
 import { AuthContext } from "../AuthContext/authContext.jsx";
@@ -9,6 +9,7 @@ import ArticleAuthor from "../Components/article/ArticleAuthor.jsx";
 import Comment from "../Components/Comment.jsx";
 import MentionInput from "../Components/MentionInput.jsx";
 import Menu from "../Components/Menu.jsx";
+import ProfileAvatar from "../Components/ProfileAvatar.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
 import { formatPostDate, getPostTags, resolveMediaUrl } from "../Components/home/postPresentation";
 import { calculateReadingTime } from "../utils/readingTime";
@@ -150,9 +151,10 @@ export default function Single() {
     [post?.desc],
   );
 
-  const handleAddComment = async () => {
+  const handleAddComment = async (event) => {
+    event.preventDefault();
     const value = comment.trim();
-    if (!value || commentStatus === "loading") return;
+    if (!currentUser || !value || commentStatus === "loading") return;
     setCommentStatus("loading");
     setCommentError("");
 
@@ -165,6 +167,12 @@ export default function Single() {
       setCommentStatus("error");
       setCommentError("Your comment could not be posted. Please try again.");
     }
+  };
+
+  const handleCommentChange = (value) => {
+    setComment(value);
+    if (commentError) setCommentError("");
+    if (commentStatus === "success" || commentStatus === "error") setCommentStatus("idle");
   };
 
   const handleDelete = async () => {
@@ -252,41 +260,72 @@ export default function Single() {
               <span className="article-comments__eyebrow">Join the conversation</span>
               <h2 id="comments-title">Comments</h2>
             </div>
-            {commentsStatus === "success" && <span>{comments.length}</span>}
+            {commentsStatus === "success" && (
+              <span aria-label={`${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}>{comments.length}</span>
+            )}
           </header>
 
           {currentUser ? (
-            <div className="article-comment-form">
-              <label htmlFor="article-comment">Add a thoughtful response</label>
-              <MentionInput
-                id="article-comment"
-                value={comment}
-                onChange={setComment}
-                placeholder="Write a comment… Use @ to mention someone"
-                ariaLabel="Comment text"
-              />
-              <div className="article-comment-form__footer">
-                <span className="article-comment-form__error" role="alert">{commentError}</span>
-                <button className="ui-button--primary" type="button" onClick={handleAddComment} disabled={!comment.trim() || commentStatus === "loading"} aria-busy={commentStatus === "loading"}>
-                  {commentStatus === "loading" ? "Posting…" : "Post comment"}
-                </button>
+            <form className="article-comment-form" onSubmit={handleAddComment}>
+              <ProfileAvatar source={currentUser.avatar || currentUser.img} username={currentUser.username} className="profile-avatar--comment" />
+              <div className="article-comment-form__content">
+                <label htmlFor="article-comment">Add a thoughtful response</label>
+                <MentionInput
+                  id="article-comment"
+                  name="comment"
+                  value={comment}
+                  onChange={handleCommentChange}
+                  placeholder="Write a comment… Use @ to mention someone"
+                  ariaLabel="Comment text"
+                  ariaDescribedBy="article-comment-help article-comment-feedback"
+                  disabled={commentStatus === "loading"}
+                  maxLength={5000}
+                />
+                <div className="article-comment-form__footer">
+                  <div className="article-comment-form__meta">
+                    <span id="article-comment-help">Be constructive and keep the conversation welcoming.</span>
+                    <span aria-label={`${comment.length} of 5000 characters`}>{comment.length}/5000</span>
+                  </div>
+                  <button className="ui-button--primary" type="submit" disabled={!comment.trim() || commentStatus === "loading"} aria-busy={commentStatus === "loading"}>
+                    {commentStatus === "loading"
+                      ? <><LoaderCircle className="interaction-spinner" size={18} aria-hidden="true" /> Posting…</>
+                      : <><Send size={18} aria-hidden="true" /> Post comment</>}
+                  </button>
+                </div>
+                <span id="article-comment-feedback" className={`article-comment-form__feedback${commentError ? " is-error" : ""}`} role={commentError ? "alert" : "status"} aria-live="polite">
+                  {commentError || (commentStatus === "success" ? "Your comment has been posted." : "")}
+                </span>
               </div>
-            </div>
+            </form>
           ) : (
             <div className="article-comments__login">
               <MessageCircle size={22} aria-hidden="true" />
-              <p><Link to="/login">Log in</Link> to add your perspective.</p>
+              <p><Link to="/login" state={{ from: `/post/${postId}` }}>Log in</Link> to add your perspective.</p>
             </div>
           )}
 
-          {commentsStatus === "loading" && <div className="article-comments__status" role="status">Loading comments…</div>}
+          {commentsStatus === "loading" && (
+            <div className="comment-skeleton-list" role="status" aria-label="Loading comments" aria-busy="true">
+              {[0, 1].map((item) => (
+                <div className="comment-skeleton" key={item} aria-hidden="true">
+                  <span className="comment-skeleton__avatar" />
+                  <span className="comment-skeleton__lines"><span /><span /></span>
+                </div>
+              ))}
+            </div>
+          )}
           {commentsStatus === "error" && (
             <div className="article-comments__status article-comments__status--error" role="alert">
               <span>Comments couldn't be loaded.</span>
               <button className="ui-button--ghost" type="button" onClick={() => loadComments()}>Try again</button>
             </div>
           )}
-          {commentsStatus === "success" && comments.length === 0 && <p className="article-comments__empty">No comments yet. Start the conversation.</p>}
+          {commentsStatus === "success" && comments.length === 0 && (
+            <div className="article-comments__empty">
+              <MessageCircle size={24} aria-hidden="true" />
+              <p><strong>No comments yet.</strong> Start the conversation with a thoughtful response.</p>
+            </div>
+          )}
           {commentsStatus === "success" && comments.length > 0 && (
             <div className="article-comments__list">
               {comments.map((item) => <Comment key={item.id} c={item} baseUrl={baseUrl} />)}

@@ -1,10 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 import MentionAutocomplete from './MentionAutocomplete.jsx';
 
-const MentionInput = ({ id, value, onChange, placeholder, ariaLabel }) => {
+const MentionInput = ({
+  id,
+  value,
+  onChange,
+  placeholder,
+  ariaLabel,
+  ariaDescribedBy,
+  disabled = false,
+  maxLength,
+  name,
+}) => {
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
-  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [mentionStartPos, setMentionStartPos] = useState(null); // Track where @ was typed
   const [mentionEndPos, setMentionEndPos] = useState(null); // Track cursor position while typing mention
   const textareaRef = useRef(null);
@@ -30,33 +39,6 @@ const MentionInput = ({ id, value, onChange, placeholder, ariaLabel }) => {
     };
   }, []);
   
-  const calculateCursorPosition = (textarea, cursorPos) => {
-    const textBeforeCursor = textarea.value.substring(0, cursorPos);
-    const lines = textBeforeCursor.split('\n');
-    const currentLineIndex = lines.length - 1;
-    const currentLineText = lines[currentLineIndex];
-    
-    // Create a temporary element to measure text width
-    const tempElement = document.createElement('div');
-    tempElement.style.position = 'absolute';
-    tempElement.style.visibility = 'hidden';
-    tempElement.style.whiteSpace = 'pre';
-    tempElement.style.font = window.getComputedStyle(textarea).font;
-    tempElement.textContent = currentLineText;
-    document.body.appendChild(tempElement);
-    
-    const rect = textarea.getBoundingClientRect();
-    const textWidth = tempElement.offsetWidth;
-    const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight);
-    
-    document.body.removeChild(tempElement);
-    
-    setCursorPosition({
-      x: rect.left + textWidth + 5, // 5px offset
-      y: rect.top + (currentLineIndex * lineHeight) + lineHeight + 5
-    });
-  };
-  
   const handleChange = (e) => {
     const newValue = e.target.value;
     const cursorPos = e.target.selectionStart;
@@ -73,7 +55,6 @@ const MentionInput = ({ id, value, onChange, placeholder, ariaLabel }) => {
       setMentionQuery('');
       setMentionStartPos(cursorPos - 1); // Store position of @
       setMentionEndPos(cursorPos); // Store current cursor position
-      calculateCursorPosition(e.target, cursorPos);
     } else if (showMentions) {
       // Extract current mention being typed
       const textBeforeCursor = newValue.substring(0, cursorPos);
@@ -168,18 +149,22 @@ const MentionInput = ({ id, value, onChange, placeholder, ariaLabel }) => {
     <div className="mention-input-container" ref={textareaRef}>
       <textarea
         id={id}
+        name={name}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         placeholder={placeholder}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        disabled={disabled}
+        maxLength={maxLength}
+        autoComplete="off"
       />
       {showMentions && (
         <MentionAutocomplete
           query={mentionQuery}
           onSelect={handleSelectMention}
-          position={cursorPosition}
         />
       )}
     </div>

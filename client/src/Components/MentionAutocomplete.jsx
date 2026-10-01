@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios.js';
 
-const MentionAutocomplete = ({ query, onSelect, position }) => {
+const MentionAutocomplete = ({ query, onSelect }) => {
   const [users, setUsers] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   
@@ -18,8 +18,7 @@ const MentionAutocomplete = ({ query, onSelect, position }) => {
       const res = await api.get(`/api/users/search?query=${encodeURIComponent(searchTerm)}`);
       setUsers(res.data);
       setSelectedIndex(0); // Reset selection when new results come in
-    } catch (err) {
-      console.error('Error fetching users:', err);
+    } catch {
       setUsers([]);
     }
   };
@@ -56,14 +55,13 @@ const MentionAutocomplete = ({ query, onSelect, position }) => {
   if (users.length === 0) return null;
   
   return (
-    <div 
-      className="mention-autocomplete" 
-      style={{ top: position.y, left: position.x }}
-    >
+    <div className="mention-autocomplete" role="listbox" aria-label="Mention a user">
       {users.map((user, index) => (
         <div 
           key={user.id}
           className={`mention-item ${index === selectedIndex ? 'selected' : ''}`}
+          role="option"
+          aria-selected={index === selectedIndex}
           onClick={() => onSelect(user.username)}
           onMouseEnter={() => setSelectedIndex(index)}
         >

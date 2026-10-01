@@ -102,9 +102,9 @@ textarea { min-height: 110px; resize: vertical; }
 .ui-meta { color: var(--color-text-subtle); font-size: var(--font-size-small); line-height: var(--line-height-compact); }
 .ui-caption { color: var(--color-text-subtle); font-size: var(--font-size-caption); line-height: var(--line-height-compact); }
 
-.reaction-container .reaction-main-wrapper .reaction-main,
-.reaction-container .reaction-main-wrapper .reaction-picker-hover .reaction-option-hover,
-.bookmark-container .bookmark-content-wrapper .bookmark-btn,
+.reaction-control__trigger,
+.reaction-control__option,
+.bookmark-control__button,
 .page-number {
   min-width: 44px;
   min-height: 44px;
