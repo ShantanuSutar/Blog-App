@@ -32,6 +32,8 @@
 
   &:active { background: var(--color-surface-active); }
 
+  &:active:not(:disabled) { transform: scale(0.96); }
+
   &:focus-visible {
     outline: 3px solid var(--color-focus-ring);
     outline-offset: 2px;
@@ -46,7 +48,12 @@
     border-color: var(--color-primary-alpha-20);
     background: var(--color-primary-soft);
     color: var(--color-primary);
+
+    svg { animation: interaction-icon-set var(--transition-base); }
   }
+
+  > svg { transition: transform var(--transition-fast), fill var(--transition-fast), stroke var(--transition-fast); }
+  &:hover:not(:disabled) > svg { transform: scale(1.06); }
 }
 
 .reaction-control[data-reaction="like"] .reaction-control__trigger.is-active,
@@ -102,6 +109,8 @@
   cursor: pointer;
   transition: color var(--transition-fast), background-color var(--transition-fast);
 
+  svg { transition: transform var(--transition-fast), fill var(--transition-fast), stroke var(--transition-fast); }
+
   &:hover,
   &:focus-visible {
     background: var(--color-surface-hover);
@@ -112,6 +121,9 @@
     outline: 2px solid var(--color-focus-ring);
     outline-offset: -2px;
   }
+
+  &:hover svg,
+  &:focus-visible svg { transform: scale(1.08); }
 }
 
 .reaction-control__option-count {
@@ -144,6 +156,10 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes interaction-icon-set {
+  0% { transform: scale(0.82); opacity: 0.45; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 @media (max-width: $breakpoint-sm) {
   .reaction-control__picker {
@@ -160,5 +176,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .reaction-control__picker,
-  .interaction-spinner { animation: none; }
+  .interaction-spinner,
+  .reaction-control__trigger.is-active svg,
+  .bookmark-control__button.is-active svg { animation: none; }
 }

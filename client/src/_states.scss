@@ -69,11 +69,25 @@
   position: relative;
 
   &__content {
+    display: inline-grid;
+    align-items: center;
+    justify-items: center;
+  }
+
+  &__state {
+    grid-area: 1 / 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    min-width: max-content;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--transition-fast);
+
+    &.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
   }
 
   &__spinner { animation: ui-loader-spin 800ms linear infinite; }
@@ -136,6 +150,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ui-skeleton { animation: none; background: var(--color-surface-hover); }
-  .ui-inline-loader svg, .ui-loading-button__spinner { animation-duration: 1.5s !important; }
+  .ui-inline-loader svg, .ui-loading-button__spinner { animation: none; }
   .ui-toast { animation: none; }
 }

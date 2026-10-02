@@ -53,9 +53,9 @@ $interaction-transition: color var(--transition-base), background-color var(--tr
   --shadow-sm: 0 1px 2px rgba(22, 22, 24, 0.06);
   --shadow-md: 0 4px 16px rgba(22, 22, 24, 0.08);
   --shadow-lg: 0 12px 32px rgba(22, 22, 24, 0.12);
-  --transition-fast: 150ms ease;
-  --transition-base: 200ms ease;
-  --transition-slow: 250ms ease;
+  --transition-fast: 150ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-base: 200ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-slow: 250ms cubic-bezier(0.2, 0, 0, 1);
   --content-width: 1200px;
   --reading-width: 720px;
 
@@ -117,8 +117,8 @@ $interaction-transition: color var(--transition-base), background-color var(--tr
   --color-accent-alpha-20: rgba(185, 20, 79, 0.2);
   --color-accent-alpha-30: rgba(185, 20, 79, 0.3);
   --color-accent-alpha-40: rgba(185, 20, 79, 0.4);
-  --color-success-alpha-10: rgba(22, 131, 91, 0.1);
-  --color-success-alpha-15: rgba(22, 131, 91, 0.15);
+  --color-success-alpha-10: rgba(17, 108, 74, 0.1);
+  --color-success-alpha-15: rgba(17, 108, 74, 0.15);
   --color-danger-alpha-20: rgba(197, 43, 67, 0.2);
 
   --color-ink-alpha-03: rgba(37, 36, 35, 0.03);
@@ -174,16 +174,16 @@ body.dark,
   --color-accent: var(--color-primary);
   --color-accent-deep: var(--color-primary-active);
 
-  --color-primary-alpha-10: rgba(198, 38, 96, 0.1);
-  --color-primary-alpha-15: rgba(198, 38, 96, 0.15);
-  --color-primary-alpha-20: rgba(198, 38, 96, 0.2);
-  --color-primary-alpha-30: rgba(198, 38, 96, 0.3);
-  --color-primary-alpha-40: rgba(198, 38, 96, 0.4);
-  --color-primary-alpha-60: rgba(198, 38, 96, 0.6);
-  --color-primary-alpha-80: rgba(198, 38, 96, 0.8);
-  --color-accent-alpha-20: rgba(198, 38, 96, 0.2);
-  --color-accent-alpha-30: rgba(198, 38, 96, 0.3);
-  --color-accent-alpha-40: rgba(198, 38, 96, 0.4);
+  --color-primary-alpha-10: rgba(232, 95, 144, 0.1);
+  --color-primary-alpha-15: rgba(232, 95, 144, 0.15);
+  --color-primary-alpha-20: rgba(232, 95, 144, 0.2);
+  --color-primary-alpha-30: rgba(232, 95, 144, 0.3);
+  --color-primary-alpha-40: rgba(232, 95, 144, 0.4);
+  --color-primary-alpha-60: rgba(232, 95, 144, 0.6);
+  --color-primary-alpha-80: rgba(232, 95, 144, 0.8);
+  --color-accent-alpha-20: rgba(232, 95, 144, 0.2);
+  --color-accent-alpha-30: rgba(232, 95, 144, 0.3);
+  --color-accent-alpha-40: rgba(232, 95, 144, 0.4);
 
   --color-success: #4fc798;
   --color-success-strong: #74d8b1;

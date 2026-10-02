@@ -146,13 +146,16 @@
 
   > button {
     cursor: pointer;
-    transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast);
+    transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
 
     &:hover {
       border-color: var(--color-border-strong);
       background: var(--color-surface-hover);
       color: var(--color-primary);
     }
+
+
+    &:active { transform: translateY(1px); }
   }
 
   span {
@@ -176,7 +179,7 @@
 .follow-button {
   min-width: 112px;
 
-  &.is-following:hover {
+  &.is-following:hover:not(:disabled) {
     border-color: var(--color-danger);
     color: var(--color-danger);
   }

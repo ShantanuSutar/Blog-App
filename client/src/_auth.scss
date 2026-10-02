@@ -189,6 +189,8 @@ body.dark .auth-brand img {
       background: var(--color-surface-hover);
       color: var(--color-text-primary);
     }
+
+    &:active { background: var(--color-surface-active); }
   }
 }
 
