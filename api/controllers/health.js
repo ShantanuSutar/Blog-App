@@ -10,7 +10,13 @@ export const checkHealth = async (req, res) => {
     });
   } catch (error) {
     console.error("Health check failed:", error.message);
-    return res.status(503).json({ status: "unhealthy" });
+    return res.status(503).json({
+      success: false,
+      status: "unhealthy",
+      message: "Database health check failed",
+      code: "HEALTH_CHECK_FAILED",
+      error: "Database health check failed",
+    });
   }
 };
 

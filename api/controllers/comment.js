@@ -1,4 +1,5 @@
 import { db } from "../db.js";
+import { ApiError } from "../errors/ApiError.js";
 import { recordActivity } from "../services/activity.js";
 import { sanitizePlainText } from "../utils/content.js";
 import { withTransaction } from "../utils/database.js";
@@ -9,15 +10,14 @@ export const addComment = async (req, res) => {
   const postId = parsePositiveInteger(req.params.id);
 
   if (!comment) {
-    return res.status(400).json("Comment is required");
+    throw new ApiError(400, "Comment is required", "COMMENT_REQUIRED");
   }
 
   if (!postId) {
-    return res.status(400).json("Invalid post ID");
+    throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
 
-  try {
-    const commentId = await withTransaction(db, async (client) => {
+  const commentId = await withTransaction(db, async (client) => {
       const result = await client.query(
         `
           INSERT INTO comments(comment, Cpostid, Cuserid)
@@ -47,21 +47,17 @@ export const addComment = async (req, res) => {
       return result.rows[0].id;
     });
 
-    if (!commentId) {
-      return res.status(404).json("Published post not found");
-    }
-
-    return res.status(201).json({ message: "Comment has been created.", id: commentId });
-  } catch (err) {
-    console.error('Error adding comment:', err);
-    return res.status(500).json({ error: "Internal server error" });
+  if (!commentId) {
+    throw new ApiError(404, "Published post not found", "POST_NOT_FOUND");
   }
+
+  return res.status(201).json({ message: "Comment has been created.", id: commentId });
 };
 
 export const getComment = async (req, res) => {
   const postId = parsePositiveInteger(req.params.id);
   if (!postId) {
-    return res.status(400).json("Invalid post ID");
+    throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
 
   const query =
@@ -76,11 +72,6 @@ export const getComment = async (req, res) => {
       ORDER BY c.id ASC
     `;
 
-  try {
-    const result = await db.query(query, [postId]);
-    return res.status(200).json(result.rows);
-  } catch (err) {
-    console.error("Error getting comments:", err);
-    return res.status(500).json({ error: "Internal server error" });
-  }
+  const result = await db.query(query, [postId]);
+  return res.status(200).json(result.rows);
 };

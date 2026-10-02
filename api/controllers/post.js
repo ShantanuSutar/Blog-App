@@ -1,4 +1,5 @@
 import { db } from "../db.js";
+import { ApiError } from "../errors/ApiError.js";
 import { recordActivity } from "../services/activity.js";
 import { notifySubscribersOfPost } from "../services/notifications.js";
 import { sanitizePlainText, sanitizeRichText } from "../utils/content.js";
@@ -12,8 +13,7 @@ const sanitizePost = (post) => ({
 });
 
 export const getPosts = async (req, res) => {
-  try {
-    let query;
+  let query;
     let params = [];
     let conditions = ["p.draft=false AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))"];
 
@@ -43,25 +43,20 @@ export const getPosts = async (req, res) => {
     const countParams = params.slice(0, params.length - 2);
     const countResult = await db.query(countQuery, countParams);
 
-    return res.status(200).json({
+  return res.status(200).json({
       posts: result.rows.map(sanitizePost),
       totalPages: Math.ceil(Number(countResult.rows[0].count) / limit),
       currentPage: page
-    });
-  } catch (err) {
-    console.error('Error in getPosts:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  });
 };
 
 export const getSinglePost = async (req, res) => {
   const postId = parsePositiveInteger(req.params.id);
   if (!postId) {
-    return res.status(400).json({ message: "Invalid post ID" });
+    throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
 
-  try {
-    const query = `
+  const query = `
       WITH visible_post AS (
         UPDATE posts
         SET views = COALESCE(views, 0) + 1
@@ -77,42 +72,33 @@ export const getSinglePost = async (req, res) => {
 
     const result = await db.query(query, [postId]);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-
-    return res.status(200).json({
-      ...sanitizePost(result.rows[0]),
-    });
-  } catch (err) {
-    console.error('Error in getSinglePost:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+  if (result.rows.length === 0) {
+    throw new ApiError(404, "Post not found", "POST_NOT_FOUND");
   }
+
+  return res.status(200).json({
+    ...sanitizePost(result.rows[0]),
+  });
 };
 
 export const getPostForEditing = async (req, res) => {
   const postId = parsePositiveInteger(req.params.id);
   if (!postId) {
-    return res.status(400).json({ message: "Invalid post ID" });
+    throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
 
-  try {
-    const query =
-      "SELECT p.id, username, title, \"desc\", p.img, u.avatar AS \"userAvatar\", cat, date, draft, scheduled_publish_date, tags, featured FROM users u JOIN posts p ON u.id = p.uid WHERE p.id = $1 AND p.uid = $2";
+  const query =
+    "SELECT p.id, username, title, \"desc\", p.img, u.avatar AS \"userAvatar\", cat, date, draft, scheduled_publish_date, tags, featured FROM users u JOIN posts p ON u.id = p.uid WHERE p.id = $1 AND p.uid = $2";
 
-    const result = await db.query(query, [postId, req.user.id]);
+  const result = await db.query(query, [postId, req.user.id]);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Post not found or you don't have permission to edit it" });
-    }
-
-    return res.status(200).json({
-      ...sanitizePost(result.rows[0]),
-    });
-  } catch (err) {
-    console.error('Error in getPostForEditing:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+  if (result.rows.length === 0) {
+    throw new ApiError(404, "Post not found or you don't have permission to edit it", "POST_NOT_FOUND");
   }
+
+  return res.status(200).json({
+    ...sanitizePost(result.rows[0]),
+  });
 };
 
 export const addPost = async (req, res) => {
@@ -120,7 +106,7 @@ export const addPost = async (req, res) => {
   try {
     schedule = normalizeSchedule(req.body.scheduled_publish_date);
   } catch (err) {
-    return res.status(400).json({ error: err.message });
+    throw new ApiError(400, err.message, "SCHEDULE_INVALID");
   }
 
   const isDraft = req.body.draft === true || schedule.isScheduled;
@@ -141,8 +127,7 @@ export const addPost = async (req, res) => {
       req.body.featured !== undefined ? req.body.featured : false,
     ];
 
-  try {
-    const postId = await withTransaction(db, async (client) => {
+  const postId = await withTransaction(db, async (client) => {
       const result = await client.query(query, values);
       const createdPostId = result.rows[0].id;
       
@@ -163,42 +148,33 @@ export const addPost = async (req, res) => {
         });
       }
 
-    return res.status(201).json({
-      message: schedule.isScheduled ? "Post has been scheduled." : isDraft ? "Draft has been saved." : "Post has been created.",
-      id: postId,
-      status: schedule.isScheduled ? "scheduled" : isDraft ? "draft" : "published",
-    });
-  } catch (err) {
-    console.error('Error in addPost:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(201).json({
+    message: schedule.isScheduled ? "Post has been scheduled." : isDraft ? "Draft has been saved." : "Post has been created.",
+    id: postId,
+    status: schedule.isScheduled ? "scheduled" : isDraft ? "draft" : "published",
+  });
 };
 
 export const deletePost = async (req, res) => {
   const postId = parsePositiveInteger(req.params.id);
   if (!postId) {
-    return res.status(400).json("Invalid post ID");
+    throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
   const query = "DELETE FROM posts WHERE id = $1 AND uid = $2";
 
-  try {
-      const result = await db.query(query, [postId, req.user.id]);
+  const result = await db.query(query, [postId, req.user.id]);
 
-      if (result.rowCount === 0) {
-        return res.status(403).json("You can delete only your post!");
-      }
-
-    return res.json("Post has been deleted!");
-  } catch (err) {
-    console.error('Error in deletePost:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+  if (result.rowCount === 0) {
+    throw new ApiError(403, "You can delete only your post!", "POST_DELETE_FORBIDDEN");
   }
+
+  return res.status(200).json("Post has been deleted!");
 };
 
 export const updatePost = async (req, res) => {
   const postId = parsePositiveInteger(req.params.id);
   if (!postId) {
-    return res.status(400).json("Invalid post ID");
+    throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
   let schedule;
   try {
@@ -206,7 +182,7 @@ export const updatePost = async (req, res) => {
       ? normalizeSchedule(req.body.scheduled_publish_date)
       : null;
   } catch (err) {
-    return res.status(400).json({ error: err.message });
+    throw new ApiError(400, err.message, "SCHEDULE_INVALID");
   }
 
     const requestedDraft = schedule?.isScheduled ? true : req.body.draft;
@@ -269,14 +245,13 @@ export const updatePost = async (req, res) => {
     }
 
     if (fields.length === 0) {
-      return res.status(400).json("No fields to update");
+      throw new ApiError(400, "No fields to update", "POST_UPDATE_EMPTY");
     }
 
     const query = `UPDATE posts SET ${fields.join(', ')} WHERE id = $${paramIndex} AND uid = $${paramIndex + 1} RETURNING id, title, draft, scheduled_publish_date`;
     values.push(postId, req.user.id);
 
-  try {
-    const updateResult = await withTransaction(db, async (client) => {
+  const updateResult = await withTransaction(db, async (client) => {
       const currentResult = await client.query(
         "SELECT id, title, draft, scheduled_publish_date FROM posts WHERE id = $1 AND uid = $2 FOR UPDATE",
         [postId, req.user.id]
@@ -309,9 +284,9 @@ export const updatePost = async (req, res) => {
 
       const { wasPublished, updatedPost } = updateResult || {};
 
-      if (!updatedPost) {
-        return res.status(403).json("You can update only your post!");
-      }
+  if (!updatedPost) {
+    throw new ApiError(403, "You can update only your post!", "POST_UPDATE_FORBIDDEN");
+  }
 
       if (!wasPublished && isPublishedPost(updatedPost)) {
         notifySubscribersOfPost(postId, updatedPost.title).catch((err) => {
@@ -319,47 +294,32 @@ export const updatePost = async (req, res) => {
         });
       }
 
-    return res.json({
-      message: "Post has been updated.",
-      status: updatedPost.draft
-        ? updatedPost.scheduled_publish_date ? "scheduled" : "draft"
-        : "published",
-    });
-  } catch (err) {
-    console.error('Error in updatePost:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(200).json({
+    message: "Post has been updated.",
+    status: updatedPost.draft
+      ? updatedPost.scheduled_publish_date ? "scheduled" : "draft"
+      : "published",
+  });
 };
 
 export const getUserDrafts = async (req, res) => {
-  try {
-      const query = "SELECT * FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NULL ORDER BY date DESC";
+  const query = "SELECT * FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NULL ORDER BY date DESC";
 
-      const result = await db.query(query, [req.user.id]);
+  const result = await db.query(query, [req.user.id]);
 
-    return res.status(200).json(result.rows.map(sanitizePost));
-  } catch (err) {
-    console.error('Error in getUserDrafts:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(200).json(result.rows.map(sanitizePost));
 };
 
 export const getUserScheduledPosts = async (req, res) => {
-  try {
-      const query = "SELECT * FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > timezone('UTC', now()) ORDER BY scheduled_publish_date ASC";
+  const query = "SELECT * FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > timezone('UTC', now()) ORDER BY scheduled_publish_date ASC";
 
-      const result = await db.query(query, [req.user.id]);
+  const result = await db.query(query, [req.user.id]);
 
-    return res.status(200).json(result.rows.map(sanitizePost));
-  } catch (err) {
-    console.error('Error in getUserScheduledPosts:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(200).json(result.rows.map(sanitizePost));
 };
 
 export const getPostsByTag = async (req, res) => {
-  try {
-    const tag = req.params.tag;
+  const tag = req.params.tag;
 
     const tagJson = JSON.stringify([tag]);
 
@@ -375,16 +335,11 @@ export const getPostsByTag = async (req, res) => {
 
     const result = await db.query(query, [tagJson]);
 
-    return res.status(200).json(result.rows.map(sanitizePost));
-  } catch (err) {
-    console.error('Error in getPostsByTag:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(200).json(result.rows.map(sanitizePost));
 };
 
 export const getFeaturedPosts = async (req, res) => {
-  try {
-    const query = `
+  const query = `
       SELECT p.*, u.username, u.avatar AS "userAvatar"
       FROM posts p
       JOIN users u ON u.id = p.uid
@@ -397,16 +352,11 @@ export const getFeaturedPosts = async (req, res) => {
 
     const result = await db.query(query);
 
-    return res.status(200).json(result.rows.map(sanitizePost));
-  } catch (err) {
-    console.error('Error in getFeaturedPosts:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(200).json(result.rows.map(sanitizePost));
 };
 
 export const getPopularPosts = async (req, res) => {
-  try {
-    const limit = Math.min(parsePositiveInteger(req.query.limit) || 10, 50);
+  const limit = Math.min(parsePositiveInteger(req.query.limit) || 10, 50);
     
     const query = `
       SELECT p.*, u.username, u.avatar AS "userAvatar"
@@ -420,9 +370,5 @@ export const getPopularPosts = async (req, res) => {
 
     const result = await db.query(query, [limit]);
 
-    return res.status(200).json(result.rows.map(sanitizePost));
-  } catch (err) {
-    console.error('Error in getPopularPosts:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(200).json(result.rows.map(sanitizePost));
 };

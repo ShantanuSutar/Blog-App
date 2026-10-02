@@ -1,10 +1,11 @@
 import express from "express";
 import { subscribe, unsubscribe } from "../controllers/newsletter.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const router = express.Router();
 
-router.post("/", subscribe);
-router.get("/unsubscribe", unsubscribe);
-router.post("/unsubscribe", unsubscribe);
+router.post("/", asyncHandler(subscribe));
+router.get("/unsubscribe", asyncHandler(unsubscribe));
+router.post("/unsubscribe", asyncHandler(unsubscribe));
 
 export default router;

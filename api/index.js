@@ -14,9 +14,10 @@ import { schedulePostPublisher } from "./scheduler.js";
 import cors from "cors";
 import { jwtSecret } from "./middleware/auth.js";
 import { config } from "./config.js";
+import { errorHandler, notFoundHandler } from "./middleware/error.js";
+import { ApiError } from "./errors/ApiError.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import multer from "multer";
 
 jwtSecret();
 const currentFile = fileURLToPath(import.meta.url);
@@ -36,9 +37,7 @@ app.use(cors({
     if (config.allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      const error = new Error('Not allowed by CORS');
-      error.status = 403;
-      callback(error);
+      callback(new ApiError(403, "Request origin is not allowed", "CORS_ORIGIN_DENIED"));
     }
   },
   credentials: false,
@@ -65,22 +64,8 @@ app.get("/", (req, res) => {
   res.send("Hello to homepage");
 });
 
-app.use((req, res) => {
-  res.status(404).json({ error: "Route not found" });
-});
-
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    return res.status(400).json({ error: "Invalid image upload" });
-  }
-
-  if (err.status === 403) {
-    return res.status(403).json({ error: "Request origin is not allowed" });
-  }
-
-  console.error("Unhandled API error:", err);
-  return res.status(500).json({ error: "Internal server error" });
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 let server;
 

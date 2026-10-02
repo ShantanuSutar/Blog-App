@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { parsePositiveInteger } from "../utils/request.js";
+import { ApiError } from "../errors/ApiError.js";
 
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;
@@ -36,18 +37,18 @@ export const requireAuth = (req, res, next) => {
     const user = verifyRequestToken(req);
 
     if (!user) {
-      return res.status(401).json("Not authenticated!");
+      return next(new ApiError(401, "Authentication is required", "AUTH_REQUIRED"));
     }
 
     req.user = user;
     return next();
   } catch (error) {
     if (error.name === "TokenExpiredError") {
-      return res.status(401).json("Session expired. Please log in again.");
+      return next(new ApiError(401, "Session expired. Please log in again.", "AUTH_TOKEN_EXPIRED"));
     }
 
     if (error.name === "JsonWebTokenError") {
-      return res.status(401).json("Token is not valid!");
+      return next(new ApiError(401, "Authentication token is invalid", "AUTH_TOKEN_INVALID"));
     }
 
     return next(error);
@@ -72,10 +73,10 @@ export const requireSelf = (req, res, next) => {
   const requestedUserId = parsePositiveInteger(req.params.id);
 
   if (!requestedUserId) {
-    return res.status(400).json("Invalid user ID");
+    return next(new ApiError(400, "Invalid user ID", "USER_ID_INVALID"));
   }
   if (req.user.id !== requestedUserId) {
-    return res.status(403).json("You can only update your own profile");
+    return next(new ApiError(403, "You can only update your own profile", "PROFILE_FORBIDDEN"));
   }
 
   return next();

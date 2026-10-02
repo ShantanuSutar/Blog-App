@@ -1,4 +1,5 @@
 import { db } from "../db.js";
+import { ApiError } from "../errors/ApiError.js";
 import { getPagination } from "../utils/request.js";
 
 const activityFilters = {
@@ -84,13 +85,12 @@ const sendActivityPage = async (
 export const getActivityFeed = async (req, res) => {
   const activityType = getFilter(req.query.filter);
   if (activityType === undefined) {
-    return res.status(400).json({ error: "Invalid activity filter" });
+    throw new ApiError(400, "Invalid activity filter", "ACTIVITY_FILTER_INVALID");
   }
 
   const { page, limit, offset } = getPagination(req.query);
 
-  try {
-    return await sendActivityPage(res, {
+  return sendActivityPage(res, {
       whereClause: `
         WHERE (
           EXISTS (
@@ -107,41 +107,32 @@ export const getActivityFeed = async (req, res) => {
       page,
       limit,
       offset,
-    });
-  } catch (error) {
-    console.error("Error getting activity feed:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
+  });
 };
 
 export const getUserActivities = async (req, res) => {
   const activityType = getFilter(req.query.filter);
   if (activityType === undefined) {
-    return res.status(400).json({ error: "Invalid activity filter" });
+    throw new ApiError(400, "Invalid activity filter", "ACTIVITY_FILTER_INVALID");
   }
 
   const { page, limit, offset } = getPagination(req.query);
 
-  try {
-    const userResult = await db.query(
-      "SELECT id FROM users WHERE username = $1",
-      [req.params.username],
-    );
+  const userResult = await db.query(
+    "SELECT id FROM users WHERE username = $1",
+    [req.params.username],
+  );
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json("User not found");
-    }
+  if (userResult.rows.length === 0) {
+    throw new ApiError(404, "User not found", "USER_NOT_FOUND");
+  }
 
-    return await sendActivityPage(res, {
+  return sendActivityPage(res, {
       whereClause: "WHERE a.user_id = $1",
       whereParams: [userResult.rows[0].id],
       activityType,
       page,
       limit,
       offset,
-    });
-  } catch (error) {
-    console.error("Error getting user activities:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
+  });
 };

@@ -1,4 +1,5 @@
 import { db } from "../db.js";
+import { ApiError } from "../errors/ApiError.js";
 import { recordActivity } from "../services/activity.js";
 import { withTransaction } from "../utils/database.js";
 import { parsePositiveInteger } from "../utils/request.js";
@@ -56,14 +57,13 @@ export const addReaction = async (req, res) => {
   const reactionType = req.body.reactionType || "like";
 
   if (!target) {
-    return res.status(400).json("Exactly one post ID or comment ID is required");
+    throw new ApiError(400, "Exactly one post ID or comment ID is required", "REACTION_TARGET_INVALID");
   }
   if (!reactionTypes.has(reactionType)) {
-    return res.status(400).json("Unsupported reaction type");
+    throw new ApiError(400, "Unsupported reaction type", "REACTION_TYPE_INVALID");
   }
 
-  try {
-    const response = await withTransaction(db, async (client) => {
+  const response = await withTransaction(db, async (client) => {
       const owner = await findTargetOwner(client, target);
       if (!owner) {
         return null;
@@ -136,26 +136,21 @@ export const addReaction = async (req, res) => {
       };
     });
 
-    if (!response) {
-      return res.status(404).json("Published target not found");
-    }
-    return res.status(200).json(response);
-  } catch (error) {
-    console.error("Error saving reaction:", error);
-    return res.status(500).json({ error: "Internal server error" });
+  if (!response) {
+    throw new ApiError(404, "Published target not found", "REACTION_TARGET_NOT_FOUND");
   }
+  return res.status(200).json(response);
 };
 
 export const getReactions = async (req, res) => {
   const target = getTarget(req.params);
   if (!target) {
-    return res.status(400).json("Exactly one post ID or comment ID is required");
+    throw new ApiError(400, "Exactly one post ID or comment ID is required", "REACTION_TARGET_INVALID");
   }
 
-  try {
-    const targetColumn = target.postId ? "post_id" : "comment_id";
-    const targetId = target.postId || target.commentId;
-    const result = await db.query(
+  const targetColumn = target.postId ? "post_id" : "comment_id";
+  const targetId = target.postId || target.commentId;
+  const result = await db.query(
       `
         SELECT r.reaction_type, r.user_id, u.username, u.avatar AS user_img
         FROM reactions r
@@ -166,7 +161,7 @@ export const getReactions = async (req, res) => {
       [targetId],
     );
 
-    const grouped = result.rows.reduce((groups, reaction) => {
+  const grouped = result.rows.reduce((groups, reaction) => {
       const group = groups[reaction.reaction_type] || { count: 0, users: [] };
       group.count += 1;
       group.users.push({
@@ -178,21 +173,16 @@ export const getReactions = async (req, res) => {
       return groups;
     }, {});
 
-    return res.status(200).json({ total: result.rows.length, grouped });
-  } catch (error) {
-    console.error("Error getting reactions:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
+  return res.status(200).json({ total: result.rows.length, grouped });
 };
 
 export const getUserReaction = async (req, res) => {
   const target = getTarget(req.params);
   if (!target) {
-    return res.status(400).json("Exactly one post ID or comment ID is required");
+    throw new ApiError(400, "Exactly one post ID or comment ID is required", "REACTION_TARGET_INVALID");
   }
 
-  try {
-    const result = await db.query(
+  const result = await db.query(
       `
         SELECT reaction_type
         FROM reactions
@@ -202,33 +192,24 @@ export const getUserReaction = async (req, res) => {
       `,
       [req.user.id, target.postId, target.commentId],
     );
-    return res.status(200).json({
-      reaction: result.rows[0]?.reaction_type || null,
-    });
-  } catch (error) {
-    console.error("Error getting user reaction:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
+  return res.status(200).json({
+    reaction: result.rows[0]?.reaction_type || null,
+  });
 };
 
 export const removeReaction = async (req, res) => {
   const reactionId = parsePositiveInteger(req.params.reactionId);
   if (!reactionId) {
-    return res.status(400).json("Invalid reaction ID");
+    throw new ApiError(400, "Invalid reaction ID", "REACTION_ID_INVALID");
   }
 
-  try {
-    const result = await db.query(
+  const result = await db.query(
       "DELETE FROM reactions WHERE id = $1 AND user_id = $2",
       [reactionId, req.user.id],
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json("Reaction not found or you don't have permission");
-    }
-    return res.status(200).json("Reaction removed");
-  } catch (error) {
-    console.error("Error removing reaction:", error);
-    return res.status(500).json({ error: "Internal server error" });
+  if (result.rowCount === 0) {
+    throw new ApiError(404, "Reaction not found or you don't have permission", "REACTION_NOT_FOUND");
   }
+  return res.status(200).json("Reaction removed");
 };

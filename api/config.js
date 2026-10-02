@@ -22,6 +22,7 @@ const buildConnectionString = () => {
 const smtpPort = Number(process.env.SMTP_PORT) || 587;
 
 export const config = Object.freeze({
+  isProduction: process.env.NODE_ENV === "production",
   port: Number(process.env.PORT) || 8800,
   allowedOrigins: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean)

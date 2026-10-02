@@ -8,7 +8,7 @@ import LoadingButton from "../Components/ui/LoadingButton.jsx";
 
 const mapLoginError = (error) => {
   if (!error.response) return "We couldn’t reach Unsaid. Check your connection and try again.";
-  if ([400, 404].includes(error.response.status)) return "The username or password is incorrect.";
+  if ([400, 401, 404].includes(error.response.status)) return "The username or password is incorrect.";
   if (error.response.status === 429) return "Too many login attempts. Please wait a moment and try again.";
   return "We couldn’t log you in right now. Please try again.";
 };

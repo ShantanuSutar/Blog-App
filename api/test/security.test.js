@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import jwt from "jsonwebtoken";
 import { requireAuth, requireSelf } from "../middleware/auth.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { errorHandler, notFoundHandler } from "../middleware/error.js";
+import { ApiError } from "../errors/ApiError.js";
 import { escapeHtml, sanitizePlainText, sanitizeRichText } from "../utils/content.js";
 import { isPublishedPost, normalizeSchedule } from "../utils/postState.js";
 import { getPagination, parsePositiveInteger } from "../utils/request.js";
@@ -64,14 +67,14 @@ test("requireAuth rejects missing and invalid bearer tokens", () => {
   for (const authorization of [undefined, "Bearer invalid-token"]) {
     const req = { headers: { authorization } };
     const res = createResponse();
-    let called = false;
+    let receivedError;
 
-    requireAuth(req, res, () => {
-      called = true;
+    requireAuth(req, res, (error) => {
+      receivedError = error;
     });
 
-    assert.equal(called, false);
-    assert.equal(res.statusCode, 401);
+    assert.equal(receivedError instanceof ApiError, true);
+    assert.equal(receivedError.statusCode, 401);
   }
 });
 
@@ -84,10 +87,106 @@ test("requireSelf rejects cross-account profile mutations", () => {
     allowed = true;
   });
   const deniedResponse = createResponse();
-  requireSelf(deniedRequest, deniedResponse, () => assert.fail("must not call next"));
+  let deniedError;
+  requireSelf(deniedRequest, deniedResponse, (error) => {
+    deniedError = error;
+  });
 
   assert.equal(allowed, true);
-  assert.equal(deniedResponse.statusCode, 403);
+  assert.equal(deniedError instanceof ApiError, true);
+  assert.equal(deniedError.statusCode, 403);
+});
+
+test("asyncHandler forwards rejected controller promises", async () => {
+  const expectedError = new Error("controller failed");
+  let receivedError;
+  const wrapped = asyncHandler(async () => {
+    throw expectedError;
+  });
+
+  wrapped({}, {}, (error) => {
+    receivedError = error;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(receivedError, expectedError);
+});
+
+test("global error handler returns the standard safe format", () => {
+  const req = { method: "GET", originalUrl: "/api/missing" };
+  const res = createResponse();
+
+  errorHandler(
+    new ApiError(404, "Post not found", "POST_NOT_FOUND"),
+    req,
+    res,
+    () => assert.fail("must not delegate"),
+  );
+
+  assert.equal(res.statusCode, 404);
+  assert.deepEqual(res.body, {
+    success: false,
+    message: "Post not found",
+    code: "POST_NOT_FOUND",
+    error: "Post not found",
+  });
+});
+
+test("PostgreSQL errors are mapped without exposing database details", () => {
+  const req = { method: "POST", originalUrl: "/api/auth/register" };
+  const res = createResponse();
+  const databaseError = Object.assign(new Error("duplicate key exposes users_email_key"), {
+    code: "23505",
+    detail: "Key (email) already exists",
+    query: "INSERT INTO users ...",
+  });
+
+  errorHandler(databaseError, req, res, () => assert.fail("must not delegate"));
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, "RESOURCE_CONFLICT");
+  assert.equal(JSON.stringify(res.body).includes("users_email_key"), false);
+  assert.equal(JSON.stringify(res.body).includes("INSERT INTO"), false);
+});
+
+test("unexpected errors are logged but internal details stay out of responses", () => {
+  const req = { method: "GET", originalUrl: "/api/posts" };
+  const res = createResponse();
+  const originalConsoleError = console.error;
+  let loggedValues;
+  console.error = (...values) => {
+    loggedValues = values;
+  };
+
+  try {
+    errorHandler(
+      new Error("connection failed with password=do-not-expose"),
+      req,
+      res,
+      () => assert.fail("must not delegate"),
+    );
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  const serializedBody = JSON.stringify(res.body);
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.code, "INTERNAL_SERVER_ERROR");
+  assert.equal(serializedBody.includes("do-not-expose"), false);
+  assert.equal(serializedBody.includes("stack"), false);
+  assert.equal(JSON.stringify(loggedValues).includes("do-not-expose"), false);
+  assert.equal(JSON.stringify(loggedValues).includes("[REDACTED]"), true);
+});
+
+test("unknown routes use the centralized error response", () => {
+  let routeError;
+  notFoundHandler({}, {}, (error) => {
+    routeError = error;
+  });
+
+  assert.equal(routeError instanceof ApiError, true);
+  assert.equal(routeError.statusCode, 404);
+  assert.equal(routeError.code, "ROUTE_NOT_FOUND");
 });
 
 test("future publication dates always resolve to scheduled state", () => {

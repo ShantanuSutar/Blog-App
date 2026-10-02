@@ -1,4 +1,5 @@
 import { db } from "../db.js";
+import { ApiError } from "../errors/ApiError.js";
 import fs from "node:fs/promises";
 import path from "path";
 import { avatarUploadDirectory } from "../middleware/avatarUpload.js";
@@ -19,15 +20,14 @@ const removeAvatarFile = async (avatarPath) => {
 
 // Get user profile by username
 export const getProfile = async (req, res) => {
-  try {
-    const { username } = req.params;
+  const { username } = req.params;
     
     const query = "SELECT id, username, avatar, bio, created_at FROM users WHERE username = $1";
     const result = await db.query(query, [username]);
     
-    if (result.rows.length === 0) {
-      return res.status(404).json("User not found");
-    }
+  if (result.rows.length === 0) {
+    throw new ApiError(404, "User not found", "USER_NOT_FOUND");
+  }
     
     const user = result.rows[0];
     
@@ -62,34 +62,25 @@ export const getProfile = async (req, res) => {
     ]);
     const followCounts = followCountsResult.rows[0];
     
-    res.status(200).json({
+  return res.status(200).json({
       ...user,
       postsCount: Number(postsResult.rows[0].count),
       followerCount: followCounts.follower_count,
       followingCount: followCounts.following_count,
       isFollowing: followStatusResult.rows.length > 0,
       recentPosts: recentPostsResult.rows
-    });
-  } catch (err) {
-    console.error("Get profile error:", err);
-    return res.status(500).json({ message: "Internal server error" });
-  }
+  });
 };
 
 // Update user profile (bio)
 export const updateProfile = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const bio = sanitizePlainText(req.body.bio).slice(0, 500);
+  const userId = req.user.id;
+  const bio = sanitizePlainText(req.body.bio).slice(0, 500);
 
     const query = "UPDATE users SET bio = $1 WHERE id = $2 RETURNING id, username, avatar, bio";
     const result = await db.query(query, [bio, userId]);
       
-    return res.status(200).json(result.rows[0]);
-  } catch (err) {
-    console.error("Update profile error:", err);
-    return res.status(500).json({ message: "Internal server error" });
-  }
+  return res.status(200).json(result.rows[0]);
 };
 
 // Upload avatar
@@ -98,14 +89,14 @@ export const uploadAvatar = async (req, res) => {
     const userId = req.user.id;
 
     if (!req.file) {
-      return res.status(400).json("No file uploaded");
+      throw new ApiError(400, "No file uploaded", "AVATAR_REQUIRED");
     }
 
     const existingQuery = "SELECT avatar FROM users WHERE id = $1";
     const existingResult = await db.query(existingQuery, [userId]);
     if (existingResult.rows.length === 0) {
       await removeAvatarFile(`/api/uploads/avatars/${req.file.filename}`);
-      return res.status(404).json("User not found");
+      throw new ApiError(404, "User not found", "USER_NOT_FOUND");
     }
 
     const avatarPath = "/api/uploads/avatars/" + req.file.filename;
@@ -122,42 +113,35 @@ export const uploadAvatar = async (req, res) => {
     if (req.file?.filename) {
       await removeAvatarFile(`/api/uploads/avatars/${req.file.filename}`);
     }
-    console.error("Upload avatar error:", err);
-    return res.status(500).json({ message: "Internal server error" });
+    throw err;
   }
 };
 
 // Delete avatar
 export const deleteAvatar = async (req, res) => {
-  try {
-    const userId = req.user.id;
+  const userId = req.user.id;
 
     const existingQuery = "SELECT avatar FROM users WHERE id = $1";
     const existingResult = await db.query(existingQuery, [userId]);
       
-    if (existingResult.rows.length === 0) {
-      return res.status(404).json("User not found");
-    }
+  if (existingResult.rows.length === 0) {
+    throw new ApiError(404, "User not found", "USER_NOT_FOUND");
+  }
 
     const query = "UPDATE users SET avatar = NULL WHERE id = $1 RETURNING id, username";
     const result = await db.query(query, [userId]);
     await removeAvatarFile(existingResult.rows[0].avatar);
       
-    return res.status(200).json({ message: "Avatar deleted successfully", user: result.rows[0] });
-  } catch (err) {
-    console.error("Delete avatar error:", err);
-    return res.status(500).json({ message: "Internal server error" });
-  }
+  return res.status(200).json({ message: "Avatar deleted successfully", user: result.rows[0] });
 };
 
 // Search users by username prefix (for @mentions)
 export const searchUsers = async (req, res) => {
-  try {
-    const query = typeof req.query.query === "string" ? req.query.query.trim() : "";
+  const query = typeof req.query.query === "string" ? req.query.query.trim() : "";
     
-    if (!query) {
-      return res.status(400).json("Query parameter required");
-    }
+  if (!query) {
+    throw new ApiError(400, "Query parameter required", "SEARCH_QUERY_REQUIRED");
+  }
     
     const escapedQuery = query.slice(0, 100).replace(/[\\%_]/g, "\\$&");
     const result = await db.query(
@@ -165,9 +149,5 @@ export const searchUsers = async (req, res) => {
       [`${escapedQuery}%`]
     );
     
-    return res.status(200).json(result.rows);
-  } catch (err) {
-    console.error('Error searching users:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  return res.status(200).json(result.rows);
 };

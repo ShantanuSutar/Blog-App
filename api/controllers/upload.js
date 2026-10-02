@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import multer from "multer";
+import { ApiError } from "../errors/ApiError.js";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const uploadDirectory = path.resolve(currentDirectory, "../../client/public/upload");
@@ -37,7 +38,7 @@ export const uploadPostImage = multer({
 
 export const uploadImage = (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: "An image file is required" });
+    throw new ApiError(400, "An image file is required", "UPLOAD_REQUIRED");
   }
   return res.status(200).json(req.file.filename);
 };
