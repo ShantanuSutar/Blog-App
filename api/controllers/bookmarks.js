@@ -96,7 +96,17 @@ export const getBookmarkCount = async (req, res) => {
     throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
 
-  const result = await db.query("SELECT COUNT(*) FROM bookmarks WHERE pid = $1", [postId]);
+  const result = await db.query(
+    `
+      SELECT COUNT(b.id)
+      FROM posts p
+      LEFT JOIN bookmarks b ON b.pid = p.id
+      WHERE p.id = $1
+        AND p.draft = false
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+    `,
+    [postId],
+  );
   return res.status(200).json({ count: Number(result.rows[0].count) });
 };
 
@@ -111,10 +121,13 @@ export const getBookmarkCountsForPosts = async (req, res) => {
 
   const result = await db.query(
       `
-        SELECT pid, COUNT(*)::integer AS count
-        FROM bookmarks
-        WHERE pid = ANY($1::int[])
-        GROUP BY pid
+        SELECT b.pid, COUNT(*)::integer AS count
+        FROM bookmarks b
+        JOIN posts p ON p.id = b.pid
+        WHERE b.pid = ANY($1::int[])
+          AND p.draft = false
+          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+        GROUP BY b.pid
       `,
       [postIds]
     );

@@ -127,6 +127,10 @@ export const getUserActivities = async (req, res) => {
     throw new ApiError(404, "User not found", "USER_NOT_FOUND");
   }
 
+  if (userResult.rows[0].id !== req.user.id) {
+    throw new ApiError(404, "Activity feed not found", "ACTIVITY_NOT_FOUND");
+  }
+
   return sendActivityPage(res, {
       whereClause: "WHERE a.user_id = $1",
       whereParams: [userResult.rows[0].id],

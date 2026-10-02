@@ -166,7 +166,7 @@ export const deletePost = async (req, res) => {
   const result = await db.query(query, [postId, req.user.id]);
 
   if (result.rowCount === 0) {
-    throw new ApiError(403, "You can delete only your post!", "POST_DELETE_FORBIDDEN");
+    throw new ApiError(404, "Post not found", "POST_NOT_FOUND");
   }
 
   return res.status(200).json("Post has been deleted!");
@@ -286,7 +286,7 @@ export const updatePost = async (req, res) => {
       const { wasPublished, updatedPost } = updateResult || {};
 
   if (!updatedPost) {
-    throw new ApiError(403, "You can update only your post!", "POST_UPDATE_FORBIDDEN");
+    throw new ApiError(404, "Post not found", "POST_NOT_FOUND");
   }
 
       if (!wasPublished && isPublishedPost(updatedPost)) {

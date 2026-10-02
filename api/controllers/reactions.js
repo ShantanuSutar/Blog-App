@@ -148,14 +148,20 @@ export const getReactions = async (req, res) => {
     throw new ApiError(400, "Exactly one post ID or comment ID is required", "REACTION_TARGET_INVALID");
   }
 
-  const targetColumn = target.postId ? "post_id" : "comment_id";
   const targetId = target.postId || target.commentId;
+  const targetJoin = target.postId
+    ? "JOIN posts p ON p.id = r.post_id"
+    : "JOIN comments c ON c.id = r.comment_id JOIN posts p ON p.id = c.cpostid";
+  const targetCondition = target.postId ? "r.post_id = $1" : "r.comment_id = $1";
   const result = await db.query(
       `
         SELECT r.reaction_type, r.user_id, u.username, u.avatar AS user_img
         FROM reactions r
         JOIN users u ON r.user_id = u.id
-        WHERE r.${targetColumn} = $1
+        ${targetJoin}
+        WHERE ${targetCondition}
+          AND p.draft = false
+          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
         ORDER BY r.created_at DESC
       `,
       [targetId],
@@ -182,16 +188,36 @@ export const getUserReaction = async (req, res) => {
     throw new ApiError(400, "Exactly one post ID or comment ID is required", "REACTION_TARGET_INVALID");
   }
 
-  const result = await db.query(
-      `
-        SELECT reaction_type
-        FROM reactions
-        WHERE ${targetWhereClause}
-        ORDER BY created_at DESC
-        LIMIT 1
-      `,
-      [req.user.id, target.postId, target.commentId],
-    );
+  const result = target.postId
+    ? await db.query(
+        `
+          SELECT r.reaction_type
+          FROM reactions r
+          JOIN posts p ON p.id = r.post_id
+          WHERE r.user_id = $1
+            AND r.post_id = $2
+            AND p.draft = false
+            AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+          ORDER BY r.created_at DESC
+          LIMIT 1
+        `,
+        [req.user.id, target.postId],
+      )
+    : await db.query(
+        `
+          SELECT r.reaction_type
+          FROM reactions r
+          JOIN comments c ON c.id = r.comment_id
+          JOIN posts p ON p.id = c.cpostid
+          WHERE r.user_id = $1
+            AND r.comment_id = $2
+            AND p.draft = false
+            AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+          ORDER BY r.created_at DESC
+          LIMIT 1
+        `,
+        [req.user.id, target.commentId],
+      );
   return res.status(200).json({
     reaction: result.rows[0]?.reaction_type || null,
   });

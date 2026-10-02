@@ -1,4 +1,5 @@
 import express from "express";
+
 import { getActivityFeed, getUserActivities } from "../controllers/activity.js";
 import { requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
@@ -7,9 +8,15 @@ import { activityQuery, usernameParams } from "../validation/requests.js";
 
 const router = express.Router();
 
-router.get("/feed", requireAuth, validateRequest({ query: activityQuery }), asyncHandler(getActivityFeed));
+router.get(
+  "/feed",
+  requireAuth,
+  validateRequest({ query: activityQuery }),
+  asyncHandler(getActivityFeed),
+);
 router.get(
   "/user/:username",
+  requireAuth,
   validateRequest({ params: usernameParams, query: activityQuery }),
   asyncHandler(getUserActivities),
 );
