@@ -149,6 +149,27 @@ test("PostgreSQL errors are mapped without exposing database details", () => {
   assert.equal(JSON.stringify(res.body).includes("INSERT INTO"), false);
 });
 
+test("body parser errors use safe centralized responses", () => {
+  const req = { method: "POST", originalUrl: "/api/posts" };
+
+  for (const [type, statusCode, code] of [
+    ["entity.parse.failed", 400, "JSON_INVALID"],
+    ["entity.too.large", 413, "REQUEST_TOO_LARGE"],
+  ]) {
+    const res = createResponse();
+    errorHandler(
+      Object.assign(new SyntaxError("raw parser internals"), { type }),
+      req,
+      res,
+      () => assert.fail("must not delegate"),
+    );
+
+    assert.equal(res.statusCode, statusCode);
+    assert.equal(res.body.code, code);
+    assert.equal(JSON.stringify(res.body).includes("parser internals"), false);
+  }
+});
+
 test("unexpected errors are logged but internal details stay out of responses", () => {
   const req = { method: "GET", originalUrl: "/api/posts" };
   const res = createResponse();

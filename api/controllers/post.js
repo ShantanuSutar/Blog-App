@@ -23,8 +23,9 @@ export const getPosts = async (req, res) => {
     }
 
     if (req.query.search) {
-      conditions.push(`(p.title ILIKE $${params.length + 1} OR p."desc" ILIKE $${params.length + 1})`);
-      params.push(`%${req.query.search}%`);
+      const escapedSearch = req.query.search.replace(/[!%_]/g, "!$&");
+      conditions.push(`(p.title ILIKE $${params.length + 1} ESCAPE '!' OR p."desc" ILIKE $${params.length + 1} ESCAPE '!')`);
+      params.push(`%${escapedSearch}%`);
     }
 
     const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";

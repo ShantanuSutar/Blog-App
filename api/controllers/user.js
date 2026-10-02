@@ -143,9 +143,9 @@ export const searchUsers = async (req, res) => {
     throw new ApiError(400, "Query parameter required", "SEARCH_QUERY_REQUIRED");
   }
     
-    const escapedQuery = query.slice(0, 100).replace(/[\\%_]/g, "\\$&");
+    const escapedQuery = query.slice(0, 100).replace(/[!%_]/g, "!$&");
     const result = await db.query(
-      "SELECT id, username, avatar FROM users WHERE username ILIKE $1 ESCAPE '\\\\' ORDER BY username LIMIT 3",
+      "SELECT id, username, avatar FROM users WHERE username ILIKE $1 ESCAPE '!' ORDER BY username LIMIT 3",
       [`${escapedQuery}%`]
     );
     

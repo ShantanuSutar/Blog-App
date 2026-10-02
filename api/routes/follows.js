@@ -9,25 +9,27 @@ import {
 } from "../controllers/follows.js";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validateRequest } from "../middleware/validate.js";
+import { userIdParams } from "../validation/requests.js";
 
 const router = express.Router();
 
 // Toggle follow/unfollow (protected route)
-router.post("/:userId", requireAuth, asyncHandler(toggleFollow));
+router.post("/:userId", requireAuth, validateRequest({ params: userIdParams }), asyncHandler(toggleFollow));
 
 // Get followers list
-router.get("/:userId/followers", asyncHandler(getFollowers));
+router.get("/:userId/followers", validateRequest({ params: userIdParams }), asyncHandler(getFollowers));
 
 // Get following list
-router.get("/:userId/following", asyncHandler(getFollowing));
+router.get("/:userId/following", validateRequest({ params: userIdParams }), asyncHandler(getFollowing));
 
 // Check if current user follows target user (protected)
-router.get("/check/:userId", requireAuth, asyncHandler(getFollowStatus));
+router.get("/check/:userId", requireAuth, validateRequest({ params: userIdParams }), asyncHandler(getFollowStatus));
 
 // Get follow counts (public)
-router.get("/count/:userId", asyncHandler(getFollowCounts));
+router.get("/count/:userId", validateRequest({ params: userIdParams }), asyncHandler(getFollowCounts));
 
 // Get combined follow info (counts + status) (public)
-router.get("/info/:userId", optionalAuth, asyncHandler(getFollowInfo));
+router.get("/info/:userId", optionalAuth, validateRequest({ params: userIdParams }), asyncHandler(getFollowInfo));
 
 export default router;

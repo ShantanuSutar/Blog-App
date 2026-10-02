@@ -24,6 +24,14 @@ const redactSensitive = (value) => {
 const normalizeError = (error) => {
   if (error instanceof ApiError) return error;
 
+  if (error?.type === "entity.too.large") {
+    return new ApiError(413, "Request body is too large", "REQUEST_TOO_LARGE");
+  }
+
+  if (error?.type === "entity.parse.failed") {
+    return new ApiError(400, "Request body contains invalid JSON", "JSON_INVALID");
+  }
+
   if (error instanceof multer.MulterError) {
     if (error.code === "LIMIT_FILE_SIZE") {
       return new ApiError(413, "The uploaded file is too large", "UPLOAD_TOO_LARGE");
