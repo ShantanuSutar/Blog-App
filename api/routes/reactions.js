@@ -8,6 +8,7 @@ import {
 import { requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { validateRequest } from "../middleware/validate.js";
+import { interactionLimiter } from "../middleware/security.js";
 import {
   reactionBody,
   reactionCommentParams,
@@ -18,7 +19,7 @@ import {
 const router = express.Router();
 
 // Toggle reaction (add or remove)
-router.post("/", requireAuth, validateRequest({ body: reactionBody }), asyncHandler(addReaction));
+router.post("/", requireAuth, interactionLimiter, validateRequest({ body: reactionBody }), asyncHandler(addReaction));
 
 // Get all reactions for a post
 router.get("/post/:postId", validateRequest({ params: reactionPostParams }), asyncHandler(getReactions));
@@ -33,6 +34,6 @@ router.get("/check/post/:postId", requireAuth, validateRequest({ params: reactio
 router.get("/check/comment/:commentId", requireAuth, validateRequest({ params: reactionCommentParams }), asyncHandler(getUserReaction));
 
 // Remove specific reaction by ID
-router.delete("/:reactionId", requireAuth, validateRequest({ params: reactionIdParams }), asyncHandler(removeReaction));
+router.delete("/:reactionId", requireAuth, interactionLimiter, validateRequest({ params: reactionIdParams }), asyncHandler(removeReaction));
 
 export default router;

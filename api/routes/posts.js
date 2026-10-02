@@ -15,6 +15,7 @@ import {
 import { requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { validateRequest } from "../middleware/validate.js";
+import { interactionLimiter } from "../middleware/security.js";
 import {
   popularPostsQuery,
   postCreateBody,
@@ -34,11 +35,12 @@ router.get("/tag/:tag", validateRequest({ params: postTagParams }), asyncHandler
 router.get("/", validateRequest({ query: postsQuery }), asyncHandler(getPosts));
 router.get("/:id", validateRequest({ params: postIdParams }), asyncHandler(getSinglePost));
 router.get("/:id/edit", requireAuth, validateRequest({ params: postIdParams }), asyncHandler(getPostForEditing));
-router.post("/", requireAuth, validateRequest({ body: postCreateBody }), asyncHandler(addPost));
-router.delete("/:id", requireAuth, validateRequest({ params: postIdParams }), asyncHandler(deletePost));
+router.post("/", requireAuth, interactionLimiter, validateRequest({ body: postCreateBody }), asyncHandler(addPost));
+router.delete("/:id", requireAuth, interactionLimiter, validateRequest({ params: postIdParams }), asyncHandler(deletePost));
 router.put(
   "/:id",
   requireAuth,
+  interactionLimiter,
   validateRequest({ params: postIdParams, body: postUpdateBody }),
   asyncHandler(updatePost),
 );

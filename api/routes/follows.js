@@ -10,12 +10,13 @@ import {
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { validateRequest } from "../middleware/validate.js";
+import { interactionLimiter } from "../middleware/security.js";
 import { userIdParams } from "../validation/requests.js";
 
 const router = express.Router();
 
 // Toggle follow/unfollow (protected route)
-router.post("/:userId", requireAuth, validateRequest({ params: userIdParams }), asyncHandler(toggleFollow));
+router.post("/:userId", requireAuth, interactionLimiter, validateRequest({ params: userIdParams }), asyncHandler(toggleFollow));
 
 // Get followers list
 router.get("/:userId/followers", validateRequest({ params: userIdParams }), asyncHandler(getFollowers));

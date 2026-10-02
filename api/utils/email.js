@@ -30,6 +30,10 @@ const getTransporter = () => {
       connectionTimeout: 5000,
       socketTimeout: 10000,
       ipFamily: 4,
+      // Newsletter templates are generated in memory and never need to read
+      // local files or fetch remote content through the mail transport.
+      disableFileAccess: true,
+      disableUrlAccess: true,
     });
   }
 
@@ -100,8 +104,12 @@ export const sendWelcomeEmail = async (email) => {
     console.log('[Email Service] Welcome email sent successfully:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('[Email Service] Error sending welcome email:', error.message);
-    return { success: false, error: error.message };
+    console.error('[Email Service] Welcome email delivery failed', {
+      code: error?.code,
+      command: error?.command,
+      responseCode: error?.responseCode,
+    });
+    return { success: false, error: 'Email delivery failed' };
   }
 };
 
@@ -175,8 +183,12 @@ export const sendNewPostNotification = async (subscribers, postTitle, postUrl) =
     console.log(`[Email Service] New post notification delivered to ${sent} subscriber(s)`);
     return { success: sent === subscribers.length, sent, failed: subscribers.length - sent };
   } catch (error) {
-    console.error('[Email Service] Error sending new post notification:', error.message);
-    return { success: false, error: error.message };
+    console.error('[Email Service] Post notification delivery failed', {
+      code: error?.code,
+      command: error?.command,
+      responseCode: error?.responseCode,
+    });
+    return { success: false, error: 'Email delivery failed' };
   }
 };
 

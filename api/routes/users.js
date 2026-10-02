@@ -4,6 +4,7 @@ import { avatarUpload } from "../middleware/avatarUpload.js";
 import { optionalAuth, requireAuth, requireSelf } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { validateRequest } from "../middleware/validate.js";
+import { interactionLimiter, uploadLimiter } from "../middleware/security.js";
 import {
   ownedUserIdParams,
   profileBody,
@@ -23,6 +24,7 @@ router.get("/:username", optionalAuth, validateRequest({ params: usernameParams 
 router.put(
   "/:id",
   requireAuth,
+  interactionLimiter,
   validateRequest({ params: ownedUserIdParams, body: profileBody }),
   requireSelf,
   asyncHandler(updateProfile),
@@ -30,8 +32,10 @@ router.put(
 router.post(
   "/:id/avatar",
   requireAuth,
+  interactionLimiter,
   validateRequest({ params: ownedUserIdParams }),
   requireSelf,
+  uploadLimiter,
   avatarUpload.single("avatar"),
   asyncHandler(uploadAvatar),
 );

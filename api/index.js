@@ -15,7 +15,12 @@ import cors from "cors";
 import { assertAuthConfiguration } from "./security/auth.js";
 import { config } from "./config.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
-import { ApiError } from "./errors/ApiError.js";
+import {
+  apiLimiter,
+  corsOptions,
+  requireSupportedContentType,
+  securityHeaders,
+} from "./middleware/security.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,24 +31,19 @@ const currentDirectory = path.dirname(currentFile);
 const app = express();
 
 app.disable("x-powered-by");
-app.use(express.json({ limit: "1mb" }));
-
-// Use cors middleware with explicit configuration
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (config.allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new ApiError(403, "Request origin is not allowed", "CORS_ORIGIN_DENIED"));
-    }
-  },
-  credentials: false,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+app.set("query parser", "simple");
+if (config.security.trustProxy !== false) {
+  app.set("trust proxy", config.security.trustProxy);
+}
+app.use(securityHeaders);
+app.use(cors(corsOptions));
+app.use(requireSupportedContentType);
+app.use(express.json({
+  limit: config.security.jsonBodyLimit,
+  strict: true,
+  type: ["application/json", "application/*+json"],
 }));
+app.use("/api", apiLimiter);
 
 app.use(`/api/auth`, authRoutes);
 app.use(`/api/users`, userRoutes);
