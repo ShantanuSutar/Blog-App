@@ -143,7 +143,9 @@ test("route IDs and pagination are strictly bounded", () => {
     search: "100%_coverage",
     cat: "art",
   });
+  assert.deepEqual(postsQuery({ search: "   ", tag: " Database " }), { tag: "Database" });
   expectValidationError(() => postsQuery({ limit: "101" }), "ID_INVALID");
+  expectValidationError(() => postsQuery({ search: "x".repeat(101) }), "FIELD_TOO_LONG");
   expectValidationError(() => postsQuery({ cat: "unknown" }), "FIELD_VALUE_INVALID");
   expectValidationError(() => postsQuery({ sort: "newest" }), "UNSUPPORTED_FIELDS");
 });

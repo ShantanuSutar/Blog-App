@@ -299,13 +299,27 @@ export const postTagParams = (value) => {
 export const postsQuery = (value) => {
   const { source, normalized } = normalizePagination(value, {
     maxLimit: 100,
-    allowedFields: ["search", "cat"],
+    allowedFields: ["search", "cat", "tag"],
   });
-  if (source.search !== undefined && source.search !== "") {
-    normalized.search = stringValue(source.search, { field: "search", min: 1, max: 100 });
+  if (source.search !== undefined) {
+    const search = stringValue(source.search, {
+      field: "search",
+      max: 100,
+      allowEmpty: true,
+    });
+    if (search) normalized.search = search;
   }
   if (source.cat !== undefined && source.cat !== "") {
     normalized.cat = enumValue(source.cat, categories, { field: "cat" });
+  }
+  if (source.tag !== undefined) {
+    const tag = stringValue(source.tag, {
+      field: "tag",
+      max: 40,
+      allowEmpty: true,
+      pattern: /^[^\u0000-\u001f\u007f]+$/,
+    });
+    if (tag) normalized.tag = tag;
   }
   return normalized;
 };

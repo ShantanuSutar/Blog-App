@@ -3,6 +3,7 @@ import { ApiError } from "../errors/ApiError.js";
 import { recordActivity } from "../services/activity.js";
 import { mediaStorage } from "../services/mediaStorage.js";
 import { notifySubscribersOfPost } from "../services/notifications.js";
+import { buildPostFeedQueries, PUBLIC_POST_COLUMNS } from "../services/postFeed.js";
 import { sanitizePlainText, sanitizeRichText } from "../utils/content.js";
 import { withTransaction } from "../utils/database.js";
 import { isPublishedPost, normalizeSchedule } from "../utils/postState.js";
@@ -27,35 +28,21 @@ const removeUnreferencedPostImage = async (imagePath) => {
 };
 
 export const getPosts = async (req, res) => {
-  let query;
-    let params = [];
-    let conditions = ["p.draft=false AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)"];
-
-    if (req.query.cat) {
-      conditions.push(`p.cat=$${params.length + 1}`);
-      params.push(req.query.cat);
-    }
-
-    if (req.query.search) {
-      const escapedSearch = req.query.search.replace(/[!%_]/g, "!$&");
-      conditions.push(`(p.title ILIKE $${params.length + 1} ESCAPE '!' OR p."desc" ILIKE $${params.length + 1} ESCAPE '!')`);
-      params.push(`%${escapedSearch}%`);
-    }
-
-    const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
-
-    // Pagination
-    const { page, limit, offset } = getPagination(req.query, { defaultLimit: 10, maxLimit: 100 });
-
-    query = `SELECT p.*, u.username, u.avatar AS "userAvatar" FROM posts p JOIN users u ON u.id = p.uid ${whereClause} ORDER BY p.date DESC, p.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
-
-    const countQuery = `SELECT COUNT(*) FROM posts p ${whereClause}`;
-    const countParams = params.slice(0, params.length - 2);
-    const [result, countResult] = await Promise.all([
-      db.query(query, params),
-      db.query(countQuery, countParams),
-    ]);
+  const { page, limit, offset } = getPagination(req.query, {
+    defaultLimit: 10,
+    maxLimit: 100,
+  });
+  const queries = buildPostFeedQueries({
+    search: req.query.search,
+    cat: req.query.cat,
+    tag: req.query.tag,
+    limit,
+    offset,
+  });
+  const [result, countResult] = await Promise.all([
+    db.query(queries.rowsQuery, queries.rowsParams),
+    db.query(queries.countQuery, queries.countParams),
+  ]);
 
   return res.status(200).json({
       posts: result.rows.map(sanitizePost),
@@ -77,9 +64,10 @@ export const getSinglePost = async (req, res) => {
         WHERE id = $1
           AND draft = false
           AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= CURRENT_TIMESTAMP)
-        RETURNING *
+        RETURNING id, title, "desc", img, cat, date, uid, draft,
+          scheduled_publish_date, tags, featured, views
       )
-      SELECT p.*, u.username, u.avatar AS "userAvatar"
+      SELECT ${PUBLIC_POST_COLUMNS}, u.username, u.avatar AS "userAvatar"
       FROM visible_post p
       JOIN users u ON u.id = p.uid
     `;
@@ -348,7 +336,7 @@ export const getPostsByTag = async (req, res) => {
     const tagJson = JSON.stringify([tag]);
 
     const query = `
-      SELECT p.*, u.username, u.avatar AS "userAvatar"
+      SELECT ${PUBLIC_POST_COLUMNS}, u.username, u.avatar AS "userAvatar"
       FROM posts p
       JOIN users u ON u.id = p.uid
       WHERE p.draft = false
@@ -364,7 +352,7 @@ export const getPostsByTag = async (req, res) => {
 
 export const getFeaturedPosts = async (req, res) => {
   const query = `
-      SELECT p.*, u.username, u.avatar AS "userAvatar"
+      SELECT ${PUBLIC_POST_COLUMNS}, u.username, u.avatar AS "userAvatar"
       FROM posts p
       JOIN users u ON u.id = p.uid
       WHERE p.draft = false
@@ -383,7 +371,7 @@ export const getPopularPosts = async (req, res) => {
   const limit = Math.min(parsePositiveInteger(req.query.limit) || 10, 50);
     
     const query = `
-      SELECT p.*, u.username, u.avatar AS "userAvatar"
+      SELECT ${PUBLIC_POST_COLUMNS}, u.username, u.avatar AS "userAvatar"
       FROM posts p
       JOIN users u ON u.id = p.uid
       WHERE p.draft = false

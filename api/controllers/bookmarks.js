@@ -1,5 +1,6 @@
 import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
+import { PUBLIC_POST_COLUMNS } from "../services/postFeed.js";
 import { parsePositiveInteger } from "../utils/request.js";
 
 export const addBookmark = async (req, res) => {
@@ -57,7 +58,7 @@ export const removeBookmark = async (req, res) => {
 export const getBookmarks = async (req, res) => {
   const result = await db.query(
       `
-        SELECT p.*, u.username, u.avatar AS "userAvatar"
+        SELECT ${PUBLIC_POST_COLUMNS}, u.username, u.avatar AS "userAvatar"
         FROM posts p
         JOIN bookmarks b ON p.id = b.pid
         JOIN users u ON u.id = p.uid

@@ -8,7 +8,7 @@ import HomeFilters from "../Components/home/HomeFilters";
 import HomeSkeleton from "../Components/home/HomeSkeleton";
 import PostCard from "../Components/home/PostCard";
 import StatePanel from "../Components/ui/StatePanel.jsx";
-import { getPostExcerpt, getPostTags } from "../Components/home/postPresentation";
+import { getPostTags } from "../Components/home/postPresentation";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 const createFeed = (key) => ({ key, posts: [], page: 1, totalPages: 1, status: "loading", loadMoreStatus: "idle" });
@@ -43,20 +43,6 @@ function getBrowseUrl({ category = "", search = "", tag = "" }) {
   const query = params.toString();
   const pathname = tag ? `/tag/${encodeURIComponent(tag)}` : "/";
   return query ? `${pathname}?${query}` : pathname;
-}
-
-function filterTaggedPosts(posts, { category, search, tag }) {
-  const normalizedTag = tag.toLocaleLowerCase();
-  const normalizedSearch = search.trim().toLocaleLowerCase();
-
-  return posts.filter((post) => {
-    const hasExactTag = getPostTags(post.tags).some((postTag) => postTag.toLocaleLowerCase() === normalizedTag);
-    if (!hasExactTag || (category && post.cat !== category)) return false;
-    if (!normalizedSearch) return true;
-
-    const searchableText = `${post.title || ""} ${getPostExcerpt(post.desc, Number.MAX_SAFE_INTEGER)}`.toLocaleLowerCase();
-    return searchableText.includes(normalizedSearch);
-  });
 }
 
 function getResultsHeading({ category, search, tag }) {
@@ -96,22 +82,16 @@ export default function Home() {
 
     const fetchPosts = async () => {
       try {
-        let response;
-        if (activeTag) {
-          response = await api.get(`/api/posts/tag/${encodeURIComponent(activeTag)}`, { signal: controller.signal });
-        } else {
-          const query = new URLSearchParams({ page: String(page), limit: "10" });
-          if (category) query.set("cat", category);
-          if (search) query.set("search", search);
-          response = await api.get(`/api/posts?${query.toString()}`, { signal: controller.signal });
-        }
+        const query = new URLSearchParams({ page: String(page), limit: "10" });
+        if (category) query.set("cat", category);
+        if (search) query.set("search", search);
+        if (activeTag) query.set("tag", activeTag);
+        const response = await api.get(`/api/posts?${query.toString()}`, { signal: controller.signal });
 
         const responsePosts = getPostsFromResponse(response.data);
-        const nextPosts = dedupePosts(activeTag
-          ? filterTaggedPosts(responsePosts, { category, search, tag: activeTag })
-          : responsePosts);
+        const nextPosts = dedupePosts(responsePosts);
         const reportedPages = Number(response.data?.totalPages);
-        const totalPages = activeTag || nextPosts.length === 0
+        const totalPages = nextPosts.length === 0
           ? page
           : Number.isFinite(reportedPages) && reportedPages > 0 ? Math.max(page, reportedPages) : page;
 
