@@ -1,10 +1,8 @@
 import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import { escapeHtml, sanitizePlainText } from './content.js';
 import { jwtSecret } from '../middleware/auth.js';
-
-dotenv.config();
+import { config } from '../config.js';
 
 const createUnsubscribeUrl = (email) => {
   const token = jwt.sign(
@@ -12,39 +10,48 @@ const createUnsubscribeUrl = (email) => {
     jwtSecret(),
     { expiresIn: '365d' }
   );
-  const apiUrl = process.env.API_PUBLIC_URL || `http://localhost:${process.env.PORT || 8800}`;
-  return `${apiUrl}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;
+  return `${config.apiPublicUrl}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;
 };
 
-// Create a transporter object using SMTP transport
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  connectionTimeout: 5000, // 5 seconds timeout
-  socketTimeout: 10000, // 10 seconds socket timeout
-  ipFamily: 4, // Force IPv4 to avoid ENETUNREACH errors on cloud hosting
-});
+let transporter;
 
-// Verify transporter configuration
-transporter.verify((error, success) => {
-  if (error) {
-    console.log('Email transporter verification failed:', error);
-  } else {
-    console.log('Email server is ready to send messages!');
+const getTransporter = () => {
+  if (!config.email.user || !config.email.password) {
+    return null;
   }
-});
+
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: config.email.host,
+      port: config.email.port,
+      secure: config.email.secure,
+      auth: {
+        user: config.email.user,
+        pass: config.email.password,
+      },
+      connectionTimeout: 5000,
+      socketTimeout: 10000,
+      ipFamily: 4,
+    });
+  }
+
+  return transporter;
+};
+
+const sendMail = async (mailOptions) => {
+  const emailTransporter = getTransporter();
+  if (!emailTransporter) {
+    throw new Error('SMTP credentials are not configured');
+  }
+  return emailTransporter.sendMail(mailOptions);
+};
 
 // Function to send welcome email to new subscribers
 export const sendWelcomeEmail = async (email) => {
   try {
     const unsubscribeUrl = createUnsubscribeUrl(email);
     const mailOptions = {
-      from: `"Blog App" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+      from: `"Blog App" <${config.email.from}>`,
       to: email,
       subject: 'Welcome to Our Newsletter! 🎉',
       html: `
@@ -75,7 +82,7 @@ export const sendWelcomeEmail = async (email) => {
                   <li>🎁 Special offers and announcements</li>
                 </ul>
                 <p style="margin-top: 30px;">
-                  <a href="${process.env.FRONTEND_URL || 'https://unsaid-stories-and-more.vercel.app'}" class="button">Visit Our Blog</a>
+                  <a href="${config.frontendUrl}" class="button">Visit Our Blog</a>
                 </p>
                 <p style="margin-top: 30px;">Best regards,<br>The Blog App Team</p>
               </div>
@@ -90,16 +97,7 @@ export const sendWelcomeEmail = async (email) => {
       `,
     };
 
-    // Set timeout promise
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Email sending timeout - 15 seconds')), 15000);
-    });
-
-    // Race between sending email and timeout
-    const info = await Promise.race([
-      transporter.sendMail(mailOptions),
-      timeoutPromise
-    ]);
+    const info = await sendMail(mailOptions);
     
     console.log('[Email Service] Welcome email sent successfully:', info.messageId);
     return { success: true, messageId: info.messageId };
@@ -120,8 +118,8 @@ export const sendNewPostNotification = async (subscribers, postTitle, postUrl) =
     const safePostTitle = escapeHtml(sanitizePlainText(postTitle));
     const sendToSubscriber = (email) => {
       const unsubscribeUrl = createUnsubscribeUrl(email);
-      return transporter.sendMail({
-        from: `"Blog App" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+      return sendMail({
+        from: `"Blog App" <${config.email.from}>`,
         to: email,
         subject: `New Post Published: ${safePostTitle} 📝`,
         headers: {

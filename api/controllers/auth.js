@@ -4,42 +4,52 @@ import jwt from "jsonwebtoken";
 import { jwtSecret } from "../middleware/auth.js";
 
 export const register = async (req, res) => {
+  const username = typeof req.body.username === "string" ? req.body.username.trim() : "";
+  const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+
+  if (!username || !email || !password) {
+    return res.status(400).json("Username, email and password are required");
+  }
+
   try {
-    //CHECK EXISTING USER
-    const checkQuery = "SELECT * FROM users WHERE email = $1 OR username = $2";
+    const checkQuery = "SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($2)";
     
-    const existingUserResult = await db.query(checkQuery, [req.body.email, req.body.username]);
+    const existingUserResult = await db.query(checkQuery, [email, username]);
     if (existingUserResult.rows.length) return res.status(409).json("User already exists");
 
-    //Hash the password
-    const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(req.body.password, salt);
+    const hash = await bcrypt.hash(password, 10);
 
     const insertQuery = "INSERT INTO users(username, email, password) VALUES ($1, $2, $3)";
 
-    const values = [req.body.username, req.body.email, hash];
+    const values = [username, email, hash];
 
     await db.query(insertQuery, values);
     return res.status(200).json("User has been created.");
   } catch (err) {
     console.error("Registration error:", err);
-    return res.status(500).json({ message: "Internal server error", error: err.message });
+    if (err.code === "23505") {
+      return res.status(409).json("User already exists");
+    }
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
 export const login = async (req, res) => {
+  const username = typeof req.body.username === "string" ? req.body.username.trim() : "";
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+
+  if (!username || !password) {
+    return res.status(400).json("Username and password are required");
+  }
+
   try {
-    //CHECK USER
-    const query = "SELECT * FROM users WHERE username = $1";
+    const query = "SELECT id, username, email, password, avatar, bio, created_at FROM users WHERE username = $1";
     
-    const result = await db.query(query, [req.body.username]);
+    const result = await db.query(query, [username]);
     if (result.rows.length === 0) return res.status(404).json("User not found!");
 
-    //Check password
-    const isPasswordCorrect = bcrypt.compareSync(
-      req.body.password,
-      result.rows[0].password
-    );
+    const isPasswordCorrect = await bcrypt.compare(password, result.rows[0].password);
 
     if (!isPasswordCorrect)
       return res.status(400).json("Wrong username or password!");
@@ -50,12 +60,12 @@ export const login = async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || "1h" }
     );
 
-    const { password, ...other } = result.rows[0];
+    const { password: passwordHash, ...other } = result.rows[0];
 
     res.status(200).json({ success: true, token, other });
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 

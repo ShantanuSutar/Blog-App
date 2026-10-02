@@ -1,49 +1,21 @@
 import { db } from "../db.js";
-import multer from "multer";
+import fs from "node:fs/promises";
 import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { avatarUploadDirectory } from "../middleware/avatarUpload.js";
+import { sanitizePlainText } from "../utils/content.js";
 
-// Get current directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const removeAvatarFile = async (avatarPath) => {
+  if (!avatarPath?.startsWith("/api/uploads/avatars/")) return;
 
-// Configure multer for avatar uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "../uploads/avatars");
-    
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+  const filename = path.basename(avatarPath);
+  try {
+    await fs.unlink(path.join(avatarUploadDirectory, filename));
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      console.warn("Unable to remove avatar file:", error.message);
     }
-    
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-// File filter for images only
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
-  
-  if (mimetype && extname) {
-    return cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed (jpeg, jpg, png, webp)'));
   }
 };
-
-export const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: fileFilter
-});
 
 // Get user profile by username
 export const getProfile = async (req, res) => {
@@ -59,17 +31,12 @@ export const getProfile = async (req, res) => {
     
     const user = result.rows[0];
     
-    // Get user's posts count
     const postsQuery = `
       SELECT COUNT(*) FROM posts
       WHERE uid = $1
         AND draft = false
         AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))
     `;
-    const postsResult = await db.query(postsQuery, [user.id]);
-    const postsCount = parseInt(postsResult.rows[0].count);
-    
-    // Get user's recent posts
     const recentPostsQuery = `
       SELECT p.id, p.title, p.img, p.views, p.date 
       FROM posts p 
@@ -79,88 +46,72 @@ export const getProfile = async (req, res) => {
       ORDER BY p.date DESC 
       LIMIT 6
     `;
-    const recentPostsResult = await db.query(recentPostsQuery, [user.id]);
-    
-    // Get follow counts
-    const followersQuery = "SELECT COUNT(*) FROM follows WHERE following_id = $1";
-    const followingQuery = "SELECT COUNT(*) FROM follows WHERE follower_id = $1";
-    const [followersResult, followingResult] = await Promise.all([
-      db.query(followersQuery, [user.id]),
-      db.query(followingQuery, [user.id])
+    const followCountsQuery = `
+      SELECT
+        (SELECT COUNT(*)::integer FROM follows WHERE following_id = $1) AS follower_count,
+        (SELECT COUNT(*)::integer FROM follows WHERE follower_id = $1) AS following_count
+    `;
+    const followStatusQuery = "SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2";
+    const [postsResult, recentPostsResult, followCountsResult, followStatusResult] = await Promise.all([
+      db.query(postsQuery, [user.id]),
+      db.query(recentPostsQuery, [user.id]),
+      db.query(followCountsQuery, [user.id]),
+      req.user
+        ? db.query(followStatusQuery, [req.user.id, user.id])
+        : Promise.resolve({ rows: [] }),
     ]);
-    
-    // Check if current user follows this profile (if authenticated)
-    let isFollowing = false;
-    if (req.user) {
-      const followCheckQuery = "SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2";
-      const followCheck = await db.query(followCheckQuery, [req.user.id, user.id]);
-      isFollowing = followCheck.rows.length > 0;
-    }
+    const followCounts = followCountsResult.rows[0];
     
     res.status(200).json({
       ...user,
-      postsCount,
-      followerCount: parseInt(followersResult.rows[0].count),
-      followingCount: parseInt(followingResult.rows[0].count),
-      isFollowing,
+      postsCount: Number(postsResult.rows[0].count),
+      followerCount: followCounts.follower_count,
+      followingCount: followCounts.following_count,
+      isFollowing: followStatusResult.rows.length > 0,
       recentPosts: recentPostsResult.rows
     });
   } catch (err) {
     console.error("Get profile error:", err);
-    return res.status(500).json({ message: "Internal server error", error: err.message });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
 // Update user profile (bio)
 export const updateProfile = async (req, res) => {
   try {
-      const userId = req.user.id;
-      const { bio } = req.body;
+    const userId = req.user.id;
+    const bio = sanitizePlainText(req.body.bio).slice(0, 500);
 
-      // Check if user is updating their own profile
-      if (userId !== parseInt(req.params.id)) {
-        return res.status(403).json("You can only update your own profile");
-      }
-
-      const query = "UPDATE users SET bio = $1 WHERE id = $2 RETURNING id, username, avatar, bio";
-      const result = await db.query(query, [bio, userId]);
+    const query = "UPDATE users SET bio = $1 WHERE id = $2 RETURNING id, username, avatar, bio";
+    const result = await db.query(query, [bio, userId]);
       
     return res.status(200).json(result.rows[0]);
   } catch (err) {
     console.error("Update profile error:", err);
-    return res.status(500).json({ message: "Internal server error", error: err.message });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
 // Upload avatar
 export const uploadAvatar = async (req, res) => {
   try {
-      const userId = req.user.id;
+    const userId = req.user.id;
 
-      // Check if user is updating their own avatar
-      if (userId !== parseInt(req.params.id)) {
-        return res.status(403).json("You can only update your own avatar");
-      }
+    if (!req.file) {
+      return res.status(400).json("No file uploaded");
+    }
 
-      if (!req.file) {
-        return res.status(400).json("No file uploaded");
-      }
+    const existingQuery = "SELECT avatar FROM users WHERE id = $1";
+    const existingResult = await db.query(existingQuery, [userId]);
+    if (existingResult.rows.length === 0) {
+      await removeAvatarFile(`/api/uploads/avatars/${req.file.filename}`);
+      return res.status(404).json("User not found");
+    }
 
-      // Get existing avatar and delete it if exists
-      const existingQuery = "SELECT avatar FROM users WHERE id = $1";
-      const existingResult = await db.query(existingQuery, [userId]);
-      
-      if (existingResult.rows[0].avatar) {
-        const oldAvatarPath = path.join(__dirname, "../" + existingResult.rows[0].avatar);
-        if (fs.existsSync(oldAvatarPath)) {
-          fs.unlinkSync(oldAvatarPath);
-        }
-      }
-
-      // Save new avatar path to database
-      const avatarPath = "/api/uploads/avatars/" + req.file.filename;
-      const query = "UPDATE users SET avatar = $1 WHERE id = $2 RETURNING id, username, avatar";
-      const result = await db.query(query, [avatarPath, userId]);
+    const avatarPath = "/api/uploads/avatars/" + req.file.filename;
+    const query = "UPDATE users SET avatar = $1 WHERE id = $2 RETURNING id, username, avatar";
+    const result = await db.query(query, [avatarPath, userId]);
+    await removeAvatarFile(existingResult.rows[0].avatar);
       
     return res.status(200).json({
         message: "Avatar uploaded successfully",
@@ -168,55 +119,50 @@ export const uploadAvatar = async (req, res) => {
         user: result.rows[0]
       });
   } catch (err) {
+    if (req.file?.filename) {
+      await removeAvatarFile(`/api/uploads/avatars/${req.file.filename}`);
+    }
     console.error("Upload avatar error:", err);
-    return res.status(500).json({ message: "Internal server error", error: err.message });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
 // Delete avatar
 export const deleteAvatar = async (req, res) => {
   try {
-      const userId = req.user.id;
+    const userId = req.user.id;
 
-      if (userId !== parseInt(req.params.id)) {
-        return res.status(403).json("You can only delete your own avatar");
-      }
-
-      // Get existing avatar
-      const existingQuery = "SELECT avatar FROM users WHERE id = $1";
-      const existingResult = await db.query(existingQuery, [userId]);
+    const existingQuery = "SELECT avatar FROM users WHERE id = $1";
+    const existingResult = await db.query(existingQuery, [userId]);
       
-      if (existingResult.rows[0].avatar) {
-        const avatarPath = path.join(__dirname, "../" + existingResult.rows[0].avatar);
-        if (fs.existsSync(avatarPath)) {
-          fs.unlinkSync(avatarPath);
-        }
-      }
+    if (existingResult.rows.length === 0) {
+      return res.status(404).json("User not found");
+    }
 
-      // Remove avatar from database
-      const query = "UPDATE users SET avatar = NULL WHERE id = $1 RETURNING id, username";
-      const result = await db.query(query, [userId]);
+    const query = "UPDATE users SET avatar = NULL WHERE id = $1 RETURNING id, username";
+    const result = await db.query(query, [userId]);
+    await removeAvatarFile(existingResult.rows[0].avatar);
       
     return res.status(200).json({ message: "Avatar deleted successfully", user: result.rows[0] });
   } catch (err) {
     console.error("Delete avatar error:", err);
-    return res.status(500).json({ message: "Internal server error", error: err.message });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
 // Search users by username prefix (for @mentions)
 export const searchUsers = async (req, res) => {
   try {
-    const { query } = req.query;
+    const query = typeof req.query.query === "string" ? req.query.query.trim() : "";
     
-    if (!query || query.length < 1) {
+    if (!query) {
       return res.status(400).json("Query parameter required");
     }
     
-    // Search for usernames starting with query (case-insensitive)
+    const escapedQuery = query.slice(0, 100).replace(/[\\%_]/g, "\\$&");
     const result = await db.query(
-      "SELECT id, username, avatar FROM users WHERE username ILIKE $1 LIMIT 3",
-      [`${query}%`]
+      "SELECT id, username, avatar FROM users WHERE username ILIKE $1 ESCAPE '\\\\' ORDER BY username LIMIT 3",
+      [`${escapedQuery}%`]
     );
     
     return res.status(200).json(result.rows);

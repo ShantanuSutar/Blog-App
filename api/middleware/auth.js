@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { parsePositiveInteger } from "../utils/request.js";
 
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;
@@ -65,6 +66,19 @@ export const optionalAuth = (req, res, next) => {
 
     return next(error);
   }
+};
+
+export const requireSelf = (req, res, next) => {
+  const requestedUserId = parsePositiveInteger(req.params.id);
+
+  if (!requestedUserId) {
+    return res.status(400).json("Invalid user ID");
+  }
+  if (req.user.id !== requestedUserId) {
+    return res.status(403).json("You can only update your own profile");
+  }
+
+  return next();
 };
 
 export const jwtSecret = getJwtSecret;

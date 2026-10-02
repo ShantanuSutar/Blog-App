@@ -1,12 +1,8 @@
 import { db } from "../db.js";
-
-const normalizePostId = (value) => {
-  const postId = Number(value);
-  return Number.isInteger(postId) && postId > 0 ? postId : null;
-};
+import { parsePositiveInteger } from "../utils/request.js";
 
 export const addBookmark = async (req, res) => {
-  const postId = normalizePostId(req.body.postId);
+  const postId = parsePositiveInteger(req.body.postId);
 
   if (!postId) {
     return res.status(400).json({ error: "Invalid post ID" });
@@ -28,7 +24,15 @@ export const addBookmark = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      const post = await db.query("SELECT 1 FROM posts WHERE id = $1", [postId]);
+      const post = await db.query(
+        `
+          SELECT 1 FROM posts
+          WHERE id = $1
+            AND draft = false
+            AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))
+        `,
+        [postId],
+      );
       if (post.rows.length === 0) {
         return res.status(404).json({ error: "Published post not found" });
       }
@@ -45,7 +49,7 @@ export const addBookmark = async (req, res) => {
 };
 
 export const removeBookmark = async (req, res) => {
-  const postId = normalizePostId(req.params.postId);
+  const postId = parsePositiveInteger(req.params.postId);
 
   if (!postId) {
     return res.status(400).json({ error: "Invalid post ID" });
@@ -67,9 +71,10 @@ export const getBookmarks = async (req, res) => {
   try {
     const result = await db.query(
       `
-        SELECT p.*
+        SELECT p.*, u.username, u.avatar AS "userAvatar"
         FROM posts p
         JOIN bookmarks b ON p.id = b.pid
+        JOIN users u ON u.id = p.uid
         WHERE b.uid = $1
           AND p.draft = false
           AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
@@ -85,7 +90,7 @@ export const getBookmarks = async (req, res) => {
 };
 
 export const checkBookmarkStatus = async (req, res) => {
-  const postId = normalizePostId(req.params.postId);
+  const postId = parsePositiveInteger(req.params.postId);
 
   if (!postId) {
     return res.status(400).json({ error: "Invalid post ID" });
@@ -104,7 +109,7 @@ export const checkBookmarkStatus = async (req, res) => {
 };
 
 export const getBookmarkCount = async (req, res) => {
-  const postId = normalizePostId(req.params.postId);
+  const postId = parsePositiveInteger(req.params.postId);
 
   if (!postId) {
     return res.status(400).json({ error: "Invalid post ID" });
@@ -121,7 +126,7 @@ export const getBookmarkCount = async (req, res) => {
 
 export const getBookmarkCountsForPosts = async (req, res) => {
   const postIds = Array.isArray(req.body.postIds)
-    ? [...new Set(req.body.postIds.map(normalizePostId).filter(Boolean))].slice(0, 100)
+    ? [...new Set(req.body.postIds.map(parsePositiveInteger).filter(Boolean))].slice(0, 100)
     : [];
 
   if (postIds.length === 0) {

@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import jwt from "jsonwebtoken";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireSelf } from "../middleware/auth.js";
 import { escapeHtml, sanitizePlainText, sanitizeRichText } from "../utils/content.js";
 import { isPublishedPost, normalizeSchedule } from "../utils/postState.js";
+import { getPagination, parsePositiveInteger } from "../utils/request.js";
+import { isActivityType } from "../services/activity.js";
 
 const createResponse = () => ({
   statusCode: 200,
@@ -73,6 +75,21 @@ test("requireAuth rejects missing and invalid bearer tokens", () => {
   }
 });
 
+test("requireSelf rejects cross-account profile mutations", () => {
+  const allowedRequest = { user: { id: 42 }, params: { id: "42" } };
+  const deniedRequest = { user: { id: 42 }, params: { id: "7" } };
+  let allowed = false;
+
+  requireSelf(allowedRequest, createResponse(), () => {
+    allowed = true;
+  });
+  const deniedResponse = createResponse();
+  requireSelf(deniedRequest, deniedResponse, () => assert.fail("must not call next"));
+
+  assert.equal(allowed, true);
+  assert.equal(deniedResponse.statusCode, 403);
+});
+
 test("future publication dates always resolve to scheduled state", () => {
   const now = Date.parse("2026-09-21T12:00:00.000Z");
   assert.deepEqual(normalizeSchedule("2026-09-22T12:00:00.000Z", now), {
@@ -93,4 +110,28 @@ test("published state excludes drafts and future scheduled posts", () => {
     false
   );
   assert.equal(isPublishedPost({ draft: false, scheduled_publish_date: null }, now), true);
+});
+
+test("request helpers reject invalid IDs and bound pagination", () => {
+  assert.equal(parsePositiveInteger("42"), 42);
+  assert.equal(parsePositiveInteger("4.2"), null);
+  assert.equal(parsePositiveInteger("-1"), null);
+
+  assert.deepEqual(getPagination({ page: "2", limit: "500" }), {
+    page: 2,
+    limit: 100,
+    offset: 100,
+  });
+  assert.deepEqual(getPagination({ page: "invalid", limit: "0" }), {
+    page: 1,
+    limit: 20,
+    offset: 0,
+  });
+});
+
+test("activity types are limited to supported application events", () => {
+  for (const activityType of ["post", "comment", "reaction", "follow"]) {
+    assert.equal(isActivityType(activityType), true);
+  }
+  assert.equal(isActivityType("admin"), false);
 });

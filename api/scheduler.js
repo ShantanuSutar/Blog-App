@@ -1,42 +1,35 @@
 import cron from "node-cron";
 import { db } from "./db.js";
-import { sendNewPostNotification } from "./utils/email.js";
+import { recordActivity } from "./services/activity.js";
+import { notifySubscribersOfPost } from "./services/notifications.js";
+import { withTransaction } from "./utils/database.js";
 
 const publishDuePosts = async () => {
-  let client;
-  let publishedPosts = [];
-
+  let publishedPosts;
   try {
-    client = await db.connect();
-    await client.query("BEGIN");
+    publishedPosts = await withTransaction(db, async (client) => {
+      const result = await client.query(`
+        UPDATE posts
+        SET draft = false, scheduled_publish_date = NULL
+        WHERE draft = true
+          AND scheduled_publish_date IS NOT NULL
+          AND scheduled_publish_date <= timezone('UTC', now())
+        RETURNING id, title, uid
+      `);
 
-    const result = await client.query(`
-      UPDATE posts
-      SET draft = false, scheduled_publish_date = NULL
-      WHERE draft = true
-        AND scheduled_publish_date IS NOT NULL
-        AND scheduled_publish_date <= timezone('UTC', now())
-      RETURNING id, title, uid
-    `);
+      for (const post of result.rows) {
+        await recordActivity(client, {
+          userId: post.uid,
+          activityType: "post",
+          postId: post.id,
+        });
+      }
 
-    publishedPosts = result.rows;
-
-    for (const post of publishedPosts) {
-      await client.query(
-        "INSERT INTO activities (user_id, activity_type, post_id) VALUES ($1, 'post', $2)",
-        [post.uid, post.id]
-      );
-    }
-
-    await client.query("COMMIT");
+      return result.rows;
+    });
   } catch (err) {
-    if (client) {
-      await client.query("ROLLBACK");
-    }
     console.error("Error publishing scheduled posts:", err);
     return;
-  } finally {
-    client?.release();
   }
 
   if (publishedPosts.length === 0) {
@@ -44,25 +37,24 @@ const publishDuePosts = async () => {
   }
 
   try {
-    const subscribersResult = await db.query("SELECT email FROM subscribers");
-    const subscriberEmails = subscribersResult.rows.map((row) => row.email);
-    const frontendUrl = process.env.FRONTEND_URL || "https://unsaid-stories-and-more.vercel.app";
-
     for (const post of publishedPosts) {
-      await sendNewPostNotification(
-        subscriberEmails,
-        post.title,
-        `${frontendUrl}/post/${post.id}`
-      );
+      await notifySubscribersOfPost(post.id, post.title);
     }
   } catch (err) {
     console.error("Error sending scheduled post notifications:", err);
   }
 };
 
+let publisherTask;
+
 export const schedulePostPublisher = () => {
+  if (publisherTask) {
+    return publisherTask;
+  }
+
   console.log("Scheduled post publisher initialized");
-  cron.schedule("* * * * *", publishDuePosts, { noOverlap: true });
+  publisherTask = cron.schedule("* * * * *", publishDuePosts, { noOverlap: true });
+  return publisherTask;
 };
 
 export { publishDuePosts };

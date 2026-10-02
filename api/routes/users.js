@@ -1,6 +1,7 @@
 import express from "express";
-import { getProfile, updateProfile, uploadAvatar, deleteAvatar, searchUsers, upload } from "../controllers/user.js";
-import { optionalAuth, requireAuth } from "../middleware/auth.js";
+import { getProfile, updateProfile, uploadAvatar, deleteAvatar, searchUsers } from "../controllers/user.js";
+import { avatarUpload } from "../middleware/avatarUpload.js";
+import { optionalAuth, requireAuth, requireSelf } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -11,8 +12,8 @@ router.get("/search", searchUsers);
 router.get("/:username", optionalAuth, getProfile);
 
 // Protected routes - require authentication
-router.put("/:id", requireAuth, updateProfile);
-router.post("/:id/avatar", requireAuth, upload.single("avatar"), uploadAvatar);
-router.delete("/:id/avatar", requireAuth, deleteAvatar);
+router.put("/:id", requireAuth, requireSelf, updateProfile);
+router.post("/:id/avatar", requireAuth, requireSelf, avatarUpload.single("avatar"), uploadAvatar);
+router.delete("/:id/avatar", requireAuth, requireSelf, deleteAvatar);
 
 export default router;

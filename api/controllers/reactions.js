@@ -1,265 +1,234 @@
 import { db } from "../db.js";
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
-import { jwtSecret } from "../middleware/auth.js";
+import { recordActivity } from "../services/activity.js";
+import { withTransaction } from "../utils/database.js";
+import { parsePositiveInteger } from "../utils/request.js";
 
-dotenv.config();
+const reactionTypes = new Set(["like", "love", "celebrate"]);
 
-// Add or toggle reaction to a post
-export const addReaction = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+const getTarget = (source) => {
+  const postId = parsePositiveInteger(source.postId);
+  const commentId = parsePositiveInteger(source.commentId);
 
-  if (!token) return res.status(401).json("Not authenticated!");
+  if (Boolean(postId) === Boolean(commentId)) {
+    return null;
+  }
 
-  jwt.verify(token, jwtSecret(), async (err, userInfo) => {
-    if (err) return res.status(403).json("Token is not valid!");
-
-    const { postId, commentId, reactionType } = req.body;
-
-    if (!postId && !commentId) {
-      return res.status(400).json("Post ID or Comment ID is required");
-    }
-
-    try {
-      // First, check if user has ANY existing reaction on this post/comment
-      const checkExistingQuery = `
-        SELECT * FROM reactions 
-        WHERE user_id = $1 
-          AND post_id IS NOT DISTINCT FROM $2 
-          AND comment_id IS NOT DISTINCT FROM $3
-      `;
-      const existingReaction = await db.query(checkExistingQuery, [userInfo.id, postId || null, commentId || null]);
-
-      if (existingReaction.rows.length > 0) {
-        // User already has a reaction - check if it's the same type
-        const existingId = existingReaction.rows[0].id;
-        const existingType = existingReaction.rows[0].reaction_type;
-
-        if (existingType === (reactionType || 'like')) {
-          // Same type - toggle off (remove)
-          const deleteQuery = "DELETE FROM reactions WHERE id = $1";
-          await db.query(deleteQuery, [existingId]);
-          
-          // Remove from activities? Optional - we keep it for history
-          
-          return res.status(200).json({ 
-            message: "Reaction removed", 
-            action: "removed",
-            reactionId: existingId 
-          });
-        } else {
-          // Different type - update to new type
-          const updateQuery = `
-            UPDATE reactions 
-            SET reaction_type = $1 
-            WHERE id = $2 
-            RETURNING id
-          `;
-          const result = await db.query(updateQuery, [reactionType || 'like', existingId]);
-          
-          // Track reaction activity when updating to a different type
-          // Get post/comment owner for target_user_id
-          let targetUserId = null;
-          if (postId) {
-            const postOwnerQuery = "SELECT uid FROM posts WHERE id = $1";
-            const postOwner = await db.query(postOwnerQuery, [postId]);
-            targetUserId = postOwner.rows[0]?.uid;
-          } else if (commentId) {
-            const commentOwnerQuery = "SELECT Cuserid FROM comments WHERE id = $1";
-            const commentOwner = await db.query(commentOwnerQuery, [commentId]);
-            targetUserId = commentOwner.rows[0]?.Cuserid;
-          }
-          
-          if (targetUserId && targetUserId !== userInfo.id) {
-            const trackQuery = `
-              INSERT INTO activities (user_id, activity_type, post_id, comment_id, target_user_id)
-              VALUES ($1, 'reaction', $2, $3, $4)
-            `;
-            await db.query(trackQuery, [userInfo.id, postId || null, commentId || null, targetUserId]);
-          }
-          
-          return res.status(200).json({ 
-            message: "Reaction updated", 
-            action: "updated",
-            reactionId: result.rows[0].id 
-          });
-        }
-      } else {
-        // No existing reaction - create new one
-        const insertQuery = `
-          INSERT INTO reactions (user_id, post_id, comment_id, reaction_type) 
-          VALUES ($1, $2, $3, $4) 
-          RETURNING id
-        `;
-        const result = await db.query(insertQuery, [
-          userInfo.id, 
-          postId || null, 
-          commentId || null, 
-          reactionType || 'like'
-        ]);
-
-        // Track reaction activity
-        // Need to get the post/comment owner to set as target_user_id
-        let targetUserId = null;
-        if (postId) {
-          const postOwnerQuery = "SELECT uid FROM posts WHERE id = $1";
-          const postOwner = await db.query(postOwnerQuery, [postId]);
-          targetUserId = postOwner.rows[0]?.uid;
-          console.log('Post owner found:', targetUserId);
-        } else if (commentId) {
-          const commentOwnerQuery = "SELECT Cuserid FROM comments WHERE id = $1";
-          const commentOwner = await db.query(commentOwnerQuery, [commentId]);
-          targetUserId = commentOwner.rows[0]?.Cuserid;
-          console.log('Comment owner found:', targetUserId);
-        }
-        
-        console.log('Tracking reaction - User:', userInfo.id, 'Target:', targetUserId, 'Post:', postId, 'Comment:', commentId);
-        
-        if (targetUserId && targetUserId !== userInfo.id) {
-          try {
-            const trackQuery = `
-              INSERT INTO activities (user_id, activity_type, post_id, comment_id, target_user_id)
-              VALUES ($1, 'reaction', $2, $3, $4)
-            `;
-            const activityResult = await db.query(trackQuery, [userInfo.id, postId || null, commentId || null, targetUserId]);
-            console.log('Activity created successfully:', activityResult.rows[0]);
-          } catch (trackErr) {
-            console.error('Error creating activity:', trackErr);
-          }
-        } else {
-          console.log('Skipping activity tracking - self-reaction or no target');
-        }
-
-        return res.status(200).json({ 
-          message: "Reaction added", 
-          action: "added",
-          reactionId: result.rows[0].id 
-        });
-      }
-    } catch (err) {
-      console.error('Error in addReaction:', err);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  });
+  return { postId, commentId };
 };
 
-// Get all reactions for a post or comment
-export const getReactions = async (req, res) => {
+const findTargetOwner = async (queryable, { postId, commentId }) => {
+  if (postId) {
+    const result = await queryable.query(
+      `
+        SELECT uid AS target_user_id
+        FROM posts
+        WHERE id = $1
+          AND draft = false
+          AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))
+      `,
+      [postId],
+    );
+    return result.rows[0] || null;
+  }
+
+  const result = await queryable.query(
+    `
+      SELECT c.cuserid AS target_user_id
+      FROM comments c
+      JOIN posts p ON p.id = c.cpostid
+      WHERE c.id = $1
+        AND p.draft = false
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+    `,
+    [commentId],
+  );
+  return result.rows[0] || null;
+};
+
+const targetWhereClause = `
+  user_id = $1
+  AND post_id IS NOT DISTINCT FROM $2
+  AND comment_id IS NOT DISTINCT FROM $3
+`;
+
+export const addReaction = async (req, res) => {
+  const target = getTarget(req.body);
+  const reactionType = req.body.reactionType || "like";
+
+  if (!target) {
+    return res.status(400).json("Exactly one post ID or comment ID is required");
+  }
+  if (!reactionTypes.has(reactionType)) {
+    return res.status(400).json("Unsupported reaction type");
+  }
+
   try {
-    const { postId, commentId } = req.params;
+    const response = await withTransaction(db, async (client) => {
+      const owner = await findTargetOwner(client, target);
+      if (!owner) {
+        return null;
+      }
 
-    if (!postId && !commentId) {
-      return res.status(400).json("Post ID or Comment ID is required");
-    }
+      const existingResult = await client.query(
+        `SELECT id, reaction_type FROM reactions WHERE ${targetWhereClause} ORDER BY id FOR UPDATE`,
+        [req.user.id, target.postId, target.commentId],
+      );
+      const matchingReaction = existingResult.rows.find(
+        (reaction) => reaction.reaction_type === reactionType,
+      );
 
-    let query;
-    let params;
-
-    if (postId) {
-      query = `
-        SELECT r.*, u.username, u.avatar as user_img
-        FROM reactions r
-        JOIN users u ON r.user_id = u.id
-        WHERE r.post_id = $1
-        ORDER BY r.created_at DESC
-      `;
-      params = [postId];
-    } else {
-      query = `
-        SELECT r.*, u.username, u.avatar as user_img
-        FROM reactions r
-        JOIN users u ON r.user_id = u.id
-        WHERE r.comment_id = $1
-        ORDER BY r.created_at DESC
-      `;
-      params = [commentId];
-    }
-
-    const result = await db.query(query, params);
-
-    // Group by reaction type
-    const grouped = result.rows.reduce((acc, reaction) => {
-      if (!acc[reaction.reaction_type]) {
-        acc[reaction.reaction_type] = {
-          count: 0,
-          users: []
+      if (matchingReaction) {
+        await client.query(
+          `DELETE FROM reactions WHERE ${targetWhereClause}`,
+          [req.user.id, target.postId, target.commentId],
+        );
+        return {
+          message: "Reaction removed",
+          action: "removed",
+          reactionId: matchingReaction.id,
         };
       }
-      acc[reaction.reaction_type].count++;
-      acc[reaction.reaction_type].users.push({
-        id: reaction.user_id,
-        username: reaction.username,
-        img: reaction.user_img
-      });
-      return acc;
-    }, {});
 
-    return res.status(200).json({
-      total: result.rows.length,
-      grouped
+      let reactionId;
+      let action;
+      if (existingResult.rows.length > 0) {
+        const primaryReaction = existingResult.rows[0];
+        const updateResult = await client.query(
+          "UPDATE reactions SET reaction_type = $1 WHERE id = $2 RETURNING id",
+          [reactionType, primaryReaction.id],
+        );
+        reactionId = updateResult.rows[0].id;
+        action = "updated";
+
+        if (existingResult.rows.length > 1) {
+          await client.query(
+            "DELETE FROM reactions WHERE id = ANY($1::int[])",
+            [existingResult.rows.slice(1).map(({ id }) => id)],
+          );
+        }
+      } else {
+        const insertResult = await client.query(
+          `
+            INSERT INTO reactions (user_id, post_id, comment_id, reaction_type)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id
+          `,
+          [req.user.id, target.postId, target.commentId, reactionType],
+        );
+        reactionId = insertResult.rows[0].id;
+        action = "added";
+      }
+
+      if (owner.target_user_id !== req.user.id) {
+        await recordActivity(client, {
+          userId: req.user.id,
+          activityType: "reaction",
+          postId: target.postId,
+          commentId: target.commentId,
+          targetUserId: owner.target_user_id,
+        });
+      }
+
+      return {
+        message: action === "added" ? "Reaction added" : "Reaction updated",
+        action,
+        reactionId,
+      };
     });
-  } catch (err) {
-    console.error('Error in getReactions:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+
+    if (!response) {
+      return res.status(404).json("Published target not found");
+    }
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error("Error saving reaction:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
-// Get user's reaction to a specific post/comment
-export const getUserReaction = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+export const getReactions = async (req, res) => {
+  const target = getTarget(req.params);
+  if (!target) {
+    return res.status(400).json("Exactly one post ID or comment ID is required");
+  }
 
-  if (!token) return res.status(401).json("Not authenticated!");
+  try {
+    const targetColumn = target.postId ? "post_id" : "comment_id";
+    const targetId = target.postId || target.commentId;
+    const result = await db.query(
+      `
+        SELECT r.reaction_type, r.user_id, u.username, u.avatar AS user_img
+        FROM reactions r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.${targetColumn} = $1
+        ORDER BY r.created_at DESC
+      `,
+      [targetId],
+    );
 
-  jwt.verify(token, jwtSecret(), async (err, userInfo) => {
-    if (err) return res.status(403).json("Token is not valid!");
-
-    const { postId, commentId } = req.params;
-
-    try {
-      const query = `
-        SELECT reaction_type FROM reactions 
-        WHERE user_id = $1 
-          AND post_id IS NOT DISTINCT FROM $2 
-          AND comment_id IS NOT DISTINCT FROM $3
-      `;
-      const result = await db.query(query, [userInfo.id, postId || null, commentId || null]);
-
-      return res.status(200).json({
-        reaction: result.rows.length > 0 ? result.rows[0].reaction_type : null
+    const grouped = result.rows.reduce((groups, reaction) => {
+      const group = groups[reaction.reaction_type] || { count: 0, users: [] };
+      group.count += 1;
+      group.users.push({
+        id: reaction.user_id,
+        username: reaction.username,
+        img: reaction.user_img,
       });
-    } catch (err) {
-      console.error('Error in getUserReaction:', err);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  });
+      groups[reaction.reaction_type] = group;
+      return groups;
+    }, {});
+
+    return res.status(200).json({ total: result.rows.length, grouped });
+  } catch (error) {
+    console.error("Error getting reactions:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 };
 
-// Remove reaction
+export const getUserReaction = async (req, res) => {
+  const target = getTarget(req.params);
+  if (!target) {
+    return res.status(400).json("Exactly one post ID or comment ID is required");
+  }
+
+  try {
+    const result = await db.query(
+      `
+        SELECT reaction_type
+        FROM reactions
+        WHERE ${targetWhereClause}
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [req.user.id, target.postId, target.commentId],
+    );
+    return res.status(200).json({
+      reaction: result.rows[0]?.reaction_type || null,
+    });
+  } catch (error) {
+    console.error("Error getting user reaction:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const removeReaction = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  const reactionId = parsePositiveInteger(req.params.reactionId);
+  if (!reactionId) {
+    return res.status(400).json("Invalid reaction ID");
+  }
 
-  if (!token) return res.status(401).json("Not authenticated!");
+  try {
+    const result = await db.query(
+      "DELETE FROM reactions WHERE id = $1 AND user_id = $2",
+      [reactionId, req.user.id],
+    );
 
-  jwt.verify(token, jwtSecret(), async (err, userInfo) => {
-    if (err) return res.status(403).json("Token is not valid!");
-
-    const { reactionId } = req.params;
-
-    try {
-      const query = "DELETE FROM reactions WHERE id = $1 AND user_id = $2";
-      const result = await db.query(query, [reactionId, userInfo.id]);
-
-      if (result.rowCount === 0) {
-        return res.status(404).json("Reaction not found or you don't have permission");
-      }
-
-      return res.status(200).json("Reaction removed");
-    } catch (err) {
-      console.error('Error in removeReaction:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+    if (result.rowCount === 0) {
+      return res.status(404).json("Reaction not found or you don't have permission");
     }
-  });
+    return res.status(200).json("Reaction removed");
+  } catch (error) {
+    console.error("Error removing reaction:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 };

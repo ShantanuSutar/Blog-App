@@ -12,16 +12,11 @@ export const subscribe = async (req, res) => {
     }
 
     try {
-        // Save subscription to database
         await db.query(q, [email]);
         
-        // Send welcome email in background (non-blocking)
-        // Don't wait for this to complete before responding
         sendWelcomeEmail(email)
             .then(emailResult => {
-                if (emailResult.success) {
-                    console.log('Welcome email sent successfully');
-                } else {
+                if (!emailResult.success) {
                     console.warn('Failed to send welcome email:', emailResult.error);
                 }
             })
@@ -29,12 +24,11 @@ export const subscribe = async (req, res) => {
                 console.error('Email send error:', err.message);
             });
         
-        // Return success immediately without waiting for email
         return res.status(200).json("Subscribed successfully!");
     } catch (err) {
         console.error('Error in subscribe:', err);
         if (err.code === '23505') return res.status(409).json("Email already subscribed.");
-        return res.status(500).json(err);
+        return res.status(500).json({ error: "Internal server error" });
     }
 };
 

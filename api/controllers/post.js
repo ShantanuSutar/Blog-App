@@ -1,32 +1,15 @@
 import { db } from "../db.js";
-import dotenv from "dotenv";
-import { sendNewPostNotification } from "../utils/email.js";
+import { recordActivity } from "../services/activity.js";
+import { notifySubscribersOfPost } from "../services/notifications.js";
 import { sanitizePlainText, sanitizeRichText } from "../utils/content.js";
+import { withTransaction } from "../utils/database.js";
 import { isPublishedPost, normalizeSchedule } from "../utils/postState.js";
-dotenv.config();
+import { getPagination, parsePositiveInteger } from "../utils/request.js";
 
-const notifySubscribers = async (postId, title) => {
-  const subscribersResult = await db.query("SELECT email FROM subscribers");
-  const subscriberEmails = subscribersResult.rows.map((row) => row.email);
-
-  if (subscriberEmails.length === 0) {
-    return;
-  }
-
-  const frontendUrl = process.env.FRONTEND_URL || "https://unsaid-stories-and-more.vercel.app";
-  const emailResult = await sendNewPostNotification(
-    subscriberEmails,
-    title,
-    `${frontendUrl}/post/${postId}`
-  );
-
-  if (!emailResult.success) {
-    console.warn("Some post notifications could not be delivered", {
-      postId,
-      failed: emailResult.failed,
-    });
-  }
-};
+const sanitizePost = (post) => ({
+  ...post,
+  desc: sanitizeRichText(post.desc),
+});
 
 export const getPosts = async (req, res) => {
   try {
@@ -47,9 +30,7 @@ export const getPosts = async (req, res) => {
     const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
     // Pagination
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = getPagination(req.query, { defaultLimit: 10, maxLimit: 100 });
 
     query = `SELECT p.*, u.username, u.avatar AS "userAvatar" FROM posts p JOIN users u ON u.id = p.uid ${whereClause} ORDER BY p.date DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
@@ -63,11 +44,8 @@ export const getPosts = async (req, res) => {
     const countResult = await db.query(countQuery, countParams);
 
     return res.status(200).json({
-      posts: result.rows.map((post) => ({
-        ...post,
-        desc: sanitizeRichText(post.desc),
-      })),
-      totalPages: Math.ceil(parseInt(countResult.rows[0].count) / limit),
+      posts: result.rows.map(sanitizePost),
+      totalPages: Math.ceil(Number(countResult.rows[0].count) / limit),
       currentPage: page
     });
   } catch (err) {
@@ -77,6 +55,11 @@ export const getPosts = async (req, res) => {
 };
 
 export const getSinglePost = async (req, res) => {
+  const postId = parsePositiveInteger(req.params.id);
+  if (!postId) {
+    return res.status(400).json({ message: "Invalid post ID" });
+  }
+
   try {
     const query = `
       WITH visible_post AS (
@@ -92,15 +75,14 @@ export const getSinglePost = async (req, res) => {
       JOIN users u ON u.id = p.uid
     `;
 
-    const result = await db.query(query, [req.params.id]);
+    const result = await db.query(query, [postId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Post not found" });
     }
 
     return res.status(200).json({
-      ...result.rows[0],
-      desc: sanitizeRichText(result.rows[0].desc),
+      ...sanitizePost(result.rows[0]),
     });
   } catch (err) {
     console.error('Error in getSinglePost:', err);
@@ -109,19 +91,23 @@ export const getSinglePost = async (req, res) => {
 };
 
 export const getPostForEditing = async (req, res) => {
+  const postId = parsePositiveInteger(req.params.id);
+  if (!postId) {
+    return res.status(400).json({ message: "Invalid post ID" });
+  }
+
   try {
     const query =
       "SELECT p.id, username, title, \"desc\", p.img, u.avatar AS \"userAvatar\", cat, date, draft, scheduled_publish_date, tags, featured FROM users u JOIN posts p ON u.id = p.uid WHERE p.id = $1 AND p.uid = $2";
 
-    const result = await db.query(query, [req.params.id, req.user.id]);
+    const result = await db.query(query, [postId, req.user.id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Post not found or you don't have permission to edit it" });
     }
 
     return res.status(200).json({
-      ...result.rows[0],
-      desc: sanitizeRichText(result.rows[0].desc),
+      ...sanitizePost(result.rows[0]),
     });
   } catch (err) {
     console.error('Error in getPostForEditing:', err);
@@ -155,26 +141,24 @@ export const addPost = async (req, res) => {
       req.body.featured !== undefined ? req.body.featured : false,
     ];
 
-  let client;
   try {
-      client = await db.connect();
-      await client.query("BEGIN");
+    const postId = await withTransaction(db, async (client) => {
       const result = await client.query(query, values);
-      const postId = result.rows[0].id;
+      const createdPostId = result.rows[0].id;
       
-      // Track activity for new post
       if (!isDraft) {
-        const trackQuery = `
-          INSERT INTO activities (user_id, activity_type, post_id)
-          VALUES ($1, 'post', $2)
-        `;
-        await client.query(trackQuery, [req.user.id, postId]);
+        await recordActivity(client, {
+          userId: req.user.id,
+          activityType: "post",
+          postId: createdPostId,
+        });
       }
 
-      await client.query("COMMIT");
+      return createdPostId;
+    });
 
       if (!isDraft) {
-        notifySubscribers(postId, title).catch((err) => {
+        notifySubscribersOfPost(postId, title).catch((err) => {
           console.error("Error sending new post notifications:", err);
         });
       }
@@ -185,18 +169,16 @@ export const addPost = async (req, res) => {
       status: schedule.isScheduled ? "scheduled" : isDraft ? "draft" : "published",
     });
   } catch (err) {
-    if (client) {
-      await client.query("ROLLBACK");
-    }
     console.error('Error in addPost:', err);
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    client?.release();
   }
 };
 
 export const deletePost = async (req, res) => {
-  const postId = req.params.id;
+  const postId = parsePositiveInteger(req.params.id);
+  if (!postId) {
+    return res.status(400).json("Invalid post ID");
+  }
   const query = "DELETE FROM posts WHERE id = $1 AND uid = $2";
 
   try {
@@ -214,7 +196,10 @@ export const deletePost = async (req, res) => {
 };
 
 export const updatePost = async (req, res) => {
-  const postId = req.params.id;
+  const postId = parsePositiveInteger(req.params.id);
+  if (!postId) {
+    return res.status(400).json("Invalid post ID");
+  }
   let schedule;
   try {
     schedule = req.body.scheduled_publish_date !== undefined
@@ -265,6 +250,10 @@ export const updatePost = async (req, res) => {
       fields.push(`scheduled_publish_date=$${paramIndex}`);
       values.push(schedule.date);
       paramIndex++;
+    } else if (requestedDraft === false) {
+      fields.push(`scheduled_publish_date=$${paramIndex}`);
+      values.push(null);
+      paramIndex++;
     }
 
     if (req.body.tags !== undefined) {
@@ -286,42 +275,46 @@ export const updatePost = async (req, res) => {
     const query = `UPDATE posts SET ${fields.join(', ')} WHERE id = $${paramIndex} AND uid = $${paramIndex + 1} RETURNING id, title, draft, scheduled_publish_date`;
     values.push(postId, req.user.id);
 
-  let client;
   try {
-      client = await db.connect();
-      await client.query("BEGIN");
+    const updateResult = await withTransaction(db, async (client) => {
       const currentResult = await client.query(
         "SELECT id, title, draft, scheduled_publish_date FROM posts WHERE id = $1 AND uid = $2 FOR UPDATE",
         [postId, req.user.id]
       );
 
       if (currentResult.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(403).json("You can update only your post!");
+        return null;
       }
 
       const result = await client.query(query, values);
 
       if (result.rowCount === 0) {
-        await client.query("ROLLBACK");
-        return res.status(403).json("You can update only your post!");
+        return null;
       }
 
-      const wasPublished = isPublishedPost(currentResult.rows[0]);
+      const previouslyPublished = isPublishedPost(currentResult.rows[0]);
       const updatedPost = result.rows[0];
       const isPublished = isPublishedPost(updatedPost);
 
-      if (!wasPublished && isPublished) {
-        await client.query(
-          "INSERT INTO activities (user_id, activity_type, post_id) VALUES ($1, 'post', $2)",
-          [req.user.id, postId]
-        );
+      if (!previouslyPublished && isPublished) {
+        await recordActivity(client, {
+          userId: req.user.id,
+          activityType: "post",
+          postId,
+        });
       }
 
-      await client.query("COMMIT");
+      return { wasPublished: previouslyPublished, updatedPost };
+    });
 
-      if (!wasPublished && isPublished) {
-        notifySubscribers(postId, updatedPost.title).catch((err) => {
+      const { wasPublished, updatedPost } = updateResult || {};
+
+      if (!updatedPost) {
+        return res.status(403).json("You can update only your post!");
+      }
+
+      if (!wasPublished && isPublishedPost(updatedPost)) {
+        notifySubscribersOfPost(postId, updatedPost.title).catch((err) => {
           console.error("Error sending new post notifications:", err);
         });
       }
@@ -333,13 +326,8 @@ export const updatePost = async (req, res) => {
         : "published",
     });
   } catch (err) {
-    if (client) {
-      await client.query("ROLLBACK");
-    }
     console.error('Error in updatePost:', err);
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    client?.release();
   }
 };
 
@@ -349,10 +337,7 @@ export const getUserDrafts = async (req, res) => {
 
       const result = await db.query(query, [req.user.id]);
 
-    return res.status(200).json(result.rows.map((post) => ({
-      ...post,
-      desc: sanitizeRichText(post.desc),
-    })));
+    return res.status(200).json(result.rows.map(sanitizePost));
   } catch (err) {
     console.error('Error in getUserDrafts:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -365,10 +350,7 @@ export const getUserScheduledPosts = async (req, res) => {
 
       const result = await db.query(query, [req.user.id]);
 
-    return res.status(200).json(result.rows.map((post) => ({
-      ...post,
-      desc: sanitizeRichText(post.desc),
-    })));
+    return res.status(200).json(result.rows.map(sanitizePost));
   } catch (err) {
     console.error('Error in getUserScheduledPosts:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -379,26 +361,21 @@ export const getPostsByTag = async (req, res) => {
   try {
     const tag = req.params.tag;
 
-    // Convert tag to proper JSON format for PostgreSQL query
     const tagJson = JSON.stringify([tag]);
 
-    // Use PostgreSQL JSONB operators to find posts with the specified tag
     const query = `
       SELECT p.*, u.username, u.avatar AS "userAvatar"
       FROM posts p
       JOIN users u ON u.id = p.uid
       WHERE p.draft = false
         AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
-        AND p.tags::text ILIKE $1
+        AND p.tags::jsonb @> $1::jsonb
+      ORDER BY p.date DESC
     `;
 
-    // Search for the tag within the JSON structure
-    const result = await db.query(query, [`%${tag}%`]);
+    const result = await db.query(query, [tagJson]);
 
-    return res.status(200).json(result.rows.map((post) => ({
-      ...post,
-      desc: sanitizeRichText(post.desc),
-    })));
+    return res.status(200).json(result.rows.map(sanitizePost));
   } catch (err) {
     console.error('Error in getPostsByTag:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -420,10 +397,7 @@ export const getFeaturedPosts = async (req, res) => {
 
     const result = await db.query(query);
 
-    return res.status(200).json(result.rows.map((post) => ({
-      ...post,
-      desc: sanitizeRichText(post.desc),
-    })));
+    return res.status(200).json(result.rows.map(sanitizePost));
   } catch (err) {
     console.error('Error in getFeaturedPosts:', err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -432,7 +406,7 @@ export const getFeaturedPosts = async (req, res) => {
 
 export const getPopularPosts = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parsePositiveInteger(req.query.limit) || 10, 50);
     
     const query = `
       SELECT p.*, u.username, u.avatar AS "userAvatar"
@@ -446,10 +420,7 @@ export const getPopularPosts = async (req, res) => {
 
     const result = await db.query(query, [limit]);
 
-    return res.status(200).json(result.rows.map((post) => ({
-      ...post,
-      desc: sanitizeRichText(post.desc),
-    })));
+    return res.status(200).json(result.rows.map(sanitizePost));
   } catch (err) {
     console.error('Error in getPopularPosts:', err);
     return res.status(500).json({ error: 'Internal server error' });
