@@ -1,20 +1,30 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Outlet, RouterProvider, createBrowserRouter, useLocation } from "react-router-dom";
 import "./style.scss";
-import Register from "./Pages/Register";
-import Login from "./Pages/Login";
-import Home from "./Pages/Home";
 import Navbar from "./Components/Navbar";
 import Footer from "./Components/Footer";
-import Single from "./Pages/Single";
-import Write from "./Pages/Write";
-import Drafts from "./Pages/Drafts";
-import Scheduled from "./Pages/Scheduled";
-import Bookmarks from "./Pages/Bookmarks";
-import Profile from "./Pages/Profile";
-import ProfileEdit from "./Components/ProfileEdit";
-import ActivityFeed from "./Pages/ActivityFeed";
 import { useThemeContext } from "./Context/theme";
+import InlineLoader from "./Components/ui/InlineLoader.jsx";
+
+const Register = lazy(() => import("./Pages/Register.jsx"));
+const Login = lazy(() => import("./Pages/Login.jsx"));
+const Home = lazy(() => import("./Pages/Home.jsx"));
+const Single = lazy(() => import("./Pages/Single.jsx"));
+const Write = lazy(() => import("./Pages/Write.jsx"));
+const Drafts = lazy(() => import("./Pages/Drafts.jsx"));
+const Scheduled = lazy(() => import("./Pages/Scheduled.jsx"));
+const Bookmarks = lazy(() => import("./Pages/Bookmarks.jsx"));
+const Profile = lazy(() => import("./Pages/Profile.jsx"));
+const ProfileEdit = lazy(() => import("./Components/ProfileEdit.jsx"));
+const ActivityFeed = lazy(() => import("./Pages/ActivityFeed.jsx"));
+
+function RouteLoading({ standalone = false }) {
+  return (
+    <div className={`route-loading${standalone ? " route-loading--standalone" : ""}`} role="status">
+      <InlineLoader label="Loading page…" />
+    </div>
+  );
+}
 
 const Layout = () => {
   const { theme } = useThemeContext();
@@ -34,7 +44,9 @@ const Layout = () => {
     <div className={theme === "dark" ? "page-container dark" : "page-container"}>
       <Navbar />
       <main ref={mainRef} id="main-content" className="main-content-wrapper ui-container" tabIndex={-1}>
-        <Outlet />
+        <Suspense fallback={<RouteLoading />}>
+          <Outlet />
+        </Suspense>
       </main>
       <Footer />
     </div>
@@ -111,7 +123,9 @@ function App() {
 
   return (
     <div className={`app ${theme === "dark" ? "dark" : ""}`}>
-      <RouterProvider router={router} />
+      <Suspense fallback={<RouteLoading standalone />}>
+        <RouterProvider router={router} />
+      </Suspense>
     </div>
   );
 }

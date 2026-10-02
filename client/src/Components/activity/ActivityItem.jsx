@@ -1,5 +1,4 @@
 import { Bell, FileText, Heart, MessageCircle, UserPlus } from "lucide-react";
-import moment from "moment";
 import { Link } from "react-router-dom";
 import ProfileAvatar from "../ProfileAvatar";
 import { resolveMediaUrl } from "../home/postPresentation";
@@ -10,6 +9,8 @@ const activityIcons = {
   reaction: Heart,
   follow: UserPlus,
 };
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+const activityDateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 function UserLink({ username, fallback = "Someone" }) {
   if (!username) return <strong>{fallback}</strong>;
@@ -47,11 +48,41 @@ function ActivitySentence({ activity }) {
 }
 
 function ActivityTime({ value }) {
-  const timestamp = moment.utc(value);
-  if (!timestamp.isValid()) return null;
-  const localTimestamp = timestamp.local();
+  if (!value) return null;
+  const normalized = typeof value === "string" && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
+    ? `${value}Z`
+    : value;
+  const timestamp = new Date(normalized);
+  if (Number.isNaN(timestamp.getTime())) return null;
+
+  const elapsedSeconds = Math.round((timestamp.getTime() - Date.now()) / 1000);
+  const absoluteSeconds = Math.abs(elapsedSeconds);
+  let relativeValue;
+  let relativeUnit;
+  if (absoluteSeconds < 60) {
+    relativeValue = elapsedSeconds;
+    relativeUnit = "second";
+  } else if (absoluteSeconds < 3600) {
+    relativeValue = Math.round(elapsedSeconds / 60);
+    relativeUnit = "minute";
+  } else if (absoluteSeconds < 86400) {
+    relativeValue = Math.round(elapsedSeconds / 3600);
+    relativeUnit = "hour";
+  } else if (absoluteSeconds < 2_592_000) {
+    relativeValue = Math.round(elapsedSeconds / 86400);
+    relativeUnit = "day";
+  } else if (absoluteSeconds < 31_536_000) {
+    relativeValue = Math.round(elapsedSeconds / 2_592_000);
+    relativeUnit = "month";
+  } else {
+    relativeValue = Math.round(elapsedSeconds / 31_536_000);
+    relativeUnit = "year";
+  }
+
+  const relativeLabel = relativeTimeFormatter.format(relativeValue, relativeUnit);
+  const fullLabel = activityDateFormatter.format(timestamp);
   return (
-    <time dateTime={timestamp.toISOString()} title={localTimestamp.format("MMM D, YYYY [at] h:mm A")}>{localTimestamp.fromNow()}</time>
+    <time dateTime={timestamp.toISOString()} title={fullLabel}>{relativeLabel}</time>
   );
 }
 

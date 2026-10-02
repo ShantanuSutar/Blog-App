@@ -1,8 +1,7 @@
-import axios from "axios";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AlertCircle, ArrowRight, CircleCheck, FileText, RotateCcw, SearchX } from "lucide-react";
-import { useThemeContext } from "../Context/theme";
+import api from "../api/axios.js";
 import Menu from "../Components/Menu";
 import Newsletter from "../Components/Newsletter";
 import HomeFilters from "../Components/home/HomeFilters";
@@ -17,6 +16,15 @@ const createFeed = (key) => ({ key, posts: [], page: 1, totalPages: 1, status: "
 function getPostsFromResponse(data) {
   if (Array.isArray(data)) return data;
   return Array.isArray(data?.posts) ? data.posts : [];
+}
+
+function dedupePosts(posts) {
+  const seen = new Set();
+  return posts.filter((post) => {
+    if (seen.has(post.id)) return false;
+    seen.add(post.id);
+    return true;
+  });
 }
 
 const categoryLabels = {
@@ -60,7 +68,6 @@ function getResultsHeading({ category, search, tag }) {
 }
 
 export default function Home() {
-  const { theme } = useThemeContext();
   const navigate = useNavigate();
   const location = useLocation();
   const { tag: urlTag } = useParams();
@@ -91,18 +98,18 @@ export default function Home() {
       try {
         let response;
         if (activeTag) {
-          response = await axios.get(`${baseUrl}/api/posts/tag/${encodeURIComponent(activeTag)}`, { signal: controller.signal });
+          response = await api.get(`/api/posts/tag/${encodeURIComponent(activeTag)}`, { signal: controller.signal });
         } else {
           const query = new URLSearchParams({ page: String(page), limit: "10" });
           if (category) query.set("cat", category);
           if (search) query.set("search", search);
-          response = await axios.get(`${baseUrl}/api/posts?${query.toString()}`, { signal: controller.signal });
+          response = await api.get(`/api/posts?${query.toString()}`, { signal: controller.signal });
         }
 
         const responsePosts = getPostsFromResponse(response.data);
-        const nextPosts = activeTag
+        const nextPosts = dedupePosts(activeTag
           ? filterTaggedPosts(responsePosts, { category, search, tag: activeTag })
-          : responsePosts;
+          : responsePosts);
         const reportedPages = Number(response.data?.totalPages);
         const totalPages = activeTag || nextPosts.length === 0
           ? page
@@ -121,7 +128,7 @@ export default function Home() {
           };
         });
       } catch (error) {
-        if (controller.signal.aborted || axios.isCancel(error)) return;
+        if (controller.signal.aborted || error.code === "ERR_CANCELED") return;
         setFeed((current) => current.key !== filterKey || current.page !== page
           ? current
           : { ...current, status: page === 1 ? "error" : current.status, loadMoreStatus: page === 1 ? "idle" : "error" });
@@ -136,10 +143,10 @@ export default function Home() {
     const controller = new AbortController();
     const fetchFeatured = async () => {
       try {
-        const response = await axios.get(`${baseUrl}/api/posts/featured`, { signal: controller.signal });
-        setFeatured({ posts: getPostsFromResponse(response.data), status: "success" });
+        const response = await api.get("/api/posts/featured", { signal: controller.signal });
+        setFeatured({ posts: dedupePosts(getPostsFromResponse(response.data)), status: "success" });
       } catch (error) {
-        if (!controller.signal.aborted && !axios.isCancel(error)) {
+        if (!controller.signal.aborted && error.code !== "ERR_CANCELED") {
           setFeatured((current) => ({ ...current, status: "error" }));
         }
       }
@@ -150,13 +157,13 @@ export default function Home() {
 
   useEffect(() => {
     const controller = new AbortController();
-    axios.get(`${baseUrl}/api/posts?limit=100`, { signal: controller.signal })
+    api.get("/api/posts?limit=100", { signal: controller.signal })
       .then((response) => {
         const tags = getPostsFromResponse(response.data).flatMap((post) => getPostTags(post.tags));
         setTagDiscovery({ tags: [...new Set(tags)].sort((a, b) => a.localeCompare(b)), status: "success" });
       })
       .catch((error) => {
-        if (!controller.signal.aborted && !axios.isCancel(error)) {
+        if (!controller.signal.aborted && error.code !== "ERR_CANCELED") {
           setTagDiscovery((current) => ({ ...current, status: "error" }));
         }
       });
@@ -191,7 +198,15 @@ export default function Home() {
   const handleSearch = (value) => navigate(getBrowseUrl({ category, search: value, tag: activeTag }));
   const handleTag = (value) => navigate(getBrowseUrl({ category, search, tag: value }));
   const visibleFeed = feed.key === filterKey ? feed : createFeed(filterKey);
-  const visibleTags = [...new Set([...tagDiscovery.tags, ...featured.posts.flatMap((post) => getPostTags(post.tags)), ...visibleFeed.posts.flatMap((post) => getPostTags(post.tags)), ...(activeTag ? [activeTag] : [])])].sort((a, b) => a.localeCompare(b));
+  const visibleTags = useMemo(
+    () => [...new Set([
+      ...tagDiscovery.tags,
+      ...featured.posts.flatMap((post) => getPostTags(post.tags)),
+      ...visibleFeed.posts.flatMap((post) => getPostTags(post.tags)),
+      ...(activeTag ? [activeTag] : []),
+    ])].sort((a, b) => a.localeCompare(b)),
+    [activeTag, featured.posts, tagDiscovery.tags, visibleFeed.posts],
+  );
   const resultsHeading = getResultsHeading({ category, search, tag: activeTag });
   const searchContext = search && (category || activeTag)
     ? `Searching within ${[category ? categoryLabels[category] || category : "", activeTag ? `#${activeTag}` : ""].filter(Boolean).join(" and ")}.`
@@ -212,7 +227,7 @@ export default function Home() {
           {featured.status === "error" && <StatePanel className="home-state" compact tone="error" role="alert" icon={AlertCircle} title="Featured stories couldn’t be loaded" headingLevel={3} action={<button className="ui-button--secondary" type="button" onClick={retryFeatured}><RotateCcw size={16} aria-hidden="true" /> Try again</button>} />}
           {featured.status === "success" && featured.posts.length > 0 && (
             <div className="home-featured-grid">
-              {featured.posts.map((post, index) => <PostCard key={post.id} post={post} variant={index === 0 ? "featured-primary" : "featured"} theme={theme} baseUrl={baseUrl} />)}
+              {featured.posts.map((post, index) => <PostCard key={post.id} post={post} variant={index === 0 ? "featured-primary" : "featured"} baseUrl={baseUrl} />)}
             </div>
           )}
         </section>
@@ -247,7 +262,7 @@ export default function Home() {
             {visibleFeed.status === "success" && visibleFeed.posts.length === 0 && <StatePanel className="home-state" icon={hasFilters ? SearchX : FileText} title={hasFilters ? "No stories match these filters" : "No stories yet"} description={hasFilters ? "Try another category, tag, or search term." : "Check back soon for new stories."} headingLevel={3} action={hasFilters ? <button className="ui-button--secondary" type="button" onClick={() => navigate("/")}>Clear filters</button> : null} />}
             {visibleFeed.posts.length > 0 && (
               <>
-                <div className="home-feed-list">{visibleFeed.posts.map((post) => <PostCard key={post.id} post={post} theme={theme} baseUrl={baseUrl} />)}</div>
+                <div className="home-feed-list">{visibleFeed.posts.map((post) => <PostCard key={post.id} post={post} baseUrl={baseUrl} />)}</div>
                 {visibleFeed.loadMoreStatus === "loading" && <div className="home-load-more" role="status"><HomeSkeleton count={1} /><p>Loading more stories…</p></div>}
                 {visibleFeed.loadMoreStatus === "error" && <StatePanel className="home-state" compact tone="error" role="alert" title="More stories couldn’t be loaded" description="Your current stories are still here." headingLevel={3} action={<button className="ui-button--secondary" type="button" onClick={retryFeed}><RotateCcw size={16} aria-hidden="true" /> Retry loading</button>} />}
                 {visibleFeed.loadMoreStatus === "idle" && visibleFeed.page >= visibleFeed.totalPages && <p className="home-feed-end" role="status"><CircleCheck size={17} aria-hidden="true" /> You’re all caught up.</p>}

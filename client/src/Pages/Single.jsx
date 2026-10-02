@@ -1,5 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ImageOff, MessageCircle, RotateCcw, Send } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
@@ -16,7 +15,6 @@ import LoadingButton from "../Components/ui/LoadingButton.jsx";
 import StatePanel from "../Components/ui/StatePanel.jsx";
 import Skeleton from "../Components/ui/Skeleton.jsx";
 import { useToast } from "../Context/ToastContext.jsx";
-import { useThemeContext } from "../Context/theme.jsx";
 import { formatPostDate, getPostTags, resolveMediaUrl } from "../Components/home/postPresentation";
 import { calculateReadingTime } from "../utils/readingTime";
 
@@ -63,7 +61,7 @@ function InlineAuthor({ post }) {
     <Link className="article-byline__author" to={`/profile/${encodeURIComponent(username)}`}>
       <span className="article-byline__avatar" aria-hidden="true">
         {avatar && !failed ? (
-          <img src={avatar} alt="" onError={() => setFailed(true)} />
+          <img src={avatar} alt="" decoding="async" onError={() => setFailed(true)} />
         ) : (
           username.charAt(0).toUpperCase()
         )}
@@ -89,8 +87,8 @@ function ArticlePageSkeleton() {
 export default function Single() {
   const { id: postId } = useParams();
   const navigate = useNavigate();
-  const { theme } = useThemeContext();
   const { currentUser } = useContext(AuthContext);
+  const mountedRef = useRef(true);
   const [postState, setPostState] = useState({ status: "loading", post: null });
   const [postVersion, setPostVersion] = useState(0);
   const [author, setAuthor] = useState(null);
@@ -103,14 +101,23 @@ export default function Single() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const toast = useToast();
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const loadComments = useCallback(async (signal) => {
+    if (!mountedRef.current) return;
     setCommentsStatus("loading");
     try {
-      const response = await axios.get(`${baseUrl}/api/comments/${postId}`, { signal });
+      const response = await api.get(`/api/comments/${postId}`, { signal });
+      if (!mountedRef.current) return;
       setComments(Array.isArray(response.data) ? response.data : []);
       setCommentsStatus("success");
     } catch (error) {
-      if (error.name !== "CanceledError" && error.code !== "ERR_CANCELED") {
+      if (mountedRef.current && error.code !== "ERR_CANCELED") {
         setComments([]);
         setCommentsStatus("error");
       }
@@ -121,10 +128,10 @@ export default function Single() {
     const controller = new AbortController();
     setPostState({ status: "loading", post: null });
 
-    axios.get(`${baseUrl}/api/posts/${postId}`, { signal: controller.signal })
+    api.get(`/api/posts/${postId}`, { signal: controller.signal })
       .then((response) => setPostState({ status: "success", post: response.data }))
       .catch((error) => {
-        if (error.name === "CanceledError" || error.code === "ERR_CANCELED") return;
+        if (error.code === "ERR_CANCELED") return;
         setPostState({ status: error.response?.status === 404 ? "missing" : "error", post: null });
       });
 
@@ -148,7 +155,7 @@ export default function Single() {
     api.get(`/api/users/${encodeURIComponent(username)}`, { signal: controller.signal })
       .then((response) => setAuthor(response.data))
       .catch((error) => {
-        if (error.name !== "CanceledError" && error.code !== "ERR_CANCELED") setAuthor(null);
+        if (error.code !== "ERR_CANCELED") setAuthor(null);
       });
     return () => controller.abort();
   }, [postState.post?.username]);
@@ -250,7 +257,7 @@ export default function Single() {
                 <span className="article-byline__dot" aria-hidden="true" />
                 <span>{readingTime}</span>
               </div>
-              <ArticleActions post={post} postId={postId} theme={theme} isOwner={isOwner} onDelete={() => setDeleteDialogOpen(true)} deleting={deleting} />
+              <ArticleActions post={post} postId={postId} isOwner={isOwner} onDelete={() => setDeleteDialogOpen(true)} deleting={deleting} />
             </div>
           </header>
 

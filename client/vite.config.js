@@ -1,7 +1,5 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { viteCommonjs } from "@originjs/vite-plugin-commonjs";
-import resolve from "@rollup/plugin-node-resolve";
 
 export default defineConfig({
   server: {
@@ -10,8 +8,5 @@ export default defineConfig({
     },
   },
 
-  plugins: [viteCommonjs(), react(), resolve()],
-  build: {
-    rollupOptions: {},
-  },
+  plugins: [react()],
 });

@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import api from '../api/axios.js';
+import ProfileAvatar from "./ProfileAvatar.jsx";
 
 const MentionAutocomplete = forwardRef(function MentionAutocomplete({ id, query, onSelect, onActiveOptionChange }, ref) {
   const [users, setUsers] = useState([]);
@@ -12,15 +13,20 @@ const MentionAutocomplete = forwardRef(function MentionAutocomplete({ id, query,
     }
 
     const controller = new AbortController();
-    api.get(`/api/users/search?query=${encodeURIComponent(query)}`, { signal: controller.signal })
-      .then((response) => {
-        setUsers(Array.isArray(response.data) ? response.data : []);
-        setSelectedIndex(0);
-      })
-      .catch((error) => {
-        if (error.code !== "ERR_CANCELED") setUsers([]);
-      });
-    return () => controller.abort();
+    const timeout = window.setTimeout(() => {
+      api.get(`/api/users/search?query=${encodeURIComponent(query)}`, { signal: controller.signal })
+        .then((response) => {
+          setUsers(Array.isArray(response.data) ? response.data : []);
+          setSelectedIndex(0);
+        })
+        .catch((error) => {
+          if (error.code !== "ERR_CANCELED") setUsers([]);
+        });
+    }, 180);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [query]);
 
   useEffect(() => {
@@ -55,14 +61,7 @@ const MentionAutocomplete = forwardRef(function MentionAutocomplete({ id, query,
           onMouseDown={(event) => event.preventDefault()}
           onMouseEnter={() => setSelectedIndex(index)}
         >
-          {user.avatar ? (
-            <img src={user.avatar} alt="" />
-          ) : (
-            <img 
-              src="https://t4.ftcdn.net/jpg/02/29/75/83/360_F_229758328_7x8jwCwjtBMmC6rgFzLFhZoEpLobB6L8.jpg" 
-              alt="" 
-            />
-          )}
+          <ProfileAvatar source={user.avatar} username={user.username} className="profile-avatar--mention" />
           <span>@{user.username}</span>
         </div>
       ))}

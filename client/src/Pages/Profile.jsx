@@ -2,7 +2,6 @@ import { useContext, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CalendarDays, Feather, FileText, Pencil, RotateCcw, UserRoundX } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext.jsx";
-import { useThemeContext } from "../Context/theme.jsx";
 import api from "../api/axios.js";
 import FollowButton from "../Components/FollowButton.jsx";
 import FollowersModal from "../Components/FollowersModal.jsx";
@@ -28,7 +27,6 @@ function formatMembershipDate(value) {
 export default function Profile() {
   const { username } = useParams();
   const { currentUser } = useContext(AuthContext);
-  const { theme } = useThemeContext();
   const [user, setUser] = useState(null);
   const [status, setStatus] = useState("loading");
   const [requestVersion, setRequestVersion] = useState(0);
@@ -112,7 +110,7 @@ export default function Profile() {
         </div>
 
         {profilePosts.length > 0 ? (
-          <div className="profile-story-list">{profilePosts.map((post) => <PostCard key={post.id} post={post} theme={theme} baseUrl={baseUrl} />)}</div>
+          <div className="profile-story-list">{profilePosts.map((post) => <PostCard key={post.id} post={post} baseUrl={baseUrl} />)}</div>
         ) : (
           <StatePanel className="profile-state profile-state--empty" icon={Feather} title="No published stories yet" description={isOwnProfile ? "Your first story can start whenever you’re ready." : `${user.username} hasn’t published a story yet.`} headingLevel={3} action={isOwnProfile ? <Link className="ui-button--primary" to="/write">Write your first story</Link> : null} />
         )}

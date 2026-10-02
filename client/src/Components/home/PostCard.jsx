@@ -50,7 +50,7 @@ function Author({ post, baseUrl }) {
   );
 }
 
-export default function PostCard({ post, variant = "standard", theme, baseUrl, bookmarkInitialState = false, onBookmarkChange }) {
+export default function PostCard({ post, variant = "standard", baseUrl, bookmarkInitialState = false, onBookmarkChange }) {
   const title = post.title?.trim() || "Untitled story";
   const featured = variant !== "standard";
   const primary = variant === "featured-primary";
@@ -84,8 +84,8 @@ export default function PostCard({ post, variant = "standard", theme, baseUrl, b
         )}
         <div className="story-card__footer">
           <div className="story-card__engagement">
-            {!featured && <ReactionButtons postId={post.id} theme={theme} postTitle={title} />}
-            <BookmarkButton postId={post.id} theme={theme} postTitle={title} initialBookmarked={bookmarkInitialState} onChange={onBookmarkChange} />
+            {!featured && <ReactionButtons postId={post.id} postTitle={title} />}
+            <BookmarkButton postId={post.id} postTitle={title} initialBookmarked={bookmarkInitialState} onChange={onBookmarkChange} />
             {views && <span className="story-card__views ui-meta" aria-label={`${post.views} views`}><Eye size={17} aria-hidden="true" />{views}</span>}
           </div>
           <span className="story-card__read-link" aria-hidden="true">Read story <ArrowUpRight size={16} /></span>

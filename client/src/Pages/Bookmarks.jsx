@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { Bookmark, Compass, LogIn } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext";
 import api from "../api/axios";
-import { useThemeContext } from "../Context/theme";
 import CollectionPage from "../Components/library/CollectionPage";
 import PostCard from "../Components/home/PostCard";
 
@@ -11,7 +10,6 @@ const baseUrl = import.meta.env.VITE_BASE_URL;
 
 export default function Bookmarks() {
   const { currentUser } = useContext(AuthContext);
-  const { theme } = useThemeContext();
   const [posts, setPosts] = useState([]);
   const [status, setStatus] = useState(currentUser ? "loading" : "empty");
   const [requestVersion, setRequestVersion] = useState(0);
@@ -59,7 +57,6 @@ export default function Bookmarks() {
           <PostCard
             key={post.id}
             post={post}
-            theme={theme}
             baseUrl={baseUrl}
             bookmarkInitialState
             onBookmarkChange={(bookmarked) => {

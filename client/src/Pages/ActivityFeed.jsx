@@ -30,7 +30,11 @@ export default function ActivityFeed() {
   useEffect(() => {
     if (!currentUser) {
       setActivities([]);
+      setPage(1);
+      setTotalPages(1);
       setStatus("idle");
+      setLoadMoreStatus("idle");
+      loadLockRef.current = false;
       return undefined;
     }
 

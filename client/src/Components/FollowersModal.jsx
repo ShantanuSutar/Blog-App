@@ -12,6 +12,7 @@ import useModalAccessibility from "../hooks/useModalAccessibility.js";
 export default function FollowersModal({ userId, isOpen, onClose, type }) {
   const [users, setUsers] = useState([]);
   const [status, setStatus] = useState("idle");
+  const [requestVersion, setRequestVersion] = useState(0);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const { currentUser } = useContext(AuthContext);
@@ -37,7 +38,7 @@ export default function FollowersModal({ userId, isOpen, onClose, type }) {
     return () => {
       controller.abort();
     };
-  }, [fetchUsers, isOpen, userId]);
+  }, [fetchUsers, isOpen, requestVersion, userId]);
   useModalAccessibility({ open: isOpen, containerRef: dialogRef, initialFocusRef: closeButtonRef, onClose });
 
   if (!isOpen) return null;
@@ -52,7 +53,7 @@ export default function FollowersModal({ userId, isOpen, onClose, type }) {
 
         <div className="followers-dialog__content" aria-live="polite" aria-busy={status === "loading"}>
           {status === "loading" && <StatePanel className="profile-state" compact action={<InlineLoader label={`Loading ${title.toLowerCase()}…`} />} />}
-          {status === "error" && <StatePanel className="profile-state" compact tone="error" role="alert" title="We couldn’t load this list" headingLevel={3} action={<button className="ui-button--secondary" type="button" onClick={() => fetchUsers()}><RotateCcw size={16} aria-hidden="true" /> Retry</button>} />}
+          {status === "error" && <StatePanel className="profile-state" compact tone="error" role="alert" title="We couldn’t load this list" headingLevel={3} action={<button className="ui-button--secondary" type="button" onClick={() => setRequestVersion((version) => version + 1)}><RotateCcw size={16} aria-hidden="true" /> Retry</button>} />}
           {status === "success" && users.length === 0 && <StatePanel className="profile-state" compact icon={Users} title={`No ${title.toLowerCase()} yet`} headingLevel={3} />}
           {status === "success" && users.length > 0 && (
             <ul className="followers-list">

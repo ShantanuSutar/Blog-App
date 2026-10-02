@@ -7,6 +7,8 @@ import {
 import Logo from "../img/logos/logo-no-background.png";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import { useThemeContext } from "../Context/theme";
+import { useToast } from "../Context/ToastContext.jsx";
+import { resolveMediaUrl } from "./home/postPresentation.js";
 
 const categories = [
   { label: "Art", value: "art" },
@@ -20,6 +22,7 @@ const categories = [
 const Navbar = () => {
   const { theme, setTheme } = useThemeContext();
   const { currentUser, logout } = useContext(AuthContext);
+  const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const headerRef = useRef(null);
@@ -32,6 +35,7 @@ const Navbar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const isBrowseRoute = location.pathname === "/" || location.pathname.startsWith("/tag/");
   const locationParams = new URLSearchParams(location.search);
   const activeCategory = isBrowseRoute ? locationParams.get("cat") : null;
@@ -65,6 +69,11 @@ const Navbar = () => {
   }, [searchOpen]);
 
   useEffect(() => {
+    setAvatarFailed(false);
+  }, [currentUser?.avatar]);
+
+  useEffect(() => {
+    if (!profileOpen && !mobileOpen && !searchOpen) return undefined;
     const handlePointerDown = (event) => {
       if (!headerRef.current?.contains(event.target)) closePanels();
     };
@@ -99,13 +108,14 @@ const Navbar = () => {
     closePanels();
     try {
       await logout();
-    } catch (error) {
-      console.error("Logout failed:", error);
+    } catch {
+      toast.error("You were signed out locally, but Unsaid could not reach the server.");
     }
   };
 
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
-  const profileUrl = `/profile/${currentUser?.username}`;
+  const profileUrl = `/profile/${encodeURIComponent(currentUser?.username || "")}`;
+  const avatarUrl = resolveMediaUrl(currentUser?.avatar, avatarBaseUrl);
 
   const categoryLinks = categories.map(({ label, value }) => {
     const nextParams = new URLSearchParams(isBrowseRoute ? location.search : "");
@@ -189,8 +199,8 @@ const Navbar = () => {
                     setSearchOpen(false);
                   }}
                 >
-                  {currentUser.avatar
-                    ? <img src={`${avatarBaseUrl}${currentUser.avatar}`} alt="" />
+                  {avatarUrl && !avatarFailed
+                    ? <img src={avatarUrl} alt="" decoding="async" onError={() => setAvatarFailed(true)} />
                     : <CircleUserRound size={26} aria-hidden="true" />}
                   <ChevronDown className="profile-chevron" size={15} aria-hidden="true" />
                 </button>

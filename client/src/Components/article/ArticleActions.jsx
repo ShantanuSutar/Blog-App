@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import ReactionButtons from "../ReactionButtons.jsx";
 import BookmarkButton from "../BookmarkButton.jsx";
 
-export default function ArticleActions({ post, postId, theme, isOwner, onDelete, deleting }) {
+export default function ArticleActions({ post, postId, isOwner, onDelete, deleting }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const shareRef = useRef(null);
@@ -86,8 +86,8 @@ export default function ArticleActions({ post, postId, theme, isOwner, onDelete,
 
   return (
     <div className="article-actions" aria-label="Article actions">
-      <ReactionButtons postId={postId} theme={theme} postTitle={postTitle} />
-      <BookmarkButton postId={postId} theme={theme} postTitle={postTitle} />
+      <ReactionButtons postId={postId} postTitle={postTitle} />
+      <BookmarkButton postId={postId} postTitle={postTitle} />
       <div className="article-share" ref={shareRef}>
         <button
           ref={triggerRef}

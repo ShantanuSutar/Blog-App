@@ -1,15 +1,12 @@
 import { useState } from "react";
-import axios from "axios";
-import { useThemeContext } from "../Context/theme";
 import { Send } from "lucide-react";
 import LoadingButton from "./ui/LoadingButton.jsx";
+import api from "../api/axios.js";
 
 const Newsletter = () => {
     const [email, setEmail] = useState("");
     const [status, setStatus] = useState(null);
     const [message, setMessage] = useState("");
-    const { theme } = useThemeContext();
-    const URL = import.meta.env.VITE_BASE_URL;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,7 +16,7 @@ const Newsletter = () => {
         setMessage("");
 
         try {
-            await axios.post(`${URL}/api/newsletter`, { email });
+            await api.post("/api/newsletter", { email: email.trim() });
             setStatus("success");
             setMessage("Subscribed successfully!");
             setEmail("");
@@ -30,7 +27,7 @@ const Newsletter = () => {
     };
 
     return (
-        <div className={`newsletter ${theme === "dark" ? "dark" : ""}`}>
+        <div className="newsletter">
             <h3>Subscribe to our Newsletter</h3>
             <div className="newsletter-content">
                 <form onSubmit={handleSubmit}>
@@ -44,7 +41,6 @@ const Newsletter = () => {
                         onChange={(e) => setEmail(e.target.value)}
                         required
                         autoComplete="email"
-                        className={theme === "dark" ? "dark" : ""}
                     />
                     <LoadingButton type="submit" loading={status === "loading"} loadingLabel="Subscribing…" icon={Send}>Subscribe</LoadingButton>
                 </form>

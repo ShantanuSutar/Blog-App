@@ -65,6 +65,17 @@
   svg { animation: ui-loader-spin 800ms linear infinite; }
 }
 
+.route-loading {
+  display: grid;
+  min-height: min(52vh, 420px);
+  place-items: center;
+}
+
+.route-loading--standalone {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
 .ui-loading-button {
   position: relative;
 
