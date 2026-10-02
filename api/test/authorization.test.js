@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 
 import { getUserActivities } from "../controllers/activity.js";
 import {
+  addBookmark,
   getBookmarkCount,
   getBookmarks,
   removeBookmark,
 } from "../controllers/bookmarks.js";
 import { addComment } from "../controllers/comment.js";
-import { toggleFollow } from "../controllers/follows.js";
+import { getFollowers, toggleFollow } from "../controllers/follows.js";
 import {
   addPost,
   deletePost,
@@ -23,7 +24,7 @@ import {
   getUserReaction,
   removeReaction,
 } from "../controllers/reactions.js";
-import { updateProfile } from "../controllers/user.js";
+import { getProfile, updateProfile } from "../controllers/user.js";
 import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
 import { publishDuePosts } from "../scheduler.js";
@@ -200,10 +201,7 @@ test("comment creation cannot impersonate another user", async (t) => {
   const client = createClient(async (query, values) => {
     if (/INSERT INTO comments/.test(query)) {
       commentValues = values;
-      return { rows: [{ id: 91 }], rowCount: 1 };
-    }
-    if (/SELECT uid FROM posts/.test(query)) {
-      return { rows: [{ uid: ownerId }], rowCount: 1 };
+      return { rows: [{ id: 91, post_owner_id: ownerId }], rowCount: 1 };
     }
     if (/INSERT INTO activities/.test(query)) {
       activityValues = values;
@@ -256,6 +254,25 @@ test("bookmark reads and deletes are scoped to the authenticated user", async (t
 
   assert.deepEqual(calls[0].values, [otherUserId]);
   assert.deepEqual(calls[1].values, [otherUserId, resourceId]);
+});
+
+test("bookmark creation resolves visibility and insertion in one database round trip", async (t) => {
+  const calls = [];
+  t.mock.method(db, "query", async (query, values) => {
+    calls.push({ query, values });
+    return { rows: [{ post_exists: true, inserted: false }], rowCount: 1 };
+  });
+
+  const res = createResponse();
+  await addBookmark({
+    body: { postId: resourceId },
+    user: { id: otherUserId },
+  }, res);
+
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].query, /WITH target AS MATERIALIZED/);
+  assert.deepEqual(calls[0].values, [otherUserId, resourceId]);
+  assert.deepEqual(res.body, { message: "Already bookmarked", bookmarked: true });
 });
 
 test("public bookmark counts do not expose draft or future-scheduled posts", async (t) => {
@@ -370,6 +387,83 @@ test("follow mutations always use the authenticated user as follower", async (t)
   assert.deepEqual(insertValues, [otherUserId, ownerId]);
 });
 
+test("follow lists distinguish missing users from empty lists in one query", async (t) => {
+  let queryCount = 0;
+  t.mock.method(db, "query", async (query, values) => {
+    queryCount += 1;
+    assert.match(query, /LEFT JOIN follows/);
+    assert.deepEqual(values, [ownerId]);
+    return {
+      rows: [{
+        owner_username: "owner",
+        id: null,
+        username: null,
+        avatar: null,
+        bio: null,
+        created_at: null,
+      }],
+      rowCount: 1,
+    };
+  });
+
+  const res = createResponse();
+  await getFollowers({ params: { userId: String(ownerId) } }, res);
+
+  assert.equal(queryCount, 1);
+  assert.deepEqual(res.body, {
+    userId: ownerId,
+    username: "owner",
+    followers: [],
+    count: 0,
+  });
+});
+
+test("profile summary and recent posts are loaded in one database query", async (t) => {
+  let queryCount = 0;
+  t.mock.method(db, "query", async (query, values) => {
+    queryCount += 1;
+    assert.match(query, /AS posts_count/);
+    assert.match(query, /LEFT JOIN LATERAL/);
+    assert.deepEqual(values, ["owner", otherUserId]);
+    return {
+      rows: [{
+        id: ownerId,
+        username: "owner",
+        avatar: null,
+        bio: "Writer",
+        created_at: new Date("2026-01-01T00:00:00.000Z"),
+        posts_count: 3,
+        follower_count: 2,
+        following_count: 1,
+        is_following: true,
+        recent_post_id: resourceId,
+        recent_post_title: "Post",
+        recent_post_img: "",
+        recent_post_views: 2,
+        recent_post_date: new Date("2026-01-02T00:00:00.000Z"),
+      }],
+      rowCount: 1,
+    };
+  });
+
+  const res = createResponse();
+  await getProfile({
+    params: { username: "owner" },
+    user: { id: otherUserId },
+  }, res);
+
+  assert.equal(queryCount, 1);
+  assert.equal(res.body.postsCount, 3);
+  assert.equal(res.body.isFollowing, true);
+  assert.deepEqual(res.body.recentPosts, [{
+    id: resourceId,
+    title: "Post",
+    img: "",
+    views: 2,
+    date: new Date("2026-01-02T00:00:00.000Z"),
+  }]);
+});
+
 test("self-follow attempts are rejected", async () => {
   await expectApiError(
     toggleFollow(
@@ -393,25 +487,22 @@ test("User B cannot retrieve User A's private user activity endpoint", async (t)
       {
         params: { username: "owner" },
         query: { filter: "all" },
-        user: { id: otherUserId },
+        user: { id: otherUserId, username: "other" },
       },
       createResponse(),
     ),
     404,
     "ACTIVITY_NOT_FOUND",
   );
-  assert.equal(queryCount, 1);
+  assert.equal(queryCount, 0);
 });
 
 test("scheduler attributes publication activity to the post owner from the database", async (t) => {
-  let activityValues;
+  let publicationQuery;
   const client = createClient(async (query, values) => {
     if (/UPDATE posts/.test(query)) {
+      publicationQuery = query;
       return { rows: [{ id: resourceId, title: "Scheduled", uid: ownerId }], rowCount: 1 };
-    }
-    if (/INSERT INTO activities/.test(query)) {
-      activityValues = values;
-      return { rows: [{ id: 101 }], rowCount: 1 };
     }
     throw new Error(`Unexpected query: ${query}`);
   });
@@ -423,6 +514,6 @@ test("scheduler attributes publication activity to the post owner from the datab
 
   await publishDuePosts();
 
-  assert.equal(activityValues[0], ownerId);
-  assert.equal(activityValues[2], resourceId);
+  assert.match(publicationQuery, /INSERT INTO activities/);
+  assert.match(publicationQuery, /SELECT uid, 'post', id FROM published/);
 });

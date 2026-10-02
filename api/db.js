@@ -4,10 +4,10 @@ import { config } from "./config.js";
 export const db = new Pool({
   connectionString: config.database.connectionString,
   ssl: config.database.ssl,
-  // Connection pool settings for better performance
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 5000, // How long to wait when connecting a new client
+  max: config.database.pool.max,
+  idleTimeoutMillis: config.database.pool.idleTimeoutMillis,
+  connectionTimeoutMillis: config.database.pool.connectionTimeoutMillis,
+  application_name: "unsaid-api",
 });
 
 // Add error handling for database connection

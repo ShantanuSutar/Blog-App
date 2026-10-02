@@ -11,35 +11,31 @@ export const addBookmark = async (req, res) => {
 
   const result = await db.query(
       `
-        INSERT INTO bookmarks(uid, pid)
-        SELECT $1, p.id
-        FROM posts p
-        WHERE p.id = $2
-          AND p.draft = false
-          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
-        ON CONFLICT (uid, pid) DO NOTHING
-        RETURNING id
+        WITH target AS MATERIALIZED (
+          SELECT id
+          FROM posts
+          WHERE id = $2
+            AND draft = false
+            AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= CURRENT_TIMESTAMP)
+        ), inserted AS (
+          INSERT INTO bookmarks(uid, pid)
+          SELECT $1, id FROM target
+          ON CONFLICT (uid, pid) DO NOTHING
+          RETURNING id
+        )
+        SELECT
+          EXISTS (SELECT 1 FROM target) AS post_exists,
+          EXISTS (SELECT 1 FROM inserted) AS inserted
       `,
       [req.user.id, postId]
     );
 
-  if (result.rows.length === 0) {
-    const post = await db.query(
-        `
-          SELECT 1 FROM posts
-          WHERE id = $1
-            AND draft = false
-            AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))
-        `,
-        [postId],
-      );
-    if (post.rows.length === 0) {
-      throw new ApiError(404, "Published post not found", "POST_NOT_FOUND");
-    }
+  if (!result.rows[0].post_exists) {
+    throw new ApiError(404, "Published post not found", "POST_NOT_FOUND");
   }
 
   return res.status(200).json({
-    message: result.rows.length ? "Post has been bookmarked." : "Already bookmarked",
+    message: result.rows[0].inserted ? "Post has been bookmarked." : "Already bookmarked",
     bookmarked: true,
   });
 };
@@ -67,8 +63,8 @@ export const getBookmarks = async (req, res) => {
         JOIN users u ON u.id = p.uid
         WHERE b.uid = $1
           AND p.draft = false
-          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
-        ORDER BY b.created_at DESC
+          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+        ORDER BY b.created_at DESC, b.id DESC
       `,
       [req.user.id]
     );
@@ -103,7 +99,7 @@ export const getBookmarkCount = async (req, res) => {
       LEFT JOIN bookmarks b ON b.pid = p.id
       WHERE p.id = $1
         AND p.draft = false
-        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
     `,
     [postId],
   );
@@ -126,7 +122,7 @@ export const getBookmarkCountsForPosts = async (req, res) => {
         JOIN posts p ON p.id = b.pid
         WHERE b.pid = ANY($1::int[])
           AND p.draft = false
-          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
         GROUP BY b.pid
       `,
       [postIds]

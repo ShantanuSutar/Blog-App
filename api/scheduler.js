@@ -1,7 +1,6 @@
 import cron from "node-cron";
 import { db } from "./db.js";
-import { recordActivity } from "./services/activity.js";
-import { notifySubscribersOfPost } from "./services/notifications.js";
+import { getSubscriberEmails, notifySubscribersOfPost } from "./services/notifications.js";
 import { withTransaction } from "./utils/database.js";
 
 const publishDuePosts = async () => {
@@ -9,21 +8,22 @@ const publishDuePosts = async () => {
   try {
     publishedPosts = await withTransaction(db, async (client) => {
       const result = await client.query(`
-        UPDATE posts
-        SET draft = false, scheduled_publish_date = NULL
-        WHERE draft = true
-          AND scheduled_publish_date IS NOT NULL
-          AND scheduled_publish_date <= timezone('UTC', now())
-        RETURNING id, title, uid
+        WITH published AS (
+          UPDATE posts
+          SET draft = false, scheduled_publish_date = NULL
+          WHERE draft = true
+            AND scheduled_publish_date IS NOT NULL
+            AND scheduled_publish_date <= CURRENT_TIMESTAMP
+          RETURNING id, title, uid
+        ), recorded AS (
+          INSERT INTO activities (user_id, activity_type, post_id)
+          SELECT uid, 'post', id FROM published
+          RETURNING post_id
+        )
+        SELECT published.id, published.title, published.uid
+        FROM published
+        JOIN recorded ON recorded.post_id = published.id
       `);
-
-      for (const post of result.rows) {
-        await recordActivity(client, {
-          userId: post.uid,
-          activityType: "post",
-          postId: post.id,
-        });
-      }
 
       return result.rows;
     });
@@ -37,8 +37,9 @@ const publishDuePosts = async () => {
   }
 
   try {
+    const subscriberEmails = await getSubscriberEmails();
     for (const post of publishedPosts) {
-      await notifySubscribersOfPost(post.id, post.title);
+      await notifySubscribersOfPost(post.id, post.title, subscriberEmails);
     }
   } catch (err) {
     console.error("Error sending scheduled post notifications:", err);

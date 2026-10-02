@@ -28,54 +28,79 @@ const removeUnreferencedAvatar = async (avatarPath) => {
 // Get user profile by username
 export const getProfile = async (req, res) => {
   const { username } = req.params;
-    
-    const query = "SELECT id, username, avatar, bio, created_at FROM users WHERE username = $1";
-    const result = await db.query(query, [username]);
+  const result = await db.query(
+    `
+      SELECT
+        u.id,
+        u.username,
+        u.avatar,
+        u.bio,
+        u.created_at,
+        (
+          SELECT COUNT(*)::integer
+          FROM posts p
+          WHERE p.uid = u.id
+            AND p.draft = false
+            AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+        ) AS posts_count,
+        (
+          SELECT COUNT(*)::integer FROM follows f WHERE f.following_id = u.id
+        ) AS follower_count,
+        (
+          SELECT COUNT(*)::integer FROM follows f WHERE f.follower_id = u.id
+        ) AS following_count,
+        EXISTS (
+          SELECT 1
+          FROM follows f
+          WHERE f.follower_id = $2 AND f.following_id = u.id
+        ) AS is_following,
+        recent.id AS recent_post_id,
+        recent.title AS recent_post_title,
+        recent.img AS recent_post_img,
+        recent.views AS recent_post_views,
+        recent.date AS recent_post_date
+      FROM users u
+      LEFT JOIN LATERAL (
+        SELECT p.id, p.title, p.img, p.views, p.date
+        FROM posts p
+        WHERE p.uid = u.id
+          AND p.draft = false
+          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+        ORDER BY p.date DESC, p.id DESC
+        LIMIT 6
+      ) recent ON true
+      WHERE u.username = $1
+      ORDER BY recent.date DESC NULLS LAST, recent.id DESC
+    `,
+    [username, req.user?.id || null],
+  );
     
   if (result.rows.length === 0) {
     throw new ApiError(404, "User not found", "USER_NOT_FOUND");
   }
     
-    const user = result.rows[0];
-    
-    const postsQuery = `
-      SELECT COUNT(*) FROM posts
-      WHERE uid = $1
-        AND draft = false
-        AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))
-    `;
-    const recentPostsQuery = `
-      SELECT p.id, p.title, p.img, p.views, p.date 
-      FROM posts p 
-      WHERE p.uid = $1
-        AND p.draft = false
-        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
-      ORDER BY p.date DESC 
-      LIMIT 6
-    `;
-    const followCountsQuery = `
-      SELECT
-        (SELECT COUNT(*)::integer FROM follows WHERE following_id = $1) AS follower_count,
-        (SELECT COUNT(*)::integer FROM follows WHERE follower_id = $1) AS following_count
-    `;
-    const followStatusQuery = "SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2";
-    const [postsResult, recentPostsResult, followCountsResult, followStatusResult] = await Promise.all([
-      db.query(postsQuery, [user.id]),
-      db.query(recentPostsQuery, [user.id]),
-      db.query(followCountsQuery, [user.id]),
-      req.user
-        ? db.query(followStatusQuery, [req.user.id, user.id])
-        : Promise.resolve({ rows: [] }),
-    ]);
-    const followCounts = followCountsResult.rows[0];
+  const user = result.rows[0];
+  const recentPosts = result.rows
+    .filter(({ recent_post_id: id }) => id !== null)
+    .map((row) => ({
+      id: row.recent_post_id,
+      title: row.recent_post_title,
+      img: row.recent_post_img,
+      views: row.recent_post_views,
+      date: row.recent_post_date,
+    }));
     
   return res.status(200).json({
-      ...user,
-      postsCount: Number(postsResult.rows[0].count),
-      followerCount: followCounts.follower_count,
-      followingCount: followCounts.following_count,
-      isFollowing: followStatusResult.rows.length > 0,
-      recentPosts: recentPostsResult.rows
+      id: user.id,
+      username: user.username,
+      avatar: user.avatar,
+      bio: user.bio,
+      created_at: user.created_at,
+      postsCount: user.posts_count,
+      followerCount: user.follower_count,
+      followingCount: user.following_count,
+      isFollowing: user.is_following,
+      recentPosts,
   });
 };
 
@@ -166,7 +191,7 @@ export const searchUsers = async (req, res) => {
     
     const escapedQuery = query.slice(0, 100).replace(/[!%_]/g, "!$&");
     const result = await db.query(
-      "SELECT id, username, avatar FROM users WHERE username ILIKE $1 ESCAPE '!' ORDER BY username LIMIT 3",
+      "SELECT id, username, avatar FROM users WHERE LOWER(username) LIKE LOWER($1) ESCAPE '!' ORDER BY LOWER(username), id LIMIT 3",
       [`${escapedQuery}%`]
     );
     

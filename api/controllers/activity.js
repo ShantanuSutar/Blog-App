@@ -12,7 +12,13 @@ const activityFilters = {
 
 const activitySelect = `
   SELECT
-    a.*,
+    a.id,
+    a.user_id,
+    a.activity_type,
+    a.post_id,
+    a.target_user_id,
+    a.comment_id,
+    a.created_at,
     u.username,
     u.avatar,
     p.title AS post_title,
@@ -33,7 +39,7 @@ const activitySelect = `
         (a.post_id IS NOT NULL AND post_id = a.post_id)
         OR (a.comment_id IS NOT NULL AND comment_id = a.comment_id)
       )
-    ORDER BY created_at DESC
+    ORDER BY created_at DESC, id DESC
     LIMIT 1
   ) r ON true
 `;
@@ -64,7 +70,7 @@ const sendActivityPage = async (
     db.query(
       `${activitySelect}
        ${filteredWhereClause}
-       ORDER BY a.created_at DESC
+       ORDER BY a.created_at DESC, a.id DESC
        LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
       params,
     ),
@@ -118,22 +124,13 @@ export const getUserActivities = async (req, res) => {
 
   const { page, limit, offset } = getPagination(req.query);
 
-  const userResult = await db.query(
-    "SELECT id FROM users WHERE username = $1",
-    [req.params.username],
-  );
-
-  if (userResult.rows.length === 0) {
-    throw new ApiError(404, "User not found", "USER_NOT_FOUND");
-  }
-
-  if (userResult.rows[0].id !== req.user.id) {
+  if (req.params.username !== req.user.username) {
     throw new ApiError(404, "Activity feed not found", "ACTIVITY_NOT_FOUND");
   }
 
   return sendActivityPage(res, {
       whereClause: "WHERE a.user_id = $1",
-      whereParams: [userResult.rows[0].id],
+      whereParams: [req.user.id],
       activityType,
       page,
       limit,

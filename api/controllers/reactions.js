@@ -25,7 +25,7 @@ const findTargetOwner = async (queryable, { postId, commentId }) => {
         FROM posts
         WHERE id = $1
           AND draft = false
-          AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))
+          AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= CURRENT_TIMESTAMP)
       `,
       [postId],
     );
@@ -39,18 +39,16 @@ const findTargetOwner = async (queryable, { postId, commentId }) => {
       JOIN posts p ON p.id = c.cpostid
       WHERE c.id = $1
         AND p.draft = false
-        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
     `,
     [commentId],
   );
   return result.rows[0] || null;
 };
 
-const targetWhereClause = `
-  user_id = $1
-  AND post_id IS NOT DISTINCT FROM $2
-  AND comment_id IS NOT DISTINCT FROM $3
-`;
+const getReactionTarget = (userId, target) => target.postId
+  ? { whereClause: "user_id = $1 AND post_id = $2", values: [userId, target.postId] }
+  : { whereClause: "user_id = $1 AND comment_id = $2", values: [userId, target.commentId] };
 
 export const addReaction = async (req, res) => {
   const target = getTarget(req.body);
@@ -69,9 +67,11 @@ export const addReaction = async (req, res) => {
         return null;
       }
 
+      const reactionTarget = getReactionTarget(req.user.id, target);
+
       const existingResult = await client.query(
-        `SELECT id, reaction_type FROM reactions WHERE ${targetWhereClause} ORDER BY id FOR UPDATE`,
-        [req.user.id, target.postId, target.commentId],
+        `SELECT id, reaction_type FROM reactions WHERE ${reactionTarget.whereClause} ORDER BY id DESC FOR UPDATE`,
+        reactionTarget.values,
       );
       const matchingReaction = existingResult.rows.find(
         (reaction) => reaction.reaction_type === reactionType,
@@ -79,8 +79,8 @@ export const addReaction = async (req, res) => {
 
       if (matchingReaction) {
         await client.query(
-          `DELETE FROM reactions WHERE ${targetWhereClause}`,
-          [req.user.id, target.postId, target.commentId],
+          `DELETE FROM reactions WHERE ${reactionTarget.whereClause}`,
+          reactionTarget.values,
         );
         return {
           message: "Reaction removed",
@@ -161,8 +161,8 @@ export const getReactions = async (req, res) => {
         ${targetJoin}
         WHERE ${targetCondition}
           AND p.draft = false
-          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
-        ORDER BY r.created_at DESC
+          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+        ORDER BY r.created_at DESC, r.id DESC
       `,
       [targetId],
     );
@@ -197,7 +197,7 @@ export const getUserReaction = async (req, res) => {
           WHERE r.user_id = $1
             AND r.post_id = $2
             AND p.draft = false
-            AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
           ORDER BY r.created_at DESC
           LIMIT 1
         `,
@@ -212,7 +212,7 @@ export const getUserReaction = async (req, res) => {
           WHERE r.user_id = $1
             AND r.comment_id = $2
             AND p.draft = false
-            AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+            AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
           ORDER BY r.created_at DESC
           LIMIT 1
         `,

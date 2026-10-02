@@ -29,7 +29,7 @@ const removeUnreferencedPostImage = async (imagePath) => {
 export const getPosts = async (req, res) => {
   let query;
     let params = [];
-    let conditions = ["p.draft=false AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))"];
+    let conditions = ["p.draft=false AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)"];
 
     if (req.query.cat) {
       conditions.push(`p.cat=$${params.length + 1}`);
@@ -47,16 +47,15 @@ export const getPosts = async (req, res) => {
     // Pagination
     const { page, limit, offset } = getPagination(req.query, { defaultLimit: 10, maxLimit: 100 });
 
-    query = `SELECT p.*, u.username, u.avatar AS "userAvatar" FROM posts p JOIN users u ON u.id = p.uid ${whereClause} ORDER BY p.date DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    query = `SELECT p.*, u.username, u.avatar AS "userAvatar" FROM posts p JOIN users u ON u.id = p.uid ${whereClause} ORDER BY p.date DESC, p.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
-    const result = await db.query(query, params);
-
-    // Get total count for pagination info
     const countQuery = `SELECT COUNT(*) FROM posts p ${whereClause}`;
-    // Remove limit and offset params for count query
     const countParams = params.slice(0, params.length - 2);
-    const countResult = await db.query(countQuery, countParams);
+    const [result, countResult] = await Promise.all([
+      db.query(query, params),
+      db.query(countQuery, countParams),
+    ]);
 
   return res.status(200).json({
       posts: result.rows.map(sanitizePost),
@@ -77,7 +76,7 @@ export const getSinglePost = async (req, res) => {
         SET views = COALESCE(views, 0) + 1
         WHERE id = $1
           AND draft = false
-          AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= timezone('UTC', now()))
+          AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= CURRENT_TIMESTAMP)
         RETURNING *
       )
       SELECT p.*, u.username, u.avatar AS "userAvatar"
@@ -328,7 +327,7 @@ export const updatePost = async (req, res) => {
 };
 
 export const getUserDrafts = async (req, res) => {
-  const query = "SELECT * FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NULL ORDER BY date DESC";
+  const query = "SELECT id, title, \"desc\", img, cat, date, uid, draft, scheduled_publish_date, tags, featured, views FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NULL ORDER BY date DESC, id DESC";
 
   const result = await db.query(query, [req.user.id]);
 
@@ -336,7 +335,7 @@ export const getUserDrafts = async (req, res) => {
 };
 
 export const getUserScheduledPosts = async (req, res) => {
-  const query = "SELECT * FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > timezone('UTC', now()) ORDER BY scheduled_publish_date ASC";
+  const query = "SELECT id, title, \"desc\", img, cat, date, uid, draft, scheduled_publish_date, tags, featured, views FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > CURRENT_TIMESTAMP ORDER BY scheduled_publish_date ASC, id ASC";
 
   const result = await db.query(query, [req.user.id]);
 
@@ -353,9 +352,9 @@ export const getPostsByTag = async (req, res) => {
       FROM posts p
       JOIN users u ON u.id = p.uid
       WHERE p.draft = false
-        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
         AND p.tags::jsonb @> $1::jsonb
-      ORDER BY p.date DESC
+      ORDER BY p.date DESC, p.id DESC
     `;
 
     const result = await db.query(query, [tagJson]);
@@ -370,8 +369,8 @@ export const getFeaturedPosts = async (req, res) => {
       JOIN users u ON u.id = p.uid
       WHERE p.draft = false
         AND p.featured = true
-        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
-      ORDER BY p.date DESC
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+      ORDER BY p.date DESC, p.id DESC
       LIMIT 5
     `;
 
@@ -388,8 +387,8 @@ export const getPopularPosts = async (req, res) => {
       FROM posts p
       JOIN users u ON u.id = p.uid
       WHERE p.draft = false
-        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
-      ORDER BY p.views DESC
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+      ORDER BY p.views DESC, p.date DESC, p.id DESC
       LIMIT $1
     `;
 

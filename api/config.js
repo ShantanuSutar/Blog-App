@@ -126,6 +126,17 @@ export const config = Object.freeze({
     ssl: process.env.POSTGRES_SSL === "disable"
       ? false
       : { rejectUnauthorized: process.env.POSTGRES_SSL === "verify-full" },
+    pool: Object.freeze({
+      max: integerSetting("POSTGRES_POOL_MAX", 10, { min: 1, max: 50 }),
+      idleTimeoutMillis: integerSetting("POSTGRES_IDLE_TIMEOUT_MS", 30_000, {
+        min: 1_000,
+        max: 300_000,
+      }),
+      connectionTimeoutMillis: integerSetting("POSTGRES_CONNECTION_TIMEOUT_MS", 5_000, {
+        min: 500,
+        max: 60_000,
+      }),
+    }),
   }),
   email: Object.freeze({
     host: process.env.SMTP_HOST || "smtp.gmail.com",

@@ -14,7 +14,7 @@ export const recordActivity = async (
     `
       INSERT INTO activities (user_id, activity_type, post_id, comment_id, target_user_id)
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
+      RETURNING id
     `,
     [userId, activityType, postId, commentId, targetUserId],
   );

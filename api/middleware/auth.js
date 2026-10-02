@@ -37,13 +37,13 @@ const verifyRequestToken = async (req) => {
   }
 
   const payload = verifyAccessToken(token);
-  const result = await db.query("SELECT id FROM users WHERE id = $1", [payload.id]);
+  const result = await db.query("SELECT id, username FROM users WHERE id = $1", [payload.id]);
 
   if (result.rows.length === 0) {
     throw new ApiError(401, "Authentication is no longer valid", "AUTH_USER_NOT_FOUND");
   }
 
-  return { id: result.rows[0].id };
+  return { id: result.rows[0].id, username: result.rows[0].username };
 };
 
 const normalizeAuthError = (error) => {

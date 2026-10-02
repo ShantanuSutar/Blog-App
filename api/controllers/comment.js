@@ -20,13 +20,19 @@ export const addComment = async (req, res) => {
   const commentId = await withTransaction(db, async (client) => {
       const result = await client.query(
         `
-          INSERT INTO comments(comment, Cpostid, Cuserid)
-          SELECT $1, p.id, $2
-          FROM posts p
-          WHERE p.id = $3
-            AND p.draft = false
-            AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
-          RETURNING id
+          WITH target AS MATERIALIZED (
+            SELECT id, uid
+            FROM posts
+            WHERE id = $3
+              AND draft = false
+              AND (scheduled_publish_date IS NULL OR scheduled_publish_date <= CURRENT_TIMESTAMP)
+          ), inserted AS (
+            INSERT INTO comments(comment, cpostid, cuserid)
+            SELECT $1, id, $2 FROM target
+            RETURNING id
+          )
+          SELECT inserted.id, target.uid AS post_owner_id
+          FROM inserted CROSS JOIN target
         `,
         [comment.slice(0, 5000), req.user.id, postId],
       );
@@ -35,13 +41,12 @@ export const addComment = async (req, res) => {
         return null;
       }
 
-      const ownerResult = await client.query("SELECT uid FROM posts WHERE id = $1", [postId]);
       await recordActivity(client, {
         userId: req.user.id,
         activityType: "comment",
         postId,
         commentId: result.rows[0].id,
-        targetUserId: ownerResult.rows[0].uid,
+        targetUserId: result.rows[0].post_owner_id,
       });
 
       return result.rows[0].id;
@@ -62,13 +67,13 @@ export const getComment = async (req, res) => {
 
   const query =
     `
-      SELECT c.*, u.username, u.avatar AS img
+      SELECT c.id, c.comment, c.cpostid, c.cuserid, c.created_at, u.username, u.avatar AS img
       FROM comments c
       JOIN users u ON u.id = c.cuserid
       JOIN posts p ON p.id = c.cpostid
       WHERE c.cpostid = $1
         AND p.draft = false
-        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= timezone('UTC', now()))
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
       ORDER BY c.id ASC
     `;
 
