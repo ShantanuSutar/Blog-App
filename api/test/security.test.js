@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import jwt from "jsonwebtoken";
 import { requireAuth, requireSelf } from "../middleware/auth.js";
+import { db } from "../db.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { errorHandler, notFoundHandler } from "../middleware/error.js";
 import { ApiError } from "../errors/ApiError.js";
@@ -45,14 +46,18 @@ test("sanitizePlainText strips tags", () => {
   assert.equal(escapeHtml(sanitizePlainText("<strong>R&D</strong>")), "R&amp;D");
 });
 
-test("requireAuth accepts a valid bearer token", () => {
+test("protected access accepts a valid bearer token for an existing user", async (t) => {
   process.env.JWT_SECRET = "test-secret-that-is-long-enough";
-  const token = jwt.sign({ id: 42 }, process.env.JWT_SECRET, { expiresIn: "1h" });
+  const token = jwt.sign({ id: 42 }, process.env.JWT_SECRET, {
+    algorithm: "HS256",
+    expiresIn: "1h",
+  });
   const req = { headers: { authorization: `Bearer ${token}` } };
   const res = createResponse();
   let called = false;
+  t.mock.method(db, "query", async () => ({ rows: [{ id: 42 }] }));
 
-  requireAuth(req, res, () => {
+  await requireAuth(req, res, () => {
     called = true;
   });
 
@@ -61,21 +66,72 @@ test("requireAuth accepts a valid bearer token", () => {
   assert.equal(res.statusCode, 200);
 });
 
-test("requireAuth rejects missing and invalid bearer tokens", () => {
+test("requireAuth rejects missing, malformed, and invalid bearer tokens", async () => {
   process.env.JWT_SECRET = "test-secret-that-is-long-enough";
 
-  for (const authorization of [undefined, "Bearer invalid-token"]) {
+  for (const [authorization, expectedCode] of [
+    [undefined, "AUTH_REQUIRED"],
+    ["Basic credentials", "AUTH_HEADER_INVALID"],
+    ["Bearer", "AUTH_HEADER_INVALID"],
+    ["Bearer token extra", "AUTH_HEADER_INVALID"],
+    ["Bearer invalid-token", "AUTH_TOKEN_INVALID"],
+  ]) {
     const req = { headers: { authorization } };
     const res = createResponse();
     let receivedError;
 
-    requireAuth(req, res, (error) => {
+    await requireAuth(req, res, (error) => {
       receivedError = error;
     });
 
     assert.equal(receivedError instanceof ApiError, true);
     assert.equal(receivedError.statusCode, 401);
+    assert.equal(receivedError.code, expectedCode);
   }
+});
+
+test("requireAuth rejects expired tokens and unsupported algorithms", async () => {
+  process.env.JWT_SECRET = "test-secret-that-is-long-enough";
+  const tokens = [
+    jwt.sign({ id: 42 }, process.env.JWT_SECRET, { algorithm: "HS256", expiresIn: -1 }),
+    jwt.sign({ id: 42 }, process.env.JWT_SECRET, { algorithm: "HS384", expiresIn: "1h" }),
+    jwt.sign({ id: 42 }, process.env.JWT_SECRET, { algorithm: "HS256" }),
+  ];
+  const expectedCodes = ["AUTH_TOKEN_EXPIRED", "AUTH_TOKEN_INVALID", "AUTH_TOKEN_INVALID"];
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    let receivedError;
+    await requireAuth(
+      { headers: { authorization: `Bearer ${tokens[index]}` } },
+      createResponse(),
+      (error) => {
+        receivedError = error;
+      },
+    );
+    assert.equal(receivedError?.statusCode, 401);
+    assert.equal(receivedError?.code, expectedCodes[index]);
+  }
+});
+
+test("requireAuth rejects a valid token after its user is deleted", async (t) => {
+  process.env.JWT_SECRET = "test-secret-that-is-long-enough";
+  const token = jwt.sign({ id: 404 }, process.env.JWT_SECRET, {
+    algorithm: "HS256",
+    expiresIn: "1h",
+  });
+  let receivedError;
+  t.mock.method(db, "query", async () => ({ rows: [] }));
+
+  await requireAuth(
+    { headers: { authorization: `Bearer ${token}` } },
+    createResponse(),
+    (error) => {
+      receivedError = error;
+    },
+  );
+
+  assert.equal(receivedError?.statusCode, 401);
+  assert.equal(receivedError?.code, "AUTH_USER_NOT_FOUND");
 });
 
 test("requireSelf rejects cross-account profile mutations", () => {

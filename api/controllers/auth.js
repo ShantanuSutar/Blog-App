@@ -1,8 +1,25 @@
 import { db } from "../db.js";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { jwtSecret } from "../middleware/auth.js";
 import { ApiError } from "../errors/ApiError.js";
+import {
+  comparePassword,
+  createAccessToken,
+  hashPassword,
+} from "../security/auth.js";
+
+// This valid bcrypt hash keeps the unknown-user path close to the invalid-password
+// path without revealing whether a username exists through a fast early return.
+const DUMMY_PASSWORD_HASH = "$2a$12$9HpMg8b.nGiUiPHjkkY14OiHy3FXiiZFENCNRp0yWYWdhR0Cato3y";
+
+const invalidCredentials = () => new ApiError(
+  401,
+  "Wrong username or password",
+  "AUTH_INVALID_CREDENTIALS",
+);
+
+const preventAuthResponseCaching = (res) => {
+  res.set("Cache-Control", "no-store");
+  res.set("Pragma", "no-cache");
+};
 
 export const register = async (req, res) => {
   const username = typeof req.body.username === "string" ? req.body.username.trim() : "";
@@ -20,7 +37,7 @@ export const register = async (req, res) => {
     throw new ApiError(409, "User already exists", "USER_EXISTS");
   }
 
-  const hash = await bcrypt.hash(password, 10);
+  const hash = await hashPassword(password);
 
   const insertQuery = "INSERT INTO users(username, email, password) VALUES ($1, $2, $3)";
 
@@ -48,30 +65,38 @@ export const login = async (req, res) => {
     throw new ApiError(400, "Username and password are required", "AUTH_FIELDS_REQUIRED");
   }
 
-  const query = "SELECT id, username, email, password, avatar, bio, created_at FROM users WHERE username = $1";
+  const query = `
+    SELECT id, username, password, avatar, bio, created_at
+    FROM users
+    WHERE LOWER(username) = LOWER($1)
+    LIMIT 1
+  `;
     
   const result = await db.query(query, [username]);
-  if (result.rows.length === 0) {
-    throw new ApiError(401, "Wrong username or password", "AUTH_INVALID_CREDENTIALS");
-  }
-
-  const isPasswordCorrect = await bcrypt.compare(password, result.rows[0].password);
-
-  if (!isPasswordCorrect) {
-    throw new ApiError(401, "Wrong username or password", "AUTH_INVALID_CREDENTIALS");
-  }
-
-  const token = jwt.sign(
-    { id: result.rows[0].id },
-    jwtSecret(),
-    { expiresIn: process.env.JWT_EXPIRES_IN || "1h" }
+  const account = result.rows[0];
+  const isPasswordCorrect = await comparePassword(
+    password,
+    account?.password || DUMMY_PASSWORD_HASH,
   );
 
-  const { password: passwordHash, ...other } = result.rows[0];
+  if (!account || !isPasswordCorrect) {
+    throw invalidCredentials();
+  }
 
+  const token = createAccessToken(account.id);
+  const other = {
+    id: account.id,
+    username: account.username,
+    avatar: account.avatar,
+    bio: account.bio,
+    created_at: account.created_at,
+  };
+
+  preventAuthResponseCaching(res);
   return res.status(200).json({ success: true, token, other });
 };
 
 export const logout = (req, res) => {
-  res.status(200).json("User has been logged out");
+  preventAuthResponseCaching(res);
+  return res.status(200).json("User has been logged out");
 };

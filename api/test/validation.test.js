@@ -49,6 +49,10 @@ test("registration validation normalizes safe values and rejects malformed input
     () => registerBody({ username: "writer", email: "valid@example.com", password: "short", admin: true }),
     "UNSUPPORTED_FIELDS",
   );
+  expectValidationError(
+    () => registerBody({ username: "writer", email: "valid@example.com", password: "é".repeat(40) }),
+    "PASSWORD_TOO_LONG",
+  );
 });
 
 test("login validation preserves existing short demo credentials", () => {

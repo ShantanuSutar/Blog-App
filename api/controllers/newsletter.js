@@ -1,8 +1,7 @@
 import { db } from "../db.js";
 import { sendWelcomeEmail } from "../utils/email.js";
-import jwt from "jsonwebtoken";
-import { jwtSecret } from "../middleware/auth.js";
 import { ApiError } from "../errors/ApiError.js";
+import { verifyApplicationToken } from "../security/auth.js";
 
 export const subscribe = async (req, res) => {
     const q = "INSERT INTO subscribers(email) VALUES ($1)";
@@ -39,7 +38,7 @@ export const subscribe = async (req, res) => {
 export const unsubscribe = async (req, res) => {
     let payload;
     try {
-        payload = jwt.verify(req.query.token, jwtSecret());
+        payload = verifyApplicationToken(req.query.token);
     } catch (err) {
         if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError") {
             return res.status(400).send("This unsubscribe link is invalid or expired.");

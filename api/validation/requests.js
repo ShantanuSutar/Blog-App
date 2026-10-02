@@ -1,4 +1,5 @@
 import { sanitizePlainText } from "../utils/content.js";
+import { authSecurity } from "../security/auth.js";
 import {
   arrayValue,
   booleanValue,
@@ -160,6 +161,20 @@ const normalizePagination = (query, { maxLimit = 100, allowedFields = [] } = {})
 
 export const registerBody = (value) => {
   const body = validateBody(value, ["username", "email", "password"]);
+  const password = stringValue(body.password, {
+    field: "password",
+    min: 6,
+    max: 128,
+    trim: false,
+  });
+  if (Buffer.byteLength(password, "utf8") > authSecurity.maximumPasswordBytes) {
+    failValidation(
+      "password must be no more than 72 bytes",
+      "PASSWORD_TOO_LONG",
+      "password",
+    );
+  }
+
   return {
     username: stringValue(body.username, {
       field: "username",
@@ -175,12 +190,7 @@ export const registerBody = (value) => {
       pattern: emailPattern,
       patternMessage: "Email address is invalid",
     }),
-    password: stringValue(body.password, {
-      field: "password",
-      min: 6,
-      max: 128,
-      trim: false,
-    }),
+    password,
   };
 };
 

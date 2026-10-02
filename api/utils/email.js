@@ -1,13 +1,11 @@
 import nodemailer from 'nodemailer';
-import jwt from 'jsonwebtoken';
 import { escapeHtml, sanitizePlainText } from './content.js';
-import { jwtSecret } from '../middleware/auth.js';
 import { config } from '../config.js';
+import { signApplicationToken } from '../security/auth.js';
 
 const createUnsubscribeUrl = (email) => {
-  const token = jwt.sign(
+  const token = signApplicationToken(
     { email, purpose: 'newsletter-unsubscribe' },
-    jwtSecret(),
     { expiresIn: '365d' }
   );
   return `${config.apiPublicUrl}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;

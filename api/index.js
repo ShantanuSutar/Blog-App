@@ -12,14 +12,14 @@ import activityRoutes from "./routes/activity.js";
 import uploadRoutes from "./routes/uploads.js";
 import { schedulePostPublisher } from "./scheduler.js";
 import cors from "cors";
-import { jwtSecret } from "./middleware/auth.js";
+import { assertAuthConfiguration } from "./security/auth.js";
 import { config } from "./config.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
 import { ApiError } from "./errors/ApiError.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-jwtSecret();
+assertAuthConfiguration();
 const currentFile = fileURLToPath(import.meta.url);
 const currentDirectory = path.dirname(currentFile);
 

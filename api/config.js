@@ -20,13 +20,41 @@ const buildConnectionString = () => {
 };
 
 const smtpPort = Number(process.env.SMTP_PORT) || 587;
+const isProduction = process.env.NODE_ENV === "production";
+
+const buildAllowedOrigins = () => {
+  if (isProduction && !process.env.ALLOWED_ORIGINS?.trim()) {
+    throw new Error("ALLOWED_ORIGINS must be configured in production");
+  }
+
+  const origins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean)
+    : ["http://localhost:5173", "http://localhost:5174"];
+
+  if (origins.length === 0 || origins.includes("*")) {
+    throw new Error("ALLOWED_ORIGINS must contain explicit HTTP or HTTPS origins");
+  }
+
+  for (const origin of origins) {
+    let parsed;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      throw new Error("ALLOWED_ORIGINS contains an invalid origin");
+    }
+
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.origin !== origin) {
+      throw new Error("ALLOWED_ORIGINS must contain origins without paths, queries, or wildcards");
+    }
+  }
+
+  return origins;
+};
 
 export const config = Object.freeze({
-  isProduction: process.env.NODE_ENV === "production",
+  isProduction,
   port: Number(process.env.PORT) || 8800,
-  allowedOrigins: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean)
-    : ["http://localhost:5173", "http://localhost:5174"],
+  allowedOrigins: Object.freeze(buildAllowedOrigins()),
   database: Object.freeze({
     connectionString: buildConnectionString(),
     ssl: process.env.POSTGRES_SSL === "disable"
