@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { CalendarDays, Feather, FileText, Pencil, RotateCcw, UserRoundX } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import { useThemeContext } from "../Context/theme.jsx";
@@ -27,7 +27,6 @@ function formatMembershipDate(value) {
 
 export default function Profile() {
   const { username } = useParams();
-  const navigate = useNavigate();
   const { currentUser } = useContext(AuthContext);
   const { theme } = useThemeContext();
   const [user, setUser] = useState(null);
@@ -83,7 +82,7 @@ export default function Profile() {
             <div><h1>@{user.username}</h1>{membershipDate && <p className="profile-membership"><CalendarDays size={15} aria-hidden="true" /> Member since {membershipDate}</p>}</div>
             <div className="profile-header__actions">
               {isOwnProfile ? (
-                <button className="ui-button--secondary" type="button" onClick={() => navigate(`/profile/${encodeURIComponent(username)}/edit`)}><Pencil size={17} aria-hidden="true" /> Edit profile</button>
+                <Link className="ui-button--secondary" to={`/profile/${encodeURIComponent(username)}/edit`}><Pencil size={17} aria-hidden="true" /> Edit profile</Link>
               ) : (
                 <FollowButton
                   userId={user.id}

@@ -7,12 +7,13 @@ import FollowButton from "./FollowButton.jsx";
 import ProfileAvatar from "./ProfileAvatar.jsx";
 import InlineLoader from "./ui/InlineLoader.jsx";
 import StatePanel from "./ui/StatePanel.jsx";
+import useModalAccessibility from "../hooks/useModalAccessibility.js";
 
 export default function FollowersModal({ userId, isOpen, onClose, type }) {
   const [users, setUsers] = useState([]);
   const [status, setStatus] = useState("idle");
   const dialogRef = useRef(null);
-  const previousFocusRef = useRef(null);
+  const closeButtonRef = useRef(null);
   const { currentUser } = useContext(AuthContext);
   const title = type === "followers" ? "Followers" : "Following";
 
@@ -31,44 +32,13 @@ export default function FollowersModal({ userId, isOpen, onClose, type }) {
   useEffect(() => {
     if (!isOpen || !userId) return undefined;
     const controller = new AbortController();
-    previousFocusRef.current = document.activeElement;
     setUsers([]);
     fetchUsers(controller.signal);
-
-    const frame = requestAnimationFrame(() => dialogRef.current?.focus());
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       controller.abort();
-      cancelAnimationFrame(frame);
-      document.body.style.overflow = previousOverflow;
-      previousFocusRef.current?.focus?.();
     };
   }, [fetchUsers, isOpen, userId]);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = [...dialogRef.current.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')];
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  useModalAccessibility({ open: isOpen, containerRef: dialogRef, initialFocusRef: closeButtonRef, onClose });
 
   if (!isOpen) return null;
 
@@ -77,7 +47,7 @@ export default function FollowersModal({ userId, isOpen, onClose, type }) {
       <section className="followers-dialog" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`followers-dialog-${type}`} tabIndex={-1}>
         <header className="followers-dialog__header">
           <div><span className="profile-kicker">Community</span><h2 id={`followers-dialog-${type}`}>{title}</h2></div>
-          <button className="ui-button--icon" type="button" onClick={onClose} aria-label={`Close ${title.toLowerCase()} dialog`}><X size={20} aria-hidden="true" /></button>
+          <button ref={closeButtonRef} className="ui-button--icon" type="button" onClick={onClose} aria-label={`Close ${title.toLowerCase()} dialog`}><X size={20} aria-hidden="true" /></button>
         </header>
 
         <div className="followers-dialog__content" aria-live="polite" aria-busy={status === "loading"}>

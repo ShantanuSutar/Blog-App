@@ -71,6 +71,7 @@ $interaction-transition: color var(--transition-base), background-color var(--tr
   --color-text-subtle: #78736e;
   --color-text-disabled: #9d9893;
   --color-on-primary: #ffffff;
+  --color-on-danger: #ffffff;
 
   --color-border: #e4e0db;
   --color-border-strong: #cdc7c0;
@@ -84,10 +85,10 @@ $interaction-transition: color var(--transition-base), background-color var(--tr
   --color-accent: var(--color-primary);
   --color-accent-deep: var(--color-primary-active);
 
-  --color-success: #16835b;
-  --color-success-strong: #116c4a;
+  --color-success: #116c4a;
+  --color-success-strong: #0d583d;
   --color-success-soft: #e7f7f0;
-  --color-warning: #b86b08;
+  --color-warning: #8a4a00;
   --color-warning-soft: #fff4df;
   --color-danger: #c52b43;
   --color-danger-strong: #a51f35;
@@ -163,11 +164,13 @@ body.dark,
   --color-border-strong: #565656;
   --color-focus-ring: rgba(240, 90, 141, 0.34);
 
-  --color-primary: #c62660;
-  --color-primary-hover: #dc3672;
-  --color-primary-active: #ac1f51;
+  --color-primary: #e85f90;
+  --color-primary-hover: #f07ba4;
+  --color-primary-active: #e04a7f;
   --color-primary-light: #f05a8d;
   --color-primary-soft: #351622;
+  --color-on-primary: #171717;
+  --color-on-danger: #171717;
   --color-accent: var(--color-primary);
   --color-accent-deep: var(--color-primary-active);
 

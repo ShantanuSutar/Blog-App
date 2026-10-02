@@ -43,6 +43,8 @@ export default function Login() {
     if (!inputs.username.trim()) nextErrors.username = "Enter your username.";
     if (!inputs.password) nextErrors.password = "Enter your password.";
     setErrors(nextErrors);
+    const firstInvalid = nextErrors.username ? "login-username" : nextErrors.password ? "login-password" : null;
+    if (firstInvalid) window.requestAnimationFrame(() => document.getElementById(firstInvalid)?.focus());
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -97,6 +99,7 @@ export default function Login() {
             onChange={(event) => updateField("username", event.target.value)}
             aria-invalid={Boolean(errors.username)}
             aria-describedby={errors.username ? "login-username-error" : undefined}
+            required
           />
           {errors.username && <p className="auth-field__error" id="login-username-error">{errors.username}</p>}
         </div>
@@ -107,6 +110,7 @@ export default function Login() {
           visible={passwordVisible}
           error={errors.password}
           autoComplete="current-password"
+          required
           onChange={(event) => updateField("password", event.target.value)}
           onToggle={() => setPasswordVisible((visible) => !visible)}
         />

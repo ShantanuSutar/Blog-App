@@ -103,7 +103,8 @@ export default function HomeFilters({
             className={`ui-button--secondary home-filters__tag-trigger ${activeTag ? "is-active" : ""}`}
             type="button"
             aria-expanded={tagOpen}
-            aria-controls={tagListId}
+            aria-controls={tagOpen ? tagListId : undefined}
+            aria-haspopup="true"
             onClick={() => setTagOpen((open) => !open)}
           >
             <span title={activeTag ? `#${activeTag}` : undefined}>{activeTag ? `#${activeTag}` : "Browse tags"}</span><ChevronDown size={16} aria-hidden="true" />

@@ -148,7 +148,8 @@ const Navbar = () => {
             className="ui-button--icon nav-icon-button"
             aria-label={searchOpen ? "Close search" : "Search stories"}
             aria-expanded={searchOpen}
-            aria-controls="nav-search"
+            aria-controls={searchOpen ? "nav-search" : undefined}
+            aria-haspopup="true"
             onClick={() => {
               if (!searchOpen) setSearchQuery(urlSearchQuery);
               setSearchOpen(!searchOpen);
@@ -181,7 +182,8 @@ const Navbar = () => {
                   className="profile-trigger"
                   aria-label={`${currentUser.username} account menu`}
                   aria-expanded={profileOpen}
-                  aria-controls="profile-menu"
+                  aria-controls={profileOpen ? "profile-menu" : undefined}
+                  aria-haspopup="true"
                   onClick={() => {
                     setProfileOpen(!profileOpen);
                     setSearchOpen(false);
@@ -222,7 +224,8 @@ const Navbar = () => {
             className="ui-button--icon nav-icon-button mobile-menu-trigger"
             aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={mobileOpen}
-            aria-controls="mobile-nav"
+            aria-controls={mobileOpen ? "mobile-nav" : undefined}
+            aria-haspopup="true"
             onClick={() => {
               setMobileOpen(!mobileOpen);
               setProfileOpen(false);

@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Outlet, RouterProvider, createBrowserRouter, useLocation } from "react-router-dom";
 import "./style.scss";
 import Register from "./Pages/Register";
 import Login from "./Pages/Login";
@@ -18,11 +18,22 @@ import { useThemeContext } from "./Context/theme";
 
 const Layout = () => {
   const { theme } = useThemeContext();
+  const location = useLocation();
+  const mainRef = useRef(null);
+  const initialRenderRef = useRef(true);
+
+  useEffect(() => {
+    if (initialRenderRef.current) {
+      initialRenderRef.current = false;
+      return;
+    }
+    mainRef.current?.focus({ preventScroll: true });
+  }, [location.pathname]);
 
   return (
     <div className={theme === "dark" ? "page-container dark" : "page-container"}>
       <Navbar />
-      <main id="main-content" className="main-content-wrapper ui-container">
+      <main ref={mainRef} id="main-content" className="main-content-wrapper ui-container" tabIndex={-1}>
         <Outlet />
       </main>
       <Footer />

@@ -37,11 +37,13 @@ const Newsletter = () => {
                     <label className="sr-only" htmlFor="newsletter-email">Email address</label>
                     <input
                         id="newsletter-email"
+                        name="email"
                         type="email"
                         placeholder="Enter your email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
+                        autoComplete="email"
                         className={theme === "dark" ? "dark" : ""}
                     />
                     <LoadingButton type="submit" loading={status === "loading"} loadingLabel="Subscribing…" icon={Send}>Subscribe</LoadingButton>

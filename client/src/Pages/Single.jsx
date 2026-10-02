@@ -226,6 +226,7 @@ export default function Single() {
   const readingTime = calculateReadingTime(post.desc);
   const category = post.cat && categoryLabels[post.cat] ? categoryLabels[post.cat] : post.cat;
   const isOwner = currentUser?.username === post.username;
+  const title = post.title?.trim() || "Untitled story";
 
   return (
     <div className="article-layout">
@@ -240,7 +241,7 @@ export default function Single() {
                 ))}
               </div>
             )}
-            <h1>{post.title}</h1>
+            <h1>{title}</h1>
             {post.excerpt && <p className="article-deck">{post.excerpt}</p>}
             <div className="article-header__meta">
               <div className="article-byline">
@@ -253,7 +254,7 @@ export default function Single() {
             </div>
           </header>
 
-          <ArticleCover image={post.img} title={post.title} />
+          <ArticleCover image={post.img} title={title} />
 
           <div className="article-prose" dangerouslySetInnerHTML={{ __html: articleHtml }} />
 

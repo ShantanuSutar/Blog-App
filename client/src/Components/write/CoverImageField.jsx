@@ -30,6 +30,8 @@ export default function CoverImageField({
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
         onChange={(event) => onFileChange(event.target.files?.[0])}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? "cover-help cover-error" : "cover-help"}
       />
 
       {previewUrl ? (
@@ -56,12 +58,13 @@ export default function CoverImageField({
           <UploadCloud size={26} aria-hidden="true" />
           <strong>Select a cover image</strong>
           <span>or drop a JPG, PNG, WebP, or GIF here</span>
-          <small>Maximum file size: 8 MB</small>
+          <small id="cover-help">Maximum file size: 8 MB</small>
         </label>
       )}
 
       {fileName && previewUrl && <p className="write-cover-filename">Selected: {fileName}</p>}
-      {error && <p className="write-field-error" role="alert">{error}</p>}
+      {previewUrl && <span className="sr-only" id="cover-help">Choose a JPG, PNG, WebP, or GIF up to 8 MB.</span>}
+      {error && <p className="write-field-error" id="cover-error" role="alert">{error}</p>}
     </section>
   );
 }

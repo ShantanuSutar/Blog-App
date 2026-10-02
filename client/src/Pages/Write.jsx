@@ -24,6 +24,7 @@ import CoverImageField from "../Components/write/CoverImageField.jsx";
 import TagEditor from "../Components/write/TagEditor.jsx";
 import LoadingButton from "../Components/ui/LoadingButton.jsx";
 import { useToast } from "../Context/ToastContext.jsx";
+import useModalAccessibility from "../hooks/useModalAccessibility.js";
 
 const cloudName = import.meta.env.VITE_CLOUD_NAME;
 const cloudUploadPreset = import.meta.env.VITE_CLOUD_UPLOAD_PRESET;
@@ -113,21 +114,14 @@ const getErrorMessage = (error, fallback) => {
 
 function LeaveDialog({ blocker, onLeave }) {
   const stayButtonRef = useRef(null);
+  const dialogRef = useRef(null);
+  const open = blocker.state === "blocked";
+  useModalAccessibility({ open, containerRef: dialogRef, initialFocusRef: stayButtonRef, onClose: () => blocker.reset() });
 
-  useEffect(() => {
-    if (blocker.state !== "blocked") return undefined;
-    stayButtonRef.current?.focus();
-    const handleEscape = (event) => {
-      if (event.key === "Escape") blocker.reset();
-    };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [blocker]);
-
-  if (blocker.state !== "blocked") return null;
+  if (!open) return null;
   return (
     <div className="write-dialog-backdrop" role="presentation">
-      <div className="write-dialog" role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-description">
+      <div ref={dialogRef} className="write-dialog" role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-description" tabIndex={-1}>
         <h2 id="leave-title">Leave this draft?</h2>
         <p id="leave-description">Your unsaved changes will be lost.</p>
         <div className="write-dialog__actions">
@@ -148,6 +142,7 @@ export default function Write() {
   const { currentUser } = useContext(AuthContext);
   const fileInputRef = useRef(null);
   const titleInputRef = useRef(null);
+  const quillRef = useRef(null);
   const navigationAllowedRef = useRef(false);
   const toast = useToast();
 
@@ -255,6 +250,50 @@ export default function Write() {
     input.style.height = `${input.scrollHeight}px`;
   }, [title]);
 
+  useEffect(() => {
+    const editor = quillRef.current?.getEditor?.().root;
+    if (!editor) return;
+    editor.id = "post-content";
+    editor.setAttribute("aria-label", "Story content");
+    editor.setAttribute("aria-describedby", fieldErrors.content ? "editor-help content-error" : "editor-help");
+    editor.setAttribute("aria-invalid", String(Boolean(fieldErrors.content)));
+  }, [editStatus, fieldErrors.content]);
+
+  useEffect(() => {
+    const toolbar = document.querySelector(".write-editor .ql-toolbar");
+    if (!toolbar) return undefined;
+
+    toolbar.setAttribute("aria-label", "Story formatting toolbar");
+    const labels = [
+      [".ql-bold", "Bold"],
+      [".ql-italic", "Italic"],
+      [".ql-underline", "Underline"],
+      [".ql-strike", "Strikethrough"],
+      ['.ql-list[value="ordered"]', "Numbered list"],
+      ['.ql-list[value="bullet"]', "Bulleted list"],
+      [".ql-blockquote", "Block quote"],
+      [".ql-code-block", "Code block"],
+      [".ql-link", "Insert link"],
+      [".ql-clean", "Clear formatting"],
+    ];
+    const toggleSelectors = new Set(labels.slice(0, 8).map(([selector]) => selector));
+    const buttons = labels.flatMap(([selector, label]) => [...toolbar.querySelectorAll(selector)].map((button) => ({ button, label, selector })));
+    const syncButtons = () => buttons.forEach(({ button, label, selector }) => {
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
+      if (toggleSelectors.has(selector)) button.setAttribute("aria-pressed", String(button.classList.contains("ql-active")));
+    });
+    syncButtons();
+
+    const pickerLabel = toolbar.querySelector(".ql-picker-label");
+    pickerLabel?.setAttribute("aria-label", "Text style");
+    pickerLabel?.setAttribute("title", "Text style");
+
+    const observer = new MutationObserver(syncButtons);
+    buttons.forEach(({ button }) => observer.observe(button, { attributes: true, attributeFilter: ["class"] }));
+    return () => observer.disconnect();
+  }, [editStatus]);
+
   const articleText = useMemo(() => getPlainText(value), [value]);
   const wordCount = articleText ? articleText.split(/\s+/).length : 0;
   const minimumSchedule = getMinimumSchedule();
@@ -334,8 +373,14 @@ export default function Write() {
       schedule: errors.schedule || "",
     }));
     if (Object.keys(errors).length > 0) {
-      const target = errors.title ? "post-title" : errors.content ? "post-editor" : errors.category ? "category-heading" : "schedule-date";
-      window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      const target = errors.title
+        ? titleInputRef.current
+        : errors.content
+          ? quillRef.current?.getEditor?.().root
+          : errors.category
+            ? document.querySelector('input[name="category"]')
+            : document.getElementById("schedule-date");
+      window.requestAnimationFrame(() => target?.focus());
       return false;
     }
     return true;
@@ -451,7 +496,8 @@ export default function Write() {
                 setFieldErrors((errors) => ({ ...errors, title: "" }));
               }}
               aria-invalid={Boolean(fieldErrors.title)}
-              aria-describedby="title-count title-error"
+              aria-describedby={fieldErrors.title ? "title-count title-error" : "title-count"}
+              required
             />
             <div className="write-title-field__meta">
               <span className="write-field-error" id="title-error" role="alert">{fieldErrors.title}</span>
@@ -465,6 +511,7 @@ export default function Write() {
               <span>{wordCount} {wordCount === 1 ? "word" : "words"}</span>
             </div>
             <ReactQuill
+              ref={quillRef}
               className="write-editor"
               theme="snow"
               value={value}
@@ -477,7 +524,8 @@ export default function Write() {
               placeholder="Write your story…"
               preserveWhitespace
             />
-            {fieldErrors.content && <p className="write-field-error write-editor-error" role="alert">{fieldErrors.content}</p>}
+            <p className="sr-only" id="editor-help">Article content is required to publish or schedule. Drafts may be incomplete.</p>
+            {fieldErrors.content && <p className="write-field-error write-editor-error" id="content-error" role="alert">{fieldErrors.content}</p>}
           </section>
         </section>
 
@@ -504,7 +552,7 @@ export default function Write() {
               </div>
               <ChevronRight size={19} aria-hidden="true" />
             </div>
-            <div className="write-categories">
+            <div className="write-categories" role="radiogroup" aria-labelledby="category-heading" aria-describedby={fieldErrors.category ? "category-error" : undefined}>
               {categories.map(([valueName, label]) => (
                 <label className={category === valueName ? "is-selected" : ""} key={valueName}>
                   <input
@@ -521,7 +569,7 @@ export default function Write() {
                 </label>
               ))}
             </div>
-            {fieldErrors.category && <p className="write-field-error" role="alert">{fieldErrors.category}</p>}
+            {fieldErrors.category && <p className="write-field-error" id="category-error" role="alert">{fieldErrors.category}</p>}
           </section>
 
           <TagEditor tags={tags} input={tagInput} error={fieldErrors.tags} onInputChange={setTagInput} onAdd={addTag} onRemove={removeTag} />
@@ -546,15 +594,16 @@ export default function Write() {
                   setFieldErrors((errors) => ({ ...errors, schedule: "" }));
                 }}
                 aria-invalid={Boolean(fieldErrors.schedule)}
+                aria-describedby={fieldErrors.schedule ? "schedule-error" : scheduledDate ? "schedule-summary" : undefined}
               />
               {scheduledDate && <button className="ui-button--ghost" type="button" onClick={() => setScheduledDate("")}>Clear</button>}
             </div>
             {scheduledDate && (
-              <p className={`write-schedule-summary ${scheduleIsFuture ? "" : "is-invalid"}`}>
+              <p className={`write-schedule-summary ${scheduleIsFuture ? "" : "is-invalid"}`} id="schedule-summary">
                 {scheduleIsFuture ? `Ready to publish ${new Date(scheduledDate).toLocaleString()}.` : "Choose a future date and time."}
               </p>
             )}
-            {fieldErrors.schedule && <p className="write-field-error" role="alert">{fieldErrors.schedule}</p>}
+            {fieldErrors.schedule && <p className="write-field-error" id="schedule-error" role="alert">{fieldErrors.schedule}</p>}
           </section>
 
           <section className="write-panel write-feature-panel" aria-labelledby="featured-heading">

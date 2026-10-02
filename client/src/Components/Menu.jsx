@@ -60,17 +60,20 @@ const Menu = ({ cat }) => {
         Other posts you may like
       </h2>
       {Array.isArray(posts) && posts.length > 0 ? (
-        posts.map((post) => (
+        posts.map((post) => {
+          const title = post.title?.trim() || "Untitled story";
+          return (
           <Link className="post" key={post.id} to={`/post/${post.id}`} onClick={handleClick}>
             <div className="img-container">
-              <img src={post?.img} alt="" />
+              {post?.img && <img src={post.img} alt="" />}
             </div>
             <div className="post-info">
-              <h2 className={theme === "dark" ? "dark" : ""}>{post.title}</h2>
+              <h2 className={theme === "dark" ? "dark" : ""}>{title}</h2>
               <span className="read-more-link">Read More</span>
             </div>
           </Link>
-        ))
+          );
+        })
       ) : (
         <p>No related posts.</p>
       )}

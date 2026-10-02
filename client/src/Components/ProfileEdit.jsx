@@ -128,7 +128,7 @@ export default function ProfileEdit() {
           <div className="profile-avatar-editor">
             <ProfileAvatar source={avatarPreview} username={user.username} className="profile-avatar--editor" loading="eager" />
             <div className="profile-avatar-editor__actions">
-              <input className="sr-only" id="profile-avatar-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarChange} aria-describedby={errors.avatar ? "avatar-error" : "avatar-help"} />
+              <input className="sr-only" id="profile-avatar-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarChange} aria-invalid={Boolean(errors.avatar)} aria-describedby={errors.avatar ? "avatar-help avatar-error" : "avatar-help"} />
               <label className="ui-button--secondary" htmlFor="profile-avatar-input"><ImagePlus size={17} aria-hidden="true" /> {hasAvatar ? "Replace photo" : "Choose photo"}</label>
               {hasAvatar && <button className="ui-button--danger" type="button" onClick={handleRemoveAvatar}><Trash2 size={17} aria-hidden="true" /> Remove</button>}
               <span className="profile-field-help" id="avatar-help">Changes are applied when you save.</span>

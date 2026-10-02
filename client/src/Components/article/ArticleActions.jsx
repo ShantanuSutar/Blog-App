@@ -9,10 +9,13 @@ export default function ArticleActions({ post, postId, theme, isOwner, onDelete,
   const [copied, setCopied] = useState(false);
   const shareRef = useRef(null);
   const triggerRef = useRef(null);
+  const menuRef = useRef(null);
   const menuId = useId();
+  const postTitle = post.title?.trim() || "Untitled story";
 
   useEffect(() => {
     if (!shareOpen) return;
+    const frame = window.requestAnimationFrame(() => menuRef.current?.querySelector('[role="menuitem"]')?.focus());
     const closeOutside = (event) => {
       if (!shareRef.current?.contains(event.target)) setShareOpen(false);
     };
@@ -25,10 +28,27 @@ export default function ArticleActions({ post, postId, theme, isOwner, onDelete,
     document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("keydown", closeEscape);
     return () => {
+      window.cancelAnimationFrame(frame);
       document.removeEventListener("pointerdown", closeOutside);
       document.removeEventListener("keydown", closeEscape);
     };
   }, [shareOpen]);
+
+  const handleMenuKeyDown = (event) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const items = [...menuRef.current.querySelectorAll('[role="menuitem"]:not(:disabled)')];
+    if (!items.length) return;
+    event.preventDefault();
+    const currentIndex = Math.max(0, items.indexOf(document.activeElement));
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? items.length - 1
+        : event.key === "ArrowDown"
+          ? (currentIndex + 1) % items.length
+          : (currentIndex - 1 + items.length) % items.length;
+    items[nextIndex].focus();
+  };
 
   useEffect(() => {
     if (!copied) return;
@@ -54,7 +74,7 @@ export default function ArticleActions({ post, postId, theme, isOwner, onDelete,
 
   const shareTo = (platform) => {
     const url = encodeURIComponent(window.location.href);
-    const text = encodeURIComponent(`Read “${post.title}” on Unsaid`);
+    const text = encodeURIComponent(`Read “${postTitle}” on Unsaid`);
     const destinations = {
       twitter: `https://twitter.com/intent/tweet?url=${url}&text=${text}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`,
@@ -66,24 +86,25 @@ export default function ArticleActions({ post, postId, theme, isOwner, onDelete,
 
   return (
     <div className="article-actions" aria-label="Article actions">
-      <ReactionButtons postId={postId} theme={theme} postTitle={post.title} />
-      <BookmarkButton postId={postId} theme={theme} postTitle={post.title} />
+      <ReactionButtons postId={postId} theme={theme} postTitle={postTitle} />
+      <BookmarkButton postId={postId} theme={theme} postTitle={postTitle} />
       <div className="article-share" ref={shareRef}>
         <button
           ref={triggerRef}
           type="button"
           className="ui-button--icon article-action-button"
-          aria-label={`Share ${post.title}`}
+          aria-label={`Share ${postTitle}`}
           title="Share article"
           aria-expanded={shareOpen}
-          aria-controls={menuId}
+          aria-controls={shareOpen ? menuId : undefined}
+          aria-haspopup="menu"
           onClick={() => setShareOpen((open) => !open)}
         >
           <Share2 size={20} aria-hidden="true" />
         </button>
         {shareOpen && (
-          <div className="article-share__menu" id={menuId} role="menu">
-            <button type="button" className="article-share__item" role="menuitem" onClick={copyLink}>
+          <div ref={menuRef} className="article-share__menu" id={menuId} role="menu" aria-label={`Share ${postTitle}`} onKeyDown={handleMenuKeyDown}>
+            <button type="button" className="article-share__item" role="menuitem" tabIndex={0} onClick={copyLink}>
               {copied ? <Check size={17} aria-hidden="true" /> : <Copy size={17} aria-hidden="true" />}
               {copied ? "Link copied" : "Copy link"}
             </button>
@@ -92,7 +113,7 @@ export default function ArticleActions({ post, postId, theme, isOwner, onDelete,
               ["facebook", "Facebook"],
               ["linkedin", "LinkedIn"],
             ].map(([value, label]) => (
-              <button key={value} type="button" className="article-share__item" role="menuitem" onClick={() => shareTo(value)}>
+              <button key={value} type="button" className="article-share__item" role="menuitem" tabIndex={-1} onClick={() => shareTo(value)}>
                 <ExternalLink size={17} aria-hidden="true" /> {label}
               </button>
             ))}
@@ -101,10 +122,10 @@ export default function ArticleActions({ post, postId, theme, isOwner, onDelete,
       </div>
       {isOwner && (
         <div className="article-owner-actions" aria-label="Author controls">
-          <Link className="ui-button--icon article-action-button" to={`/write?edit=${post.id}`} state={post} aria-label={`Edit ${post.title}`} title="Edit article">
+          <Link className="ui-button--icon article-action-button" to={`/write?edit=${post.id}`} state={post} aria-label={`Edit ${postTitle}`} title="Edit article">
             <Pencil size={19} aria-hidden="true" />
           </Link>
-          <button className="ui-button--icon article-action-button article-action-button--danger" type="button" aria-label={`Delete ${post.title}`} title="Delete article" onClick={onDelete} disabled={deleting} aria-busy={deleting}>
+          <button className="ui-button--icon article-action-button article-action-button--danger" type="button" aria-label={`Delete ${postTitle}`} title="Delete article" onClick={onDelete} disabled={deleting} aria-busy={deleting}>
             <Trash2 size={19} aria-hidden="true" />
           </button>
         </div>

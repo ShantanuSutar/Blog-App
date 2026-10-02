@@ -41,14 +41,15 @@ export default function TagEditor({ tags, input, error, onInputChange, onAdd, on
           placeholder="Add a tag"
           onChange={(event) => onInputChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          aria-describedby="tag-help"
+          aria-describedby={error ? "tag-help tag-error" : "tag-help"}
+          aria-invalid={Boolean(error)}
         />
         <button className="ui-button--secondary" type="button" onClick={onAdd} disabled={!input.trim() || tags.length >= 8}>
           <Plus size={17} aria-hidden="true" /> Add
         </button>
       </div>
       <p className="write-field-help" id="tag-help">Press Enter or comma to add up to 8 tags.</p>
-      {error && <p className="write-field-error" role="alert">{error}</p>}
+      {error && <p className="write-field-error" id="tag-error" role="alert">{error}</p>}
     </section>
   );
 }

@@ -239,6 +239,9 @@
   &.is-dragging, &:hover { border-color: var(--color-primary); background: var(--color-primary-soft); color: var(--color-primary); }
 }
 
+.write-cover-panel > input:focus-visible + .write-cover-dropzone,
+.write-cover-panel > input:focus-visible + .write-cover-preview { outline: 2px solid var(--color-primary); outline-offset: 3px; box-shadow: 0 0 0 4px var(--color-focus-ring); }
+
 .write-cover-preview {
   position: relative;
   overflow: hidden;

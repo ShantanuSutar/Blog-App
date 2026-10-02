@@ -47,6 +47,8 @@ export default function Register() {
     if (!inputs.password) nextErrors.password = "Create a password.";
     else if (inputs.password.length < 6) nextErrors.password = "Use at least 6 characters.";
     setErrors(nextErrors);
+    const firstInvalid = nextErrors.username ? "register-username" : nextErrors.email ? "register-email" : nextErrors.password ? "register-password" : null;
+    if (firstInvalid) window.requestAnimationFrame(() => document.getElementById(firstInvalid)?.focus());
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -94,6 +96,7 @@ export default function Register() {
             onChange={(event) => updateField("username", event.target.value)}
             aria-invalid={Boolean(errors.username)}
             aria-describedby={errors.username ? "register-username-help register-username-error" : "register-username-help"}
+            required
           />
           <p className="auth-field__help" id="register-username-help">Letters, numbers, and underscores only.</p>
           {errors.username && <p className="auth-field__error" id="register-username-error">{errors.username}</p>}
@@ -113,6 +116,7 @@ export default function Register() {
             onChange={(event) => updateField("email", event.target.value)}
             aria-invalid={Boolean(errors.email)}
             aria-describedby={errors.email ? "register-email-error" : undefined}
+            required
           />
           {errors.email && <p className="auth-field__error" id="register-email-error">{errors.email}</p>}
         </div>
@@ -124,6 +128,7 @@ export default function Register() {
           error={errors.password}
           help="Use at least 6 characters."
           autoComplete="new-password"
+          required
           onChange={(event) => updateField("password", event.target.value)}
           onToggle={() => setPasswordVisible((visible) => !visible)}
         />

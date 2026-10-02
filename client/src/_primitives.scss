@@ -71,8 +71,8 @@
 .ui-button--icon { background: transparent; color: var(--color-text-secondary); }
 .ui-button--ghost:hover,
 .ui-button--icon:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
-.ui-button--danger { background: var(--color-danger); color: #fff; }
-.ui-button--danger:hover { background: var(--color-danger-strong); color: #fff; }
+.ui-button--danger { background: var(--color-danger); color: var(--color-on-danger); }
+.ui-button--danger:hover { background: var(--color-danger-strong); color: var(--color-on-danger); }
 .ui-button--icon { width: 44px; padding: 0; }
 .ui-button[aria-busy="true"],
 .ui-button--primary[aria-busy="true"] { cursor: progress; opacity: 0.7; }

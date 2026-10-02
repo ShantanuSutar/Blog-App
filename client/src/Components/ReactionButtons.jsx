@@ -47,6 +47,8 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
   const navigate = useNavigate();
   const location = useLocation();
   const controlRef = useRef(null);
+  const triggerRef = useRef(null);
+  const pickerRef = useRef(null);
   const pickerId = useId();
   const targetLabel = postTitle || (commentId ? "this comment" : "this story");
   const loading = loadStatus === "loading";
@@ -87,22 +89,43 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
 
   useEffect(() => {
     if (!pickerOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const selectedOption = pickerRef.current?.querySelector('[role="menuitemradio"][aria-checked="true"]');
+      (selectedOption || pickerRef.current?.querySelector('[role="menuitemradio"]'))?.focus();
+    });
     const closeOutside = (event) => {
       if (!controlRef.current?.contains(event.target)) setPickerOpen(false);
     };
     const closeEscape = (event) => {
       if (event.key === "Escape") {
         setPickerOpen(false);
-        controlRef.current?.querySelector(".reaction-control__trigger")?.focus();
+        triggerRef.current?.focus();
       }
     };
     document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("keydown", closeEscape);
     return () => {
+      window.cancelAnimationFrame(frame);
       document.removeEventListener("pointerdown", closeOutside);
       document.removeEventListener("keydown", closeEscape);
     };
   }, [pickerOpen]);
+
+  const handlePickerKeyDown = (event) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const options = [...pickerRef.current.querySelectorAll('[role="menuitemradio"]:not(:disabled)')];
+    if (!options.length) return;
+    event.preventDefault();
+    const currentIndex = Math.max(0, options.indexOf(document.activeElement));
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? options.length - 1
+        : event.key === "ArrowDown"
+          ? (currentIndex + 1) % options.length
+          : (currentIndex - 1 + options.length) % options.length;
+    options[nextIndex].focus();
+  };
 
   const handleTrigger = () => {
     if (loading) return;
@@ -127,6 +150,7 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
       const response = await api.post("/api/reactions", { postId, commentId, reactionType: type });
       setUserReaction(response.data?.action === "removed" ? null : type);
       setPickerOpen(false);
+      window.requestAnimationFrame(() => triggerRef.current?.focus());
     } catch (error) {
       setUserReaction(previousReaction);
       setReactions(previousCounts);
@@ -151,6 +175,7 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
       data-reaction={userReaction || undefined}
     >
       <button
+        ref={triggerRef}
         type="button"
         className={`reaction-control__trigger${userReaction ? " is-active" : ""}`}
         onClick={handleTrigger}
@@ -158,7 +183,7 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
           ? `${selected ? `${selected.label} selected. ` : ""}Choose a reaction for ${targetLabel}`
           : `Log in to react to ${targetLabel}`}
         aria-expanded={pickerOpen}
-        aria-controls={pickerId}
+        aria-controls={pickerOpen ? pickerId : undefined}
         aria-haspopup="menu"
         aria-busy={isProcessing || loading}
         title={currentUser ? "Choose a reaction" : "Log in to react"}
@@ -174,8 +199,8 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
       {totalCount > 0 && <span className="reaction-control__count" aria-label={`${totalCount} reactions`}>{formatCount(totalCount)}</span>}
 
       {pickerOpen && currentUser && (
-        <div className="reaction-control__picker" id={pickerId} role="menu" aria-label={`React to ${targetLabel}`}>
-          {REACTION_TYPES.map(({ type, icon: Icon, label }) => {
+        <div ref={pickerRef} className="reaction-control__picker" id={pickerId} role="menu" aria-label={`React to ${targetLabel}`} onKeyDown={handlePickerKeyDown}>
+          {REACTION_TYPES.map(({ type, icon: Icon, label }, index) => {
             const active = userReaction === type;
             const count = countFor(reactions, type);
             return (
@@ -186,6 +211,7 @@ export default function ReactionButtons({ postId, commentId, postTitle }) {
                 data-reaction={type}
                 role="menuitemradio"
                 aria-checked={active}
+                tabIndex={active || (!userReaction && index === 0) ? 0 : -1}
                 aria-label={`${label}, ${count} ${count === 1 ? "reaction" : "reactions"}`}
                 onClick={() => handleReaction(type)}
                 disabled={isProcessing}

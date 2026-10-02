@@ -8,6 +8,7 @@ export default function PasswordField({
   error,
   help,
   autoComplete,
+  required = false,
   onChange,
   onToggle,
 }) {
@@ -29,6 +30,7 @@ export default function PasswordField({
           onChange={onChange}
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
+          required={required}
         />
         <button
           type="button"

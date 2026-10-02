@@ -16,16 +16,21 @@ const MentionInput = ({
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionStartPos, setMentionStartPos] = useState(null); // Track where @ was typed
   const [mentionEndPos, setMentionEndPos] = useState(null); // Track cursor position while typing mention
+  const containerRef = useRef(null);
   const textareaRef = useRef(null);
+  const autocompleteRef = useRef(null);
   const blurTimeoutRef = useRef(null); // Store timeout ID to clear it if needed
+  const [activeOptionId, setActiveOptionId] = useState();
+  const listboxId = `${id}-mentions`;
   
   // Close autocomplete when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (textareaRef.current && !textareaRef.current.contains(e.target)) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
         setShowMentions(false);
         setMentionStartPos(null);
         setMentionEndPos(null);
+        setActiveOptionId(undefined);
       }
     };
     
@@ -69,6 +74,7 @@ const MentionInput = ({
           setShowMentions(false);
           setMentionStartPos(null);
           setMentionEndPos(null);
+          setActiveOptionId(undefined);
         } else if (/^\w*$/.test(query)) {
           // Valid mention characters (alphanumeric and underscore)
           setMentionQuery(query);
@@ -79,12 +85,14 @@ const MentionInput = ({
           setShowMentions(false);
           setMentionStartPos(null);
           setMentionEndPos(null);
+          setActiveOptionId(undefined);
         }
       } else {
         // No @ symbol found, close dropdown and reset
         setShowMentions(false);
         setMentionStartPos(null);
         setMentionEndPos(null);
+        setActiveOptionId(undefined);
       }
     }
     
@@ -105,6 +113,7 @@ const MentionInput = ({
       setMentionQuery('');
       setMentionStartPos(null);
       setMentionEndPos(null);
+      setActiveOptionId(undefined);
       
       // Focus back on textarea and set cursor position after inserted mention
       setTimeout(() => {
@@ -116,23 +125,17 @@ const MentionInput = ({
   };
   
   const handleKeyDown = (e) => {
-    // Close autocomplete on Escape
     if (e.key === 'Escape' && showMentions) {
       e.preventDefault();
       e.stopPropagation();
       setShowMentions(false);
       setMentionStartPos(null);
       setMentionEndPos(null);
+      setActiveOptionId(undefined);
       return;
     }
-    
-    // Pass arrow keys and enter to MentionAutocomplete when dropdown is open
-    if (showMentions && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter')) {
-      // Prevent default textarea behavior for these keys
-      e.preventDefault();
-      e.stopPropagation();
-      // The MentionAutocomplete component will handle the actual selection
-    }
+
+    if (showMentions) autocompleteRef.current?.handleKeyDown(e);
   };
   
   const handleBlur = () => {
@@ -141,13 +144,15 @@ const MentionInput = ({
       setShowMentions(false);
       setMentionStartPos(null);
       setMentionEndPos(null);
+      setActiveOptionId(undefined);
       blurTimeoutRef.current = null;
     }, 200); // Small delay to allow click events on dropdown items
   };
   
   return (
-    <div className="mention-input-container" ref={textareaRef}>
+    <div className="mention-input-container" ref={containerRef}>
       <textarea
+        ref={textareaRef}
         id={id}
         name={name}
         value={value}
@@ -157,14 +162,23 @@ const MentionInput = ({
         placeholder={placeholder}
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedBy}
+        aria-autocomplete="list"
+        aria-controls={activeOptionId ? listboxId : undefined}
+        aria-expanded={Boolean(activeOptionId)}
+        aria-activedescendant={activeOptionId}
+        aria-haspopup="listbox"
+        role="combobox"
         disabled={disabled}
         maxLength={maxLength}
         autoComplete="off"
       />
       {showMentions && (
         <MentionAutocomplete
+          ref={autocompleteRef}
+          id={listboxId}
           query={mentionQuery}
           onSelect={handleSelectMention}
+          onActiveOptionChange={setActiveOptionId}
         />
       )}
     </div>
