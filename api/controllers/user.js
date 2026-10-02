@@ -1,20 +1,27 @@
 import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
-import fs from "node:fs/promises";
-import path from "path";
-import { avatarUploadDirectory } from "../middleware/avatarUpload.js";
+import { mediaStorage } from "../services/mediaStorage.js";
 import { sanitizePlainText } from "../utils/content.js";
+import { withTransaction } from "../utils/database.js";
 
 const removeAvatarFile = async (avatarPath) => {
-  if (!avatarPath?.startsWith("/api/uploads/avatars/")) return;
-
-  const filename = path.basename(avatarPath);
   try {
-    await fs.unlink(path.join(avatarUploadDirectory, filename));
+    await mediaStorage.remove(avatarPath, { namespace: "avatars" });
   } catch (error) {
-    if (error.code !== "ENOENT") {
-      console.warn("Unable to remove avatar file:", error.message);
-    }
+    console.warn("Unable to remove a managed avatar file", { code: error.code });
+  }
+};
+
+const removeUnreferencedAvatar = async (avatarPath) => {
+  if (!avatarPath) return;
+  try {
+    const referenced = await db.query(
+      "SELECT 1 FROM users WHERE avatar = $1 LIMIT 1",
+      [avatarPath],
+    );
+    if (referenced.rows.length === 0) await removeAvatarFile(avatarPath);
+  } catch (error) {
+    console.warn("Unable to check whether an avatar is still referenced", { code: error.code });
   }
 };
 
@@ -85,54 +92,68 @@ export const updateProfile = async (req, res) => {
 
 // Upload avatar
 export const uploadAvatar = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    if (!req.file) {
-      throw new ApiError(400, "No file uploaded", "AVATAR_REQUIRED");
-    }
-
-    const existingQuery = "SELECT avatar FROM users WHERE id = $1";
-    const existingResult = await db.query(existingQuery, [userId]);
-    if (existingResult.rows.length === 0) {
-      await removeAvatarFile(`/api/uploads/avatars/${req.file.filename}`);
-      throw new ApiError(404, "User not found", "USER_NOT_FOUND");
-    }
-
-    const avatarPath = "/api/uploads/avatars/" + req.file.filename;
-    const query = "UPDATE users SET avatar = $1 WHERE id = $2 RETURNING id, username, avatar";
-    const result = await db.query(query, [avatarPath, userId]);
-    await removeAvatarFile(existingResult.rows[0].avatar);
-      
-    return res.status(200).json({
-        message: "Avatar uploaded successfully",
-        avatar: avatarPath,
-        user: result.rows[0]
-      });
-  } catch (err) {
-    if (req.file?.filename) {
-      await removeAvatarFile(`/api/uploads/avatars/${req.file.filename}`);
-    }
-    throw err;
+  const userId = req.user.id;
+  if (!req.file) {
+    throw new ApiError(400, "An avatar image is required", "AVATAR_REQUIRED");
   }
+
+  const avatarPath = req.file.publicPath;
+  let replacement;
+  try {
+    replacement = await withTransaction(db, async (client) => {
+      const existingResult = await client.query(
+        "SELECT avatar FROM users WHERE id = $1 FOR UPDATE",
+        [userId],
+      );
+      if (existingResult.rows.length === 0) return null;
+
+      const result = await client.query(
+        "UPDATE users SET avatar = $1 WHERE id = $2 RETURNING id, username, avatar",
+        [avatarPath, userId],
+      );
+      return { previousAvatar: existingResult.rows[0].avatar, user: result.rows[0] };
+    });
+  } catch (error) {
+    await removeAvatarFile(avatarPath);
+    throw error;
+  }
+
+  if (!replacement) {
+    await removeAvatarFile(avatarPath);
+    throw new ApiError(404, "User not found", "USER_NOT_FOUND");
+  }
+
+  await removeUnreferencedAvatar(replacement.previousAvatar);
+  return res.status(200).json({
+    message: "Avatar uploaded successfully",
+    avatar: avatarPath,
+    user: replacement.user,
+  });
 };
 
 // Delete avatar
 export const deleteAvatar = async (req, res) => {
   const userId = req.user.id;
+  const deletion = await withTransaction(db, async (client) => {
+    const existingResult = await client.query(
+      "SELECT avatar FROM users WHERE id = $1 FOR UPDATE",
+      [userId],
+    );
+    if (existingResult.rows.length === 0) return null;
 
-    const existingQuery = "SELECT avatar FROM users WHERE id = $1";
-    const existingResult = await db.query(existingQuery, [userId]);
-      
-  if (existingResult.rows.length === 0) {
+    const result = await client.query(
+      "UPDATE users SET avatar = NULL WHERE id = $1 RETURNING id, username",
+      [userId],
+    );
+    return { previousAvatar: existingResult.rows[0].avatar, user: result.rows[0] };
+  });
+
+  if (!deletion) {
     throw new ApiError(404, "User not found", "USER_NOT_FOUND");
   }
 
-    const query = "UPDATE users SET avatar = NULL WHERE id = $1 RETURNING id, username";
-    const result = await db.query(query, [userId]);
-    await removeAvatarFile(existingResult.rows[0].avatar);
-      
-  return res.status(200).json({ message: "Avatar deleted successfully", user: result.rows[0] });
+  await removeUnreferencedAvatar(deletion.previousAvatar);
+  return res.status(200).json({ message: "Avatar deleted successfully", user: deletion.user });
 };
 
 // Search users by username prefix (for @mentions)

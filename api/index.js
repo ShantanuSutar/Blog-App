@@ -23,6 +23,7 @@ import {
 } from "./middleware/security.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { mediaRootDirectory } from "./services/mediaStorage.js";
 
 assertAuthConfiguration();
 const currentFile = fileURLToPath(import.meta.url);
@@ -57,8 +58,17 @@ app.use(`/api/follows`, followRoutes);
 app.use(`/api/activity`, activityRoutes);
 app.use(`/api/upload`, uploadRoutes);
 
-// Serve static files for locally stored avatars.
-app.use("/api/uploads", express.static(path.join(currentDirectory, "uploads")));
+// Uploaded references are API-relative and never expose the backing directory.
+app.use("/api/uploads", express.static(mediaRootDirectory, {
+  dotfiles: "deny",
+  index: false,
+  redirect: false,
+  maxAge: "1y",
+  immutable: true,
+  setHeaders(response) {
+    response.setHeader("X-Content-Type-Options", "nosniff");
+  },
+}));
 
 app.get("/", (req, res) => {
   res.send("Hello to homepage");

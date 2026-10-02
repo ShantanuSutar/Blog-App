@@ -94,6 +94,11 @@ const buildAllowedOrigins = () => {
 
 const allowedOrigins = Object.freeze(buildAllowedOrigins());
 
+const uploadStorageDriver = (process.env.UPLOAD_STORAGE_DRIVER || "local").trim().toLowerCase();
+if (uploadStorageDriver !== "local") {
+  throw new Error("UPLOAD_STORAGE_DRIVER must be local until another storage adapter is configured");
+}
+
 const publicUrlSetting = (name, fallback, { requiredInProduction = false } = {}) => {
   const value = process.env[name]?.trim() || fallback;
   if (requiredInProduction && isProduction && !process.env[name]?.trim()) {
@@ -168,6 +173,18 @@ export const config = Object.freeze({
         windowMs: integerSetting("UPLOAD_RATE_LIMIT_WINDOW_MS", 60 * 60 * 1000),
         max: integerSetting("UPLOAD_RATE_LIMIT_MAX", 30),
       }),
+    }),
+  }),
+  uploads: Object.freeze({
+    storageDriver: uploadStorageDriver,
+    localDirectory: process.env.UPLOAD_LOCAL_DIRECTORY?.trim() || "uploads",
+    maxFileBytes: integerSetting("UPLOAD_MAX_FILE_BYTES", 5 * 1024 * 1024, {
+      min: 1024,
+      max: 10 * 1024 * 1024,
+    }),
+    maxPixels: integerSetting("UPLOAD_MAX_PIXELS", 20_000_000, {
+      min: 1,
+      max: 100_000_000,
     }),
   }),
 });

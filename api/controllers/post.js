@@ -1,6 +1,7 @@
 import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
 import { recordActivity } from "../services/activity.js";
+import { mediaStorage } from "../services/mediaStorage.js";
 import { notifySubscribersOfPost } from "../services/notifications.js";
 import { sanitizePlainText, sanitizeRichText } from "../utils/content.js";
 import { withTransaction } from "../utils/database.js";
@@ -11,6 +12,19 @@ const sanitizePost = (post) => ({
   ...post,
   desc: sanitizeRichText(post.desc),
 });
+
+const removeUnreferencedPostImage = async (imagePath) => {
+  if (!imagePath) return;
+  try {
+    const referenced = await db.query("SELECT 1 FROM posts WHERE img = $1 LIMIT 1", [imagePath]);
+    if (referenced.rows.length === 0) {
+      await mediaStorage.remove(imagePath, { namespace: "posts" });
+    }
+  } catch (error) {
+    // Cleanup must never turn a successful post mutation into an API failure.
+    console.warn("Unable to clean up a managed post image", { code: error.code });
+  }
+};
 
 export const getPosts = async (req, res) => {
   let query;
@@ -161,13 +175,15 @@ export const deletePost = async (req, res) => {
   if (!postId) {
     throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
-  const query = "DELETE FROM posts WHERE id = $1 AND uid = $2";
+  const query = "DELETE FROM posts WHERE id = $1 AND uid = $2 RETURNING img";
 
   const result = await db.query(query, [postId, req.user.id]);
 
   if (result.rowCount === 0) {
     throw new ApiError(404, "Post not found", "POST_NOT_FOUND");
   }
+
+  await removeUnreferencedPostImage(result.rows[0]?.img);
 
   return res.status(200).json("Post has been deleted!");
 };
@@ -249,12 +265,12 @@ export const updatePost = async (req, res) => {
       throw new ApiError(400, "No fields to update", "POST_UPDATE_EMPTY");
     }
 
-    const query = `UPDATE posts SET ${fields.join(', ')} WHERE id = $${paramIndex} AND uid = $${paramIndex + 1} RETURNING id, title, draft, scheduled_publish_date`;
+    const query = `UPDATE posts SET ${fields.join(', ')} WHERE id = $${paramIndex} AND uid = $${paramIndex + 1} RETURNING id, title, img, draft, scheduled_publish_date`;
     values.push(postId, req.user.id);
 
   const updateResult = await withTransaction(db, async (client) => {
       const currentResult = await client.query(
-        "SELECT id, title, draft, scheduled_publish_date FROM posts WHERE id = $1 AND uid = $2 FOR UPDATE",
+        "SELECT id, title, img, draft, scheduled_publish_date FROM posts WHERE id = $1 AND uid = $2 FOR UPDATE",
         [postId, req.user.id]
       );
 
@@ -280,14 +296,22 @@ export const updatePost = async (req, res) => {
         });
       }
 
-      return { wasPublished: previouslyPublished, updatedPost };
+      return {
+        previousImage: currentResult.rows[0].img,
+        wasPublished: previouslyPublished,
+        updatedPost,
+      };
     });
 
-      const { wasPublished, updatedPost } = updateResult || {};
+      const { previousImage, wasPublished, updatedPost } = updateResult || {};
 
   if (!updatedPost) {
     throw new ApiError(404, "Post not found", "POST_NOT_FOUND");
   }
+
+      if (req.body.img !== undefined && previousImage && previousImage !== updatedPost.img) {
+        await removeUnreferencedPostImage(previousImage);
+      }
 
       if (!wasPublished && isPublishedPost(updatedPost)) {
         notifySubscribersOfPost(postId, updatedPost.title).catch((err) => {

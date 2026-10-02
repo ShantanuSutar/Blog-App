@@ -36,7 +36,10 @@ const normalizeError = (error) => {
     if (error.code === "LIMIT_FILE_SIZE") {
       return new ApiError(413, "The uploaded file is too large", "UPLOAD_TOO_LARGE");
     }
-    return new ApiError(400, "Invalid image upload", "UPLOAD_INVALID");
+    if (error.code === "LIMIT_UNEXPECTED_FILE") {
+      return new ApiError(400, "The upload field is invalid", "UPLOAD_FIELD_INVALID");
+    }
+    return new ApiError(400, "The multipart upload is invalid", "UPLOAD_MALFORMED");
   }
 
   if (postgresErrors[error?.code]) {

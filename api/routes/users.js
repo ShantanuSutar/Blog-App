@@ -36,7 +36,7 @@ router.post(
   validateRequest({ params: ownedUserIdParams }),
   requireSelf,
   uploadLimiter,
-  avatarUpload.single("avatar"),
+  avatarUpload,
   asyncHandler(uploadAvatar),
 );
 router.delete(
