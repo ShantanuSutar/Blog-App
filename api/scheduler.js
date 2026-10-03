@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { db } from "./db.js";
 import { getSubscriberEmails, notifySubscribersOfPost } from "./services/notifications.js";
 import { withTransaction } from "./utils/database.js";
+import { logger } from "./utils/logger.js";
 
 const publishDuePosts = async () => {
   let publishedPosts;
@@ -28,7 +29,7 @@ const publishDuePosts = async () => {
       return result.rows;
     });
   } catch (err) {
-    console.error("Error publishing scheduled posts:", err);
+    logger.error("Scheduled post publication failed", { error: err });
     return;
   }
 
@@ -42,20 +43,49 @@ const publishDuePosts = async () => {
       await notifySubscribersOfPost(post.id, post.title, subscriberEmails);
     }
   } catch (err) {
-    console.error("Error sending scheduled post notifications:", err);
+    logger.error("Scheduled post notification delivery failed", { error: err });
   }
 };
 
 let publisherTask;
+const activePublisherRuns = new Set();
+
+const runScheduledPublisher = () => {
+  const run = publishDuePosts().catch((error) => {
+    logger.error("Unhandled scheduled post publisher failure", { error });
+  });
+  activePublisherRuns.add(run);
+  run.finally(() => activePublisherRuns.delete(run));
+  return run;
+};
 
 export const schedulePostPublisher = () => {
   if (publisherTask) {
+    logger.debug("Scheduled post publisher is already initialized");
     return publisherTask;
   }
 
-  console.log("Scheduled post publisher initialized");
-  publisherTask = cron.schedule("* * * * *", publishDuePosts, { noOverlap: true });
+  publisherTask = cron.schedule(
+    "* * * * *",
+    runScheduledPublisher,
+    { noOverlap: true },
+  );
+  logger.info("Scheduled post publisher initialized");
   return publisherTask;
+};
+
+export const stopPostPublisher = async () => {
+  if (!publisherTask) return false;
+
+  const task = publisherTask;
+  publisherTask = undefined;
+  await task.stop();
+  if (typeof task.destroy === "function") await task.destroy();
+  if (activePublisherRuns.size > 0) {
+    await Promise.allSettled([...activePublisherRuns]);
+  }
+  logger.info("Scheduled post publisher stopped");
+  return true;
 };
 
 export { publishDuePosts };

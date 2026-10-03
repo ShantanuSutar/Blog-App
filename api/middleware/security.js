@@ -59,7 +59,7 @@ export const corsOptions = {
   credentials: false,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  exposedHeaders: ["RateLimit", "RateLimit-Policy", "Retry-After"],
+  exposedHeaders: ["RateLimit", "RateLimit-Policy", "Retry-After", "X-Request-Id"],
   maxAge: 600,
 };
 
@@ -94,7 +94,7 @@ export const requireSupportedContentType = (req, res, next) => {
 export const apiLimiter = createRateLimiter({
   ...config.security.rateLimits.api,
   identifier: "api",
-  skip: (req) => req.method === "OPTIONS" || req.path.startsWith("/health/"),
+  skip: (req) => req.method === "OPTIONS" || req.path === "/health" || req.path.startsWith("/health/"),
 });
 
 export const loginLimiter = createRateLimiter({

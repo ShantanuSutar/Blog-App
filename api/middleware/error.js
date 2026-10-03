@@ -2,6 +2,7 @@ import multer from "multer";
 
 import { config } from "../config.js";
 import { ApiError } from "../errors/ApiError.js";
+import { logger } from "../utils/logger.js";
 
 const postgresErrors = {
   "22P02": { statusCode: 400, message: "Invalid request value", code: "INVALID_VALUE" },
@@ -10,15 +11,6 @@ const postgresErrors = {
   "23503": { statusCode: 400, message: "A related resource could not be found", code: "RELATED_RESOURCE_NOT_FOUND" },
   "23505": { statusCode: 409, message: "A resource with those values already exists", code: "RESOURCE_CONFLICT" },
   "23514": { statusCode: 400, message: "The request violates a data constraint", code: "CONSTRAINT_VIOLATION" },
-};
-
-const redactSensitive = (value) => {
-  if (typeof value !== "string") return value;
-
-  return value
-    .replace(/(bearer\s+)[a-z0-9._~-]+/gi, "$1[REDACTED]")
-    .replace(/((?:password|token|secret|authorization)=)[^\s&]+/gi, "$1[REDACTED]")
-    .replace(/(postgres(?:ql)?:\/\/[^:\s]+:)[^@\s]+@/gi, "$1[REDACTED]@");
 };
 
 const normalizeError = (error) => {
@@ -68,12 +60,11 @@ export const errorHandler = (error, req, res, next) => {
 
   if (unexpectedError) {
     const sourceError = apiError.cause || error;
-    console.error("Unhandled API error", {
+    logger.error("Unhandled API error", {
+      requestId: req.requestId,
       method: req.method,
-      path: req.originalUrl,
-      name: sourceError?.name,
-      message: redactSensitive(sourceError?.message),
-      stack: redactSensitive(sourceError?.stack),
+      path: req.path || req.originalUrl?.split("?")[0],
+      error: sourceError,
     });
   }
 

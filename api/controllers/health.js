@@ -1,4 +1,5 @@
 import { db } from "../db.js";
+import { logger } from "../utils/logger.js";
 
 export const checkHealth = async (req, res) => {
   try {
@@ -9,7 +10,7 @@ export const checkHealth = async (req, res) => {
       uptime: process.uptime(),
     });
   } catch (error) {
-    console.error("Health check failed:", error.message);
+    logger.warn("Database health check failed", { error });
     return res.status(503).json({
       success: false,
       status: "unhealthy",

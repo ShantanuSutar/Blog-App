@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import { escapeHtml, sanitizePlainText } from './content.js';
 import { config } from '../config.js';
 import { signApplicationToken } from '../security/auth.js';
+import { logger } from './logger.js';
 
 const createUnsubscribeUrl = (email) => {
   const token = signApplicationToken(
@@ -14,7 +15,7 @@ const createUnsubscribeUrl = (email) => {
 let transporter;
 
 const getTransporter = () => {
-  if (!config.email.user || !config.email.password) {
+  if (!config.email.enabled) {
     return null;
   }
 
@@ -38,6 +39,13 @@ const getTransporter = () => {
   }
 
   return transporter;
+};
+
+export const closeEmailTransport = () => {
+  if (transporter && typeof transporter.close === "function") {
+    transporter.close();
+  }
+  transporter = undefined;
 };
 
 const sendMail = async (mailOptions) => {
@@ -101,10 +109,10 @@ export const sendWelcomeEmail = async (email) => {
 
     const info = await sendMail(mailOptions);
     
-    console.log('[Email Service] Welcome email sent successfully:', info.messageId);
+    logger.info("Welcome email delivered", { messageId: info.messageId });
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('[Email Service] Welcome email delivery failed', {
+    logger.error("Welcome email delivery failed", {
       code: error?.code,
       command: error?.command,
       responseCode: error?.responseCode,
@@ -117,7 +125,7 @@ export const sendWelcomeEmail = async (email) => {
 export const sendNewPostNotification = async (subscribers, postTitle, postUrl) => {
   try {
     if (!subscribers || subscribers.length === 0) {
-      console.log('No subscribers to notify');
+      logger.debug("No newsletter subscribers to notify");
       return { success: false, error: 'No subscribers' };
     }
 
@@ -180,10 +188,13 @@ export const sendNewPostNotification = async (subscribers, postTitle, postUrl) =
       sent += results.filter((result) => result.status === 'fulfilled').length;
     }
 
-    console.log(`[Email Service] New post notification delivered to ${sent} subscriber(s)`);
+    logger.info("New post notification delivery completed", {
+      sent,
+      failed: subscribers.length - sent,
+    });
     return { success: sent === subscribers.length, sent, failed: subscribers.length - sent };
   } catch (error) {
-    console.error('[Email Service] Post notification delivery failed', {
+    logger.error("Post notification delivery failed", {
       code: error?.code,
       command: error?.command,
       responseCode: error?.responseCode,

@@ -1,6 +1,7 @@
 import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
 import { mediaStorage } from "../services/mediaStorage.js";
+import { logger } from "../utils/logger.js";
 import { sanitizePlainText } from "../utils/content.js";
 import { withTransaction } from "../utils/database.js";
 
@@ -8,7 +9,7 @@ const removeAvatarFile = async (avatarPath) => {
   try {
     await mediaStorage.remove(avatarPath, { namespace: "avatars" });
   } catch (error) {
-    console.warn("Unable to remove a managed avatar file", { code: error.code });
+    logger.warn("Unable to remove a managed avatar file", { errorCode: error.code });
   }
 };
 
@@ -21,7 +22,7 @@ const removeUnreferencedAvatar = async (avatarPath) => {
     );
     if (referenced.rows.length === 0) await removeAvatarFile(avatarPath);
   } catch (error) {
-    console.warn("Unable to check whether an avatar is still referenced", { code: error.code });
+    logger.warn("Unable to check whether an avatar is still referenced", { errorCode: error.code });
   }
 };
 

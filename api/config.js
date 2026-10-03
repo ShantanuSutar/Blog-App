@@ -2,9 +2,60 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const supportedEnvironments = new Set(["development", "test", "production"]);
+const nodeEnvironment = (process.env.NODE_ENV || "development").trim().toLowerCase();
+
+if (!supportedEnvironments.has(nodeEnvironment)) {
+  throw new Error("NODE_ENV must be development, test, or production");
+}
+
+const isProduction = nodeEnvironment === "production";
+
+export const assertEnvironmentConfiguration = (environment = process.env) => {
+  const environmentName = (environment.NODE_ENV || "development").trim().toLowerCase();
+  if (!supportedEnvironments.has(environmentName)) {
+    throw new Error("NODE_ENV must be development, test, or production");
+  }
+  const production = environmentName === "production";
+  const databaseUrl = environment.DATABASE_URL?.trim();
+
+  if (databaseUrl) {
+    let parsed;
+    try {
+      parsed = new URL(databaseUrl);
+    } catch {
+      throw new Error("DATABASE_URL must be a valid PostgreSQL connection URL");
+    }
+    if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
+      throw new Error("DATABASE_URL must use the postgres or postgresql protocol");
+    }
+  }
+
+  if (production && !databaseUrl) {
+    const requiredDatabaseFields = [
+      "POSTGRES_HOST",
+      "POSTGRES_USER",
+      "POSTGRES_PASSWORD",
+      "POSTGRES_DB",
+    ];
+    const missing = requiredDatabaseFields.filter((name) => !environment[name]?.trim());
+    if (missing.length > 0) {
+      throw new Error("Production database configuration is incomplete");
+    }
+  }
+
+  const smtpFields = ["SMTP_USER", "SMTP_PASS", "SMTP_FROM_EMAIL"];
+  const configuredSmtpFields = smtpFields.filter((name) => environment[name]?.trim());
+  if (configuredSmtpFields.length > 0 && configuredSmtpFields.length !== smtpFields.length) {
+    throw new Error("SMTP_USER, SMTP_PASS, and SMTP_FROM_EMAIL must be configured together");
+  }
+};
+
+assertEnvironmentConfiguration();
+
 const buildConnectionString = () => {
   if (process.env.DATABASE_URL) {
-    const url = new URL(process.env.DATABASE_URL);
+    const url = new URL(process.env.DATABASE_URL.trim());
     url.searchParams.delete("sslmode");
     url.searchParams.delete("uselibpqcompat");
     return url.toString();
@@ -14,13 +65,10 @@ const buildConnectionString = () => {
   url.username = process.env.POSTGRES_USER || "";
   url.password = process.env.POSTGRES_PASSWORD || "";
   url.hostname = process.env.POSTGRES_HOST || "localhost";
-  url.port = process.env.POSTGRES_PORT || "5432";
+  url.port = String(integerSetting("POSTGRES_PORT", 5432, { min: 1, max: 65_535 }));
   url.pathname = `/${process.env.POSTGRES_DB || "postgres"}`;
   return url.toString();
 };
-
-const smtpPort = Number(process.env.SMTP_PORT) || 587;
-const isProduction = process.env.NODE_ENV === "production";
 
 const integerSetting = (name, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) => {
   const rawValue = process.env[name];
@@ -29,6 +77,14 @@ const integerSetting = (name, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER
   const value = Number(rawValue);
   if (!Number.isSafeInteger(value) || value < min || value > max) {
     throw new Error(`${name} must be an integer between ${min} and ${max}`);
+  }
+  return value;
+};
+
+const enumSetting = (name, fallback, values) => {
+  const value = (process.env[name] || fallback).trim().toLowerCase();
+  if (!values.includes(value)) {
+    throw new Error(`${name} must be one of: ${values.join(", ")}`);
   }
   return value;
 };
@@ -93,6 +149,17 @@ const buildAllowedOrigins = () => {
 };
 
 const allowedOrigins = Object.freeze(buildAllowedOrigins());
+const postgresSslMode = enumSetting("POSTGRES_SSL", "require", [
+  "disable",
+  "require",
+  "verify-full",
+]);
+const smtpPort = integerSetting("SMTP_PORT", 587, { min: 1, max: 65_535 });
+const logLevel = enumSetting(
+  "LOG_LEVEL",
+  isProduction ? "info" : "debug",
+  ["debug", "info", "warn", "error", "silent"],
+);
 
 const uploadStorageDriver = (process.env.UPLOAD_STORAGE_DRIVER || "local").trim().toLowerCase();
 if (uploadStorageDriver !== "local") {
@@ -118,14 +185,20 @@ const publicUrlSetting = (name, fallback, { requiredInProduction = false } = {})
 };
 
 export const config = Object.freeze({
+  environment: nodeEnvironment,
   isProduction,
-  port: Number(process.env.PORT) || 8800,
+  port: integerSetting("PORT", 8800, { min: 1, max: 65_535 }),
+  logging: Object.freeze({ level: logLevel }),
+  shutdownTimeoutMillis: integerSetting("SHUTDOWN_TIMEOUT_MS", 10_000, {
+    min: 1_000,
+    max: 60_000,
+  }),
   allowedOrigins,
   database: Object.freeze({
     connectionString: buildConnectionString(),
-    ssl: process.env.POSTGRES_SSL === "disable"
+    ssl: postgresSslMode === "disable"
       ? false
-      : { rejectUnauthorized: process.env.POSTGRES_SSL === "verify-full" },
+      : { rejectUnauthorized: postgresSslMode === "verify-full" },
     pool: Object.freeze({
       max: integerSetting("POSTGRES_POOL_MAX", 10, { min: 1, max: 50 }),
       idleTimeoutMillis: integerSetting("POSTGRES_IDLE_TIMEOUT_MS", 30_000, {
@@ -145,11 +218,12 @@ export const config = Object.freeze({
     user: process.env.SMTP_USER || "",
     password: process.env.SMTP_PASS || "",
     from: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "",
+    enabled: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_FROM_EMAIL),
   }),
   frontendUrl: publicUrlSetting("FRONTEND_URL", allowedOrigins[0]),
   apiPublicUrl: publicUrlSetting(
     "API_PUBLIC_URL",
-    `http://localhost:${Number(process.env.PORT) || 8800}`,
+    `http://localhost:${integerSetting("PORT", 8800, { min: 1, max: 65_535 })}`,
     { requiredInProduction: true },
   ),
   security: Object.freeze({

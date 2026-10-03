@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { config } from "./config.js";
+import { logger } from "./utils/logger.js";
 
 export const db = new Pool({
   connectionString: config.database.connectionString,
@@ -10,7 +11,14 @@ export const db = new Pool({
   application_name: "unsaid-api",
 });
 
-// Add error handling for database connection
 db.on('error', (err) => {
-  console.error('Unexpected idle database client error:', err.message);
+  logger.error("Unexpected idle database client error", { error: err });
 });
+
+export const checkDatabaseConnection = async () => {
+  await db.query("SELECT 1");
+};
+
+export const closeDatabase = async () => {
+  await db.end();
+};

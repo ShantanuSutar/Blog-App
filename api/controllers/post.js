@@ -12,6 +12,7 @@ import {
   getPagination,
   parsePositiveInteger,
 } from "../utils/request.js";
+import { logger } from "../utils/logger.js";
 
 const sanitizePost = (post) => ({
   ...post,
@@ -27,7 +28,7 @@ const removeUnreferencedPostImage = async (imagePath) => {
     }
   } catch (error) {
     // Cleanup must never turn a successful post mutation into an API failure.
-    console.warn("Unable to clean up a managed post image", { code: error.code });
+    logger.warn("Unable to clean up a managed post image", { errorCode: error.code });
   }
 };
 
@@ -157,7 +158,7 @@ export const addPost = async (req, res) => {
 
       if (!isDraft) {
         notifySubscribersOfPost(postId, title).catch((err) => {
-          console.error("Error sending new post notifications:", err);
+          logger.error("Unable to send new post notifications", { postId, error: err });
         });
       }
 
@@ -313,7 +314,7 @@ export const updatePost = async (req, res) => {
 
       if (!wasPublished && isPublishedPost(updatedPost)) {
         notifySubscribersOfPost(postId, updatedPost.title).catch((err) => {
-          console.error("Error sending new post notifications:", err);
+          logger.error("Unable to send new post notifications", { postId, error: err });
         });
       }
 

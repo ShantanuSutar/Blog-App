@@ -2,6 +2,7 @@ import { db } from "../db.js";
 import { sendWelcomeEmail } from "../utils/email.js";
 import { ApiError } from "../errors/ApiError.js";
 import { verifyApplicationToken } from "../security/auth.js";
+import { logger } from "../utils/logger.js";
 
 export const subscribe = async (req, res) => {
     const q = "INSERT INTO subscribers(email) VALUES ($1)";
@@ -17,11 +18,11 @@ export const subscribe = async (req, res) => {
         sendWelcomeEmail(email)
             .then(emailResult => {
                 if (!emailResult.success) {
-                    console.warn('Failed to send welcome email:', emailResult.error);
+                    logger.warn("Welcome email was not delivered", { reason: emailResult.error });
                 }
             })
             .catch(err => {
-                console.error('Email send error:', err.message);
+                logger.error("Unexpected welcome email failure", { error: err });
             });
         
         return res.status(201).json("Subscribed successfully!");
