@@ -17,6 +17,7 @@ import Skeleton from "../Components/ui/Skeleton.jsx";
 import { useToast } from "../Context/ToastContext.jsx";
 import { formatPostDate, getPostTags, resolveMediaUrl } from "../Components/home/postPresentation";
 import { calculateReadingTime } from "../utils/readingTime";
+import { mergeUniqueById, readPaginatedList } from "../utils/pagination";
 
 const baseUrl = import.meta.env.VITE_BASE_URL || "";
 
@@ -94,6 +95,8 @@ export default function Single() {
   const [author, setAuthor] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentsStatus, setCommentsStatus] = useState("loading");
+  const [commentsPagination, setCommentsPagination] = useState(null);
+  const [commentsLoadingMore, setCommentsLoadingMore] = useState(false);
   const [comment, setComment] = useState("");
   const [commentStatus, setCommentStatus] = useState("idle");
   const [commentError, setCommentError] = useState("");
@@ -108,21 +111,34 @@ export default function Single() {
     };
   }, []);
 
-  const loadComments = useCallback(async (signal) => {
+  const loadComments = useCallback(async (signal, page = 1, append = false) => {
     if (!mountedRef.current) return;
-    setCommentsStatus("loading");
+    if (append) setCommentsLoadingMore(true);
+    else setCommentsStatus("loading");
     try {
-      const response = await api.get(`/api/comments/${postId}`, { signal });
+      const response = await api.get(`/api/comments/${postId}`, {
+        params: { page, limit: 20 },
+        signal,
+      });
       if (!mountedRef.current) return;
-      setComments(Array.isArray(response.data) ? response.data : []);
+      const { items, pagination } = readPaginatedList(response.data, "comments");
+      setComments((current) => append ? mergeUniqueById(current, items) : items);
+      setCommentsPagination(pagination);
       setCommentsStatus("success");
     } catch (error) {
       if (mountedRef.current && error.code !== "ERR_CANCELED") {
-        setComments([]);
-        setCommentsStatus("error");
+        if (!append) {
+          setComments([]);
+          setCommentsPagination(null);
+          setCommentsStatus("error");
+        } else {
+          toast.error("More comments couldn’t be loaded. Try again.");
+        }
       }
+    } finally {
+      if (mountedRef.current) setCommentsLoadingMore(false);
     }
-  }, [postId]);
+  }, [postId, toast]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -176,7 +192,7 @@ export default function Single() {
     try {
       await api.post(`/api/comments/${postId}`, { comment: value });
       setComment("");
-      await loadComments();
+      await loadComments(undefined, 1, false);
       setCommentStatus("success");
       toast.success("Your comment has been posted.");
     } catch {
@@ -284,7 +300,7 @@ export default function Single() {
               <h2 id="comments-title">Comments</h2>
             </div>
             {commentsStatus === "success" && (
-              <span aria-label={`${comments.length} ${comments.length === 1 ? "comment" : "comments"}`}>{comments.length}</span>
+              <span aria-label={`${commentsPagination?.total ?? comments.length} ${(commentsPagination?.total ?? comments.length) === 1 ? "comment" : "comments"}`}>{commentsPagination?.total ?? comments.length}</span>
             )}
           </header>
 
@@ -333,6 +349,17 @@ export default function Single() {
           {commentsStatus === "success" && comments.length > 0 && (
             <div className="article-comments__list">
               {comments.map((item) => <Comment key={item.id} c={item} baseUrl={baseUrl} />)}
+              {commentsPagination?.hasNext && (
+                <LoadingButton
+                  className="ui-button--secondary"
+                  type="button"
+                  loading={commentsLoadingMore}
+                  loadingLabel="Loading comments…"
+                  onClick={() => loadComments(undefined, commentsPagination.page + 1, true)}
+                >
+                  Load more comments
+                </LoadingButton>
+              )}
             </div>
           )}
         </section>

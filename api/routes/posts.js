@@ -18,6 +18,7 @@ import { validateRequest } from "../middleware/validate.js";
 import { interactionLimiter } from "../middleware/security.js";
 import {
   popularPostsQuery,
+  listPaginationQuery,
   postCreateBody,
   postIdParams,
   postsQuery,
@@ -27,11 +28,11 @@ import {
 
 const router = express.Router();
 
-router.get("/drafts/user", requireAuth, asyncHandler(getUserDrafts));
-router.get("/scheduled/user", requireAuth, asyncHandler(getUserScheduledPosts));
+router.get("/drafts/user", requireAuth, validateRequest({ query: listPaginationQuery }), asyncHandler(getUserDrafts));
+router.get("/scheduled/user", requireAuth, validateRequest({ query: listPaginationQuery }), asyncHandler(getUserScheduledPosts));
 router.get("/featured", asyncHandler(getFeaturedPosts));
 router.get("/popular", validateRequest({ query: popularPostsQuery }), asyncHandler(getPopularPosts));
-router.get("/tag/:tag", validateRequest({ params: postTagParams }), asyncHandler(getPostsByTag));
+router.get("/tag/:tag", validateRequest({ params: postTagParams, query: listPaginationQuery }), asyncHandler(getPostsByTag));
 router.get("/", validateRequest({ query: postsQuery }), asyncHandler(getPosts));
 router.get("/:id", validateRequest({ params: postIdParams }), asyncHandler(getSinglePost));
 router.get("/:id/edit", requireAuth, validateRequest({ params: postIdParams }), asyncHandler(getPostForEditing));

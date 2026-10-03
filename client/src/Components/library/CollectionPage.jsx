@@ -1,6 +1,7 @@
 import { AlertCircle, Inbox, RotateCcw } from "lucide-react";
 import Skeleton from "../ui/Skeleton.jsx";
 import StatePanel from "../ui/StatePanel.jsx";
+import LoadingButton from "../ui/LoadingButton.jsx";
 
 export function CollectionSkeleton({ count = 3 }) {
   return (
@@ -17,6 +18,22 @@ export function CollectionSkeleton({ count = 3 }) {
         </div>
       ))}
       <span className="sr-only">Loading…</span>
+    </div>
+  );
+}
+
+export function CollectionLoadMore({ loading, onClick, label = "Load more" }) {
+  return (
+    <div className="collection-load-more">
+      <LoadingButton
+        className="ui-button--secondary"
+        type="button"
+        loading={loading}
+        loadingLabel="Loading more…"
+        onClick={onClick}
+      >
+        {label}
+      </LoadingButton>
     </div>
   );
 }

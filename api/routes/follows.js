@@ -11,7 +11,7 @@ import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { validateRequest } from "../middleware/validate.js";
 import { interactionLimiter } from "../middleware/security.js";
-import { userIdParams } from "../validation/requests.js";
+import { listPaginationQuery, userIdParams } from "../validation/requests.js";
 
 const router = express.Router();
 
@@ -19,10 +19,10 @@ const router = express.Router();
 router.post("/:userId", requireAuth, interactionLimiter, validateRequest({ params: userIdParams }), asyncHandler(toggleFollow));
 
 // Get followers list
-router.get("/:userId/followers", validateRequest({ params: userIdParams }), asyncHandler(getFollowers));
+router.get("/:userId/followers", validateRequest({ params: userIdParams, query: listPaginationQuery }), asyncHandler(getFollowers));
 
 // Get following list
-router.get("/:userId/following", validateRequest({ params: userIdParams }), asyncHandler(getFollowing));
+router.get("/:userId/following", validateRequest({ params: userIdParams, query: listPaginationQuery }), asyncHandler(getFollowing));
 
 // Check if current user follows target user (protected)
 router.get("/check/:userId", requireAuth, validateRequest({ params: userIdParams }), asyncHandler(getFollowStatus));

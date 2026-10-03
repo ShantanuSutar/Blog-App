@@ -324,6 +324,11 @@ export const postsQuery = (value) => {
   return normalized;
 };
 
+export const listPaginationQuery = (value) => {
+  const { normalized } = normalizePagination(value, { maxLimit: 100 });
+  return normalized;
+};
+
 export const popularPostsQuery = (value) => {
   const { normalized } = normalizePagination(value, { maxLimit: 50 });
   if (normalized.page !== undefined) {

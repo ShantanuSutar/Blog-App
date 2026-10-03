@@ -1,12 +1,13 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarClock, FilePlus2, LogIn } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext";
 import api from "../api/axios";
 import ConfirmDialog from "../Components/ConfirmDialog";
-import CollectionPage from "../Components/library/CollectionPage";
+import CollectionPage, { CollectionLoadMore } from "../Components/library/CollectionPage";
 import ManagedPostCard from "../Components/library/ManagedPostCard";
 import { useToast } from "../Context/ToastContext.jsx";
+import { decrementPaginationTotal, mergeUniqueById, readPaginatedList } from "../utils/pagination";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -17,28 +18,51 @@ export default function Scheduled() {
   const [requestVersion, setRequestVersion] = useState(0);
   const [pendingAction, setPendingAction] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const actionLockRef = useRef(false);
   const toast = useToast();
+
+  const loadScheduledPosts = useCallback(async (page, { append = false, signal } = {}) => {
+    if (append) setLoadingMore(true);
+    else setStatus("loading");
+    try {
+      const response = await api.get("/api/posts/scheduled/user", {
+        params: { page, limit: 20 },
+        signal,
+      });
+      const { items, pagination: nextPagination } = readPaginatedList(response.data, "posts");
+      setPosts((current) => append ? mergeUniqueById(current, items) : items);
+      setPagination(nextPagination);
+      setStatus("success");
+    } catch (error) {
+      if (error.code === "ERR_CANCELED") return;
+      if (append) toast.error("More scheduled posts couldn’t be loaded. Try again.");
+      else setStatus("error");
+    } finally {
+      if (!signal?.aborted) setLoadingMore(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (!currentUser) {
       setPosts([]);
+      setPagination(null);
       setStatus("empty");
       return undefined;
     }
 
     const controller = new AbortController();
-    setStatus("loading");
-    api.get("/api/posts/scheduled/user", { signal: controller.signal })
-      .then((response) => {
-        setPosts(Array.isArray(response.data) ? response.data : []);
-        setStatus("success");
-      })
-      .catch((error) => {
-        if (error.code !== "ERR_CANCELED") setStatus("error");
-      });
+    setPosts([]);
+    setPagination(null);
+    loadScheduledPosts(1, { signal: controller.signal });
     return () => controller.abort();
-  }, [currentUser, requestVersion]);
+  }, [currentUser, loadScheduledPosts, requestVersion]);
+
+  const removeFromCollection = (postId) => {
+    setPosts((current) => current.filter((post) => post.id !== postId));
+    setPagination(decrementPaginationTotal);
+  };
 
   const publishNow = async (postId) => {
     if (actionLockRef.current) return;
@@ -46,7 +70,7 @@ export default function Scheduled() {
     setPendingAction({ postId, type: "publish" });
     try {
       await api.put(`/api/posts/${postId}`, { draft: false, scheduled_publish_date: null });
-      setPosts((current) => current.filter((post) => post.id !== postId));
+      removeFromCollection(postId);
       toast.success("Scheduled post published.");
     } catch {
       toast.error("The post couldn’t be published. Its schedule has not been changed.");
@@ -63,7 +87,7 @@ export default function Scheduled() {
     setPendingAction({ postId, type: "delete" });
     try {
       await api.delete(`/api/posts/${postId}`);
-      setPosts((current) => current.filter((post) => post.id !== postId));
+      removeFromCollection(postId);
       setDeleteTarget(null);
       toast.success("Scheduled post deleted.");
     } catch {
@@ -84,8 +108,8 @@ export default function Scheduled() {
       <CollectionPage
         title="Scheduled posts"
         description="Review upcoming stories and control when they go live."
-        count={posts.length}
-        countLabel={posts.length === 1 ? "scheduled post" : "scheduled posts"}
+        count={pagination?.total ?? posts.length}
+        countLabel={(pagination?.total ?? posts.length) === 1 ? "scheduled post" : "scheduled posts"}
         status={pageStatus}
         errorMessage="Your scheduled posts couldn’t be loaded. Check your connection and try again."
         emptyTitle={currentUser ? "No scheduled posts" : "Sign in to manage scheduled posts"}
@@ -109,6 +133,13 @@ export default function Scheduled() {
               onRequestDelete={setDeleteTarget}
             />
           ))}
+          {pagination?.hasNext && (
+            <CollectionLoadMore
+              loading={loadingMore}
+              label="Load more scheduled posts"
+              onClick={() => loadScheduledPosts(pagination.page + 1, { append: true })}
+            />
+          )}
         </div>
       </CollectionPage>
 

@@ -2,7 +2,11 @@ import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
 import { recordActivity } from "../services/activity.js";
 import { withTransaction } from "../utils/database.js";
-import { parsePositiveInteger } from "../utils/request.js";
+import {
+  createPaginationMetadata,
+  getPagination,
+  parsePositiveInteger,
+} from "../utils/request.js";
 
 const getFollowSummary = async (userId, currentUserId = null) => {
   const result = await db.query(
@@ -89,26 +93,53 @@ export const toggleFollow = async (req, res) => {
 
 const getFollowList = async (req, res, type) => {
   const userId = getUserId(req);
+  const { page, limit, offset } = getPagination(req.query, {
+    defaultLimit: 20,
+    maxLimit: 100,
+  });
 
   const isFollowers = type === "followers";
+  const ownerColumn = isFollowers ? "following_id" : "follower_id";
+  const relatedColumn = isFollowers ? "follower_id" : "following_id";
   const result = await db.query(
     `
+      WITH owner AS (
+        SELECT id, username
+        FROM users
+        WHERE id = $1
+      ), relationship_count AS (
+        SELECT COUNT(f.id)::integer AS total_count
+        FROM owner
+        LEFT JOIN follows f ON f.${ownerColumn} = owner.id
+      ), relationship_page AS (
+        SELECT
+          related.id,
+          related.username,
+          related.avatar,
+          related.bio,
+          f.created_at,
+          f.id AS follow_id
+        FROM owner
+        JOIN follows f ON f.${ownerColumn} = owner.id
+        JOIN users related ON f.${relatedColumn} = related.id
+        ORDER BY f.created_at DESC, f.id DESC
+        LIMIT $2 OFFSET $3
+      )
       SELECT
         owner.username AS owner_username,
-        related.id,
-        related.username,
-        related.avatar,
-        related.bio,
-        f.created_at
-      FROM users owner
-      LEFT JOIN follows f
-        ON ${isFollowers ? "f.following_id" : "f.follower_id"} = owner.id
-      LEFT JOIN users related
-        ON ${isFollowers ? "f.follower_id" : "f.following_id"} = related.id
-      WHERE owner.id = $1
-      ORDER BY f.created_at DESC NULLS LAST, f.id DESC
+        relationship_page.id,
+        relationship_page.username,
+        relationship_page.avatar,
+        relationship_page.bio,
+        relationship_page.created_at,
+        relationship_count.total_count
+      FROM owner
+      CROSS JOIN relationship_count
+      LEFT JOIN relationship_page ON true
+      ORDER BY relationship_page.created_at DESC NULLS LAST,
+        relationship_page.follow_id DESC NULLS LAST
     `,
-    [userId],
+    [userId, limit, offset],
   );
   if (result.rows.length === 0) {
     throw new ApiError(404, "User not found", "USER_NOT_FOUND");
@@ -124,11 +155,18 @@ const getFollowList = async (req, res, type) => {
       created_at: row.created_at,
     }));
 
+  const pagination = createPaginationMetadata({
+    page,
+    limit,
+    total: result.rows[0].total_count,
+  });
+
   return res.status(200).json({
     userId,
     username: result.rows[0].owner_username,
     [type]: relationships,
-    count: relationships.length,
+    count: pagination.total,
+    pagination,
   });
 };
 

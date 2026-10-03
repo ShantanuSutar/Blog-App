@@ -8,6 +8,7 @@ import {
   bookmarkCountsBody,
   commentBody,
   loginBody,
+  listPaginationQuery,
   postCreateBody,
   postIdParams,
   postsQuery,
@@ -148,6 +149,11 @@ test("route IDs and pagination are strictly bounded", () => {
   expectValidationError(() => postsQuery({ search: "x".repeat(101) }), "FIELD_TOO_LONG");
   expectValidationError(() => postsQuery({ cat: "unknown" }), "FIELD_VALUE_INVALID");
   expectValidationError(() => postsQuery({ sort: "newest" }), "UNSUPPORTED_FIELDS");
+
+  assert.deepEqual(listPaginationQuery({ page: "3", limit: "50" }), { page: 3, limit: 50 });
+  expectValidationError(() => listPaginationQuery({ page: "0" }), "ID_INVALID");
+  expectValidationError(() => listPaginationQuery({ limit: "101" }), "ID_INVALID");
+  expectValidationError(() => listPaginationQuery({ filter: "all" }), "UNSUPPORTED_FIELDS");
 });
 
 test("reaction validation requires one supported target and reaction", () => {

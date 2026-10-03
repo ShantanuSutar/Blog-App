@@ -7,7 +7,11 @@ import { buildPostFeedQueries, PUBLIC_POST_COLUMNS } from "../services/postFeed.
 import { sanitizePlainText, sanitizeRichText } from "../utils/content.js";
 import { withTransaction } from "../utils/database.js";
 import { isPublishedPost, normalizeSchedule } from "../utils/postState.js";
-import { getPagination, parsePositiveInteger } from "../utils/request.js";
+import {
+  createPaginationMetadata,
+  getPagination,
+  parsePositiveInteger,
+} from "../utils/request.js";
 
 const sanitizePost = (post) => ({
   ...post,
@@ -44,10 +48,17 @@ export const getPosts = async (req, res) => {
     db.query(queries.countQuery, queries.countParams),
   ]);
 
+  const pagination = createPaginationMetadata({
+    page,
+    limit,
+    total: countResult.rows[0].count,
+  });
+
   return res.status(200).json({
       posts: result.rows.map(sanitizePost),
-      totalPages: Math.ceil(Number(countResult.rows[0].count) / limit),
-      currentPage: page
+      totalPages: pagination.totalPages,
+      currentPage: page,
+      pagination,
   });
 };
 
@@ -315,23 +326,57 @@ export const updatePost = async (req, res) => {
 };
 
 export const getUserDrafts = async (req, res) => {
-  const query = "SELECT id, title, \"desc\", img, cat, date, uid, draft, scheduled_publish_date, tags, featured, views FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NULL ORDER BY date DESC, id DESC";
+  const { page, limit, offset } = getPagination(req.query, {
+    defaultLimit: 20,
+    maxLimit: 100,
+  });
+  const query = "SELECT id, title, \"desc\", img, cat, date, uid, draft, scheduled_publish_date, tags, featured, views FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NULL ORDER BY date DESC, id DESC LIMIT $2 OFFSET $3";
 
-  const result = await db.query(query, [req.user.id]);
+  const [result, countResult] = await Promise.all([
+    db.query(query, [req.user.id, limit, offset]),
+    db.query(
+      "SELECT COUNT(*) FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NULL",
+      [req.user.id],
+    ),
+  ]);
+  const pagination = createPaginationMetadata({
+    page,
+    limit,
+    total: countResult.rows[0].count,
+  });
 
-  return res.status(200).json(result.rows.map(sanitizePost));
+  return res.status(200).json({ posts: result.rows.map(sanitizePost), pagination });
 };
 
 export const getUserScheduledPosts = async (req, res) => {
-  const query = "SELECT id, title, \"desc\", img, cat, date, uid, draft, scheduled_publish_date, tags, featured, views FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > CURRENT_TIMESTAMP ORDER BY scheduled_publish_date ASC, id ASC";
+  const { page, limit, offset } = getPagination(req.query, {
+    defaultLimit: 20,
+    maxLimit: 100,
+  });
+  const query = "SELECT id, title, \"desc\", img, cat, date, uid, draft, scheduled_publish_date, tags, featured, views FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > CURRENT_TIMESTAMP ORDER BY scheduled_publish_date ASC, id ASC LIMIT $2 OFFSET $3";
 
-  const result = await db.query(query, [req.user.id]);
+  const [result, countResult] = await Promise.all([
+    db.query(query, [req.user.id, limit, offset]),
+    db.query(
+      "SELECT COUNT(*) FROM posts WHERE uid = $1 AND draft = true AND scheduled_publish_date IS NOT NULL AND scheduled_publish_date > CURRENT_TIMESTAMP",
+      [req.user.id],
+    ),
+  ]);
+  const pagination = createPaginationMetadata({
+    page,
+    limit,
+    total: countResult.rows[0].count,
+  });
 
-  return res.status(200).json(result.rows.map(sanitizePost));
+  return res.status(200).json({ posts: result.rows.map(sanitizePost), pagination });
 };
 
 export const getPostsByTag = async (req, res) => {
   const tag = req.params.tag;
+  const { page, limit, offset } = getPagination(req.query, {
+    defaultLimit: 20,
+    maxLimit: 100,
+  });
 
     const tagJson = JSON.stringify([tag]);
 
@@ -343,11 +388,34 @@ export const getPostsByTag = async (req, res) => {
         AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
         AND p.tags::jsonb @> $1::jsonb
       ORDER BY p.date DESC, p.id DESC
+      LIMIT $2 OFFSET $3
     `;
 
-    const result = await db.query(query, [tagJson]);
+    const [result, countResult] = await Promise.all([
+      db.query(query, [tagJson, limit, offset]),
+      db.query(
+        `
+          SELECT COUNT(*)
+          FROM posts p
+          WHERE p.draft = false
+            AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+            AND p.tags::jsonb @> $1::jsonb
+        `,
+        [tagJson],
+      ),
+    ]);
+    const pagination = createPaginationMetadata({
+      page,
+      limit,
+      total: countResult.rows[0].count,
+    });
 
-  return res.status(200).json(result.rows.map(sanitizePost));
+  return res.status(200).json({
+    posts: result.rows.map(sanitizePost),
+    totalPages: pagination.totalPages,
+    currentPage: page,
+    pagination,
+  });
 };
 
 export const getFeaturedPosts = async (req, res) => {

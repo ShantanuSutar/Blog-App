@@ -3,7 +3,11 @@ import { ApiError } from "../errors/ApiError.js";
 import { recordActivity } from "../services/activity.js";
 import { sanitizePlainText } from "../utils/content.js";
 import { withTransaction } from "../utils/database.js";
-import { parsePositiveInteger } from "../utils/request.js";
+import {
+  createPaginationMetadata,
+  getPagination,
+  parsePositiveInteger,
+} from "../utils/request.js";
 
 export const addComment = async (req, res) => {
   const comment = sanitizePlainText(req.body.comment);
@@ -65,8 +69,12 @@ export const getComment = async (req, res) => {
     throw new ApiError(400, "Invalid post ID", "POST_ID_INVALID");
   }
 
-  const query =
-    `
+  const { page, limit, offset } = getPagination(req.query, {
+    defaultLimit: 20,
+    maxLimit: 100,
+  });
+
+  const rowsQuery = `
       SELECT c.id, c.comment, c.cpostid, c.cuserid, c.created_at, u.username, u.avatar AS img
       FROM comments c
       JOIN users u ON u.id = c.cuserid
@@ -74,9 +82,27 @@ export const getComment = async (req, res) => {
       WHERE c.cpostid = $1
         AND p.draft = false
         AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
-      ORDER BY c.id ASC
+      ORDER BY c.created_at DESC, c.id DESC
+      LIMIT $2 OFFSET $3
+    `;
+  const countQuery = `
+      SELECT COUNT(c.id)
+      FROM comments c
+      JOIN posts p ON p.id = c.cpostid
+      WHERE c.cpostid = $1
+        AND p.draft = false
+        AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
     `;
 
-  const result = await db.query(query, [postId]);
-  return res.status(200).json(result.rows);
+  const [result, countResult] = await Promise.all([
+    db.query(rowsQuery, [postId, limit, offset]),
+    db.query(countQuery, [postId]),
+  ]);
+  const pagination = createPaginationMetadata({
+    page,
+    limit,
+    total: countResult.rows[0].count,
+  });
+
+  return res.status(200).json({ comments: result.rows, pagination });
 };

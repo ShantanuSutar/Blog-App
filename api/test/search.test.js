@@ -103,6 +103,14 @@ test("search returns the existing empty paginated response when there are no mat
     posts: [],
     totalPages: 0,
     currentPage: 2,
+    pagination: {
+      page: 2,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrevious: false,
+    },
   });
 });
 

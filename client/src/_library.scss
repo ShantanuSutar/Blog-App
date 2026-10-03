@@ -52,6 +52,12 @@
 
 .collection-post-list .story-card:last-child { border-bottom: 0; }
 
+.collection-load-more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+}
+
 .collection-state {
   min-height: 320px;
   background: var(--color-surface);

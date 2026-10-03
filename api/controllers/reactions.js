@@ -2,7 +2,11 @@ import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
 import { recordActivity } from "../services/activity.js";
 import { withTransaction } from "../utils/database.js";
-import { parsePositiveInteger } from "../utils/request.js";
+import {
+  createPaginationMetadata,
+  getPagination,
+  parsePositiveInteger,
+} from "../utils/request.js";
 
 const reactionTypes = new Set(["like", "love", "celebrate"]);
 
@@ -153,33 +157,57 @@ export const getReactions = async (req, res) => {
     ? "JOIN posts p ON p.id = r.post_id"
     : "JOIN comments c ON c.id = r.comment_id JOIN posts p ON p.id = c.cpostid";
   const targetCondition = target.postId ? "r.post_id = $1" : "r.comment_id = $1";
-  const result = await db.query(
-      `
-        SELECT r.reaction_type, r.user_id, u.username, u.avatar AS user_img
-        FROM reactions r
-        JOIN users u ON r.user_id = u.id
+  const { page, limit, offset } = getPagination(req.query, {
+    defaultLimit: 20,
+    maxLimit: 100,
+  });
+  const visibilityClause = `
         ${targetJoin}
         WHERE ${targetCondition}
           AND p.draft = false
           AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+  `;
+  const [result, countResult] = await Promise.all([
+    db.query(
+      `
+        SELECT r.reaction_type, r.user_id, u.username, u.avatar AS user_img
+        FROM reactions r
+        JOIN users u ON r.user_id = u.id
+        ${visibilityClause}
         ORDER BY r.created_at DESC, r.id DESC
+        LIMIT $2 OFFSET $3
+      `,
+      [targetId, limit, offset],
+    ),
+    db.query(
+      `
+        SELECT r.reaction_type, COUNT(*)::integer AS count
+        FROM reactions r
+        ${visibilityClause}
+        GROUP BY r.reaction_type
       `,
       [targetId],
-    );
+    ),
+  ]);
 
-  const grouped = result.rows.reduce((groups, reaction) => {
-      const group = groups[reaction.reaction_type] || { count: 0, users: [] };
-      group.count += 1;
-      group.users.push({
-        id: reaction.user_id,
-        username: reaction.username,
-        img: reaction.user_img,
-      });
-      groups[reaction.reaction_type] = group;
-      return groups;
-    }, {});
+  const grouped = Object.fromEntries(countResult.rows.map((row) => [
+    row.reaction_type,
+    { count: row.count, users: [] },
+  ]));
+  result.rows.forEach((reaction) => {
+    const group = grouped[reaction.reaction_type] || { count: 0, users: [] };
+    group.users.push({
+      id: reaction.user_id,
+      username: reaction.username,
+      img: reaction.user_img,
+    });
+    grouped[reaction.reaction_type] = group;
+  });
 
-  return res.status(200).json({ total: result.rows.length, grouped });
+  const total = countResult.rows.reduce((sum, row) => sum + Number(row.count), 0);
+  const pagination = createPaginationMetadata({ page, limit, total });
+
+  return res.status(200).json({ total, grouped, pagination });
 };
 
 export const getUserReaction = async (req, res) => {

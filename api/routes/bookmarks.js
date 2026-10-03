@@ -8,11 +8,12 @@ import {
   bookmarkBody,
   bookmarkCountsBody,
   bookmarkPostIdParams,
+  listPaginationQuery,
 } from "../validation/requests.js";
 
 const router = express.Router();
 
-router.get("/", requireAuth, asyncHandler(getBookmarks));
+router.get("/", requireAuth, validateRequest({ query: listPaginationQuery }), asyncHandler(getBookmarks));
 router.post("/", requireAuth, interactionLimiter, validateRequest({ body: bookmarkBody }), asyncHandler(addBookmark));
 router.delete("/:postId", requireAuth, interactionLimiter, validateRequest({ params: bookmarkPostIdParams }), asyncHandler(removeBookmark));
 router.get("/check/:postId", requireAuth, validateRequest({ params: bookmarkPostIdParams }), asyncHandler(checkBookmarkStatus));

@@ -10,6 +10,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import { validateRequest } from "../middleware/validate.js";
 import { interactionLimiter } from "../middleware/security.js";
 import {
+  listPaginationQuery,
   reactionBody,
   reactionCommentParams,
   reactionIdParams,
@@ -21,11 +22,11 @@ const router = express.Router();
 // Toggle reaction (add or remove)
 router.post("/", requireAuth, interactionLimiter, validateRequest({ body: reactionBody }), asyncHandler(addReaction));
 
-// Get all reactions for a post
-router.get("/post/:postId", validateRequest({ params: reactionPostParams }), asyncHandler(getReactions));
+// Get aggregate reaction counts plus a bounded page of reacting users
+router.get("/post/:postId", validateRequest({ params: reactionPostParams, query: listPaginationQuery }), asyncHandler(getReactions));
 
-// Get all reactions for a comment
-router.get("/comment/:commentId", validateRequest({ params: reactionCommentParams }), asyncHandler(getReactions));
+// Get aggregate reaction counts plus a bounded page of reacting users
+router.get("/comment/:commentId", validateRequest({ params: reactionCommentParams, query: listPaginationQuery }), asyncHandler(getReactions));
 
 // Get user's reaction to a post
 router.get("/check/post/:postId", requireAuth, validateRequest({ params: reactionPostParams }), asyncHandler(getUserReaction));

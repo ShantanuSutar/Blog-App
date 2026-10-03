@@ -1,6 +1,6 @@
 import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
-import { getPagination } from "../utils/request.js";
+import { createPaginationMetadata, getPagination } from "../utils/request.js";
 
 const activityFilters = {
   all: null,
@@ -81,10 +81,12 @@ const sendActivityPage = async (
   ]);
 
   const totalCount = Number(countResult.rows[0].count);
+  const pagination = createPaginationMetadata({ page, limit, total: totalCount });
   return res.status(200).json({
     activities: activityResult.rows,
-    totalPages: Math.ceil(totalCount / limit),
+    totalPages: pagination.totalPages,
     currentPage: page,
+    pagination,
   });
 };
 

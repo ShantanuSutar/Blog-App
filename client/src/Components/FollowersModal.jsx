@@ -6,27 +6,40 @@ import api from "../api/axios.js";
 import FollowButton from "./FollowButton.jsx";
 import ProfileAvatar from "./ProfileAvatar.jsx";
 import InlineLoader from "./ui/InlineLoader.jsx";
+import LoadingButton from "./ui/LoadingButton.jsx";
 import StatePanel from "./ui/StatePanel.jsx";
 import useModalAccessibility from "../hooks/useModalAccessibility.js";
+import { mergeUniqueById, readPaginatedList } from "../utils/pagination.js";
 
 export default function FollowersModal({ userId, isOpen, onClose, type }) {
   const [users, setUsers] = useState([]);
   const [status, setStatus] = useState("idle");
   const [requestVersion, setRequestVersion] = useState(0);
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const { currentUser } = useContext(AuthContext);
   const title = type === "followers" ? "Followers" : "Following";
 
-  const fetchUsers = useCallback((signal) => {
-    setStatus("loading");
-    return api.get(`/api/follows/${userId}/${type}`, { signal })
+  const fetchUsers = useCallback((page, { append = false, signal } = {}) => {
+    if (append) setLoadingMore(true);
+    else setStatus("loading");
+    return api.get(`/api/follows/${userId}/${type}`, {
+      params: { page, limit: 20 },
+      signal,
+    })
       .then((response) => {
-        setUsers(response.data[type] || []);
+        const { items, pagination: nextPagination } = readPaginatedList(response.data, type);
+        setUsers((current) => append ? mergeUniqueById(current, items) : items);
+        setPagination(nextPagination);
         setStatus("success");
       })
       .catch((error) => {
-        if (error.code !== "ERR_CANCELED") setStatus("error");
+        if (error.code !== "ERR_CANCELED" && !append) setStatus("error");
+      })
+      .finally(() => {
+        if (!signal?.aborted) setLoadingMore(false);
       });
   }, [type, userId]);
 
@@ -34,7 +47,8 @@ export default function FollowersModal({ userId, isOpen, onClose, type }) {
     if (!isOpen || !userId) return undefined;
     const controller = new AbortController();
     setUsers([]);
-    fetchUsers(controller.signal);
+    setPagination(null);
+    fetchUsers(1, { signal: controller.signal });
     return () => {
       controller.abort();
     };
@@ -47,7 +61,7 @@ export default function FollowersModal({ userId, isOpen, onClose, type }) {
     <div className="followers-dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="followers-dialog" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`followers-dialog-${type}`} tabIndex={-1}>
         <header className="followers-dialog__header">
-          <div><span className="profile-kicker">Community</span><h2 id={`followers-dialog-${type}`}>{title}</h2></div>
+          <div><span className="profile-kicker">Community</span><h2 id={`followers-dialog-${type}`}>{title}{pagination ? ` (${pagination.total})` : ""}</h2></div>
           <button ref={closeButtonRef} className="ui-button--icon" type="button" onClick={onClose} aria-label={`Close ${title.toLowerCase()} dialog`}><X size={20} aria-hidden="true" /></button>
         </header>
 
@@ -66,6 +80,18 @@ export default function FollowersModal({ userId, isOpen, onClose, type }) {
                   {currentUser?.id !== listedUser.id && <FollowButton userId={listedUser.id} username={listedUser.username} />}
                 </li>
               ))}
+              {pagination?.hasNext && (
+                <li className="followers-list__load-more">
+                  <LoadingButton
+                    className="ui-button--secondary"
+                    loading={loadingMore}
+                    loadingLabel="Loading more…"
+                    onClick={() => fetchUsers(pagination.page + 1, { append: true })}
+                  >
+                    Load more
+                  </LoadingButton>
+                </li>
+              )}
             </ul>
           )}
         </div>

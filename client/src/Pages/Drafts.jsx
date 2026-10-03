@@ -1,12 +1,13 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FilePlus2, FileText, LogIn } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext";
 import api from "../api/axios";
 import ConfirmDialog from "../Components/ConfirmDialog";
-import CollectionPage from "../Components/library/CollectionPage";
+import CollectionPage, { CollectionLoadMore } from "../Components/library/CollectionPage";
 import ManagedPostCard from "../Components/library/ManagedPostCard";
 import { useToast } from "../Context/ToastContext.jsx";
+import { decrementPaginationTotal, mergeUniqueById, readPaginatedList } from "../utils/pagination";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -17,28 +18,51 @@ export default function Drafts() {
   const [requestVersion, setRequestVersion] = useState(0);
   const [pendingAction, setPendingAction] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const actionLockRef = useRef(false);
   const toast = useToast();
+
+  const loadDrafts = useCallback(async (page, { append = false, signal } = {}) => {
+    if (append) setLoadingMore(true);
+    else setStatus("loading");
+    try {
+      const response = await api.get("/api/posts/drafts/user", {
+        params: { page, limit: 20 },
+        signal,
+      });
+      const { items, pagination: nextPagination } = readPaginatedList(response.data, "posts");
+      setPosts((current) => append ? mergeUniqueById(current, items) : items);
+      setPagination(nextPagination);
+      setStatus("success");
+    } catch (error) {
+      if (error.code === "ERR_CANCELED") return;
+      if (append) toast.error("More drafts couldn’t be loaded. Try again.");
+      else setStatus("error");
+    } finally {
+      if (!signal?.aborted) setLoadingMore(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (!currentUser) {
       setPosts([]);
+      setPagination(null);
       setStatus("empty");
       return undefined;
     }
 
     const controller = new AbortController();
-    setStatus("loading");
-    api.get("/api/posts/drafts/user", { signal: controller.signal })
-      .then((response) => {
-        setPosts(Array.isArray(response.data) ? response.data : []);
-        setStatus("success");
-      })
-      .catch((error) => {
-        if (error.code !== "ERR_CANCELED") setStatus("error");
-      });
+    setPosts([]);
+    setPagination(null);
+    loadDrafts(1, { signal: controller.signal });
     return () => controller.abort();
-  }, [currentUser, requestVersion]);
+  }, [currentUser, loadDrafts, requestVersion]);
+
+  const removeFromCollection = (postId) => {
+    setPosts((current) => current.filter((post) => post.id !== postId));
+    setPagination(decrementPaginationTotal);
+  };
 
   const publishDraft = async (postId) => {
     if (actionLockRef.current) return;
@@ -46,7 +70,7 @@ export default function Drafts() {
     setPendingAction({ postId, type: "publish" });
     try {
       await api.put(`/api/posts/${postId}`, { draft: false });
-      setPosts((current) => current.filter((post) => post.id !== postId));
+      removeFromCollection(postId);
       toast.success("Draft published.");
     } catch {
       toast.error("The draft couldn’t be published. Your draft is still safe; please try again.");
@@ -63,7 +87,7 @@ export default function Drafts() {
     setPendingAction({ postId, type: "delete" });
     try {
       await api.delete(`/api/posts/${postId}`);
-      setPosts((current) => current.filter((post) => post.id !== postId));
+      removeFromCollection(postId);
       setDeleteTarget(null);
       toast.success("Draft deleted.");
     } catch {
@@ -84,8 +108,8 @@ export default function Drafts() {
       <CollectionPage
         title="Drafts"
         description="Shape unfinished ideas before they meet the world."
-        count={posts.length}
-        countLabel={posts.length === 1 ? "draft" : "drafts"}
+        count={pagination?.total ?? posts.length}
+        countLabel={(pagination?.total ?? posts.length) === 1 ? "draft" : "drafts"}
         status={pageStatus}
         errorMessage="Your drafts couldn’t be loaded. Check your connection and try again."
         emptyTitle={currentUser ? "No drafts yet" : "Sign in to manage your drafts"}
@@ -109,6 +133,13 @@ export default function Drafts() {
               onRequestDelete={setDeleteTarget}
             />
           ))}
+          {pagination?.hasNext && (
+            <CollectionLoadMore
+              loading={loadingMore}
+              label="Load more drafts"
+              onClick={() => loadDrafts(pagination.page + 1, { append: true })}
+            />
+          )}
         </div>
       </CollectionPage>
 

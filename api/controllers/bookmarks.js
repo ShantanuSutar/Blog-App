@@ -1,7 +1,11 @@
 import { db } from "../db.js";
 import { ApiError } from "../errors/ApiError.js";
 import { PUBLIC_POST_COLUMNS } from "../services/postFeed.js";
-import { parsePositiveInteger } from "../utils/request.js";
+import {
+  createPaginationMetadata,
+  getPagination,
+  parsePositiveInteger,
+} from "../utils/request.js";
 
 export const addBookmark = async (req, res) => {
   const postId = parsePositiveInteger(req.body.postId);
@@ -56,7 +60,12 @@ export const removeBookmark = async (req, res) => {
 };
 
 export const getBookmarks = async (req, res) => {
-  const result = await db.query(
+  const { page, limit, offset } = getPagination(req.query, {
+    defaultLimit: 20,
+    maxLimit: 100,
+  });
+  const [result, countResult] = await Promise.all([
+    db.query(
       `
         SELECT ${PUBLIC_POST_COLUMNS}, u.username, u.avatar AS "userAvatar"
         FROM posts p
@@ -66,10 +75,29 @@ export const getBookmarks = async (req, res) => {
           AND p.draft = false
           AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
         ORDER BY b.created_at DESC, b.id DESC
+        LIMIT $2 OFFSET $3
       `,
-      [req.user.id]
-    );
-  return res.status(200).json(result.rows);
+      [req.user.id, limit, offset],
+    ),
+    db.query(
+      `
+        SELECT COUNT(b.id)
+        FROM bookmarks b
+        JOIN posts p ON p.id = b.pid
+        WHERE b.uid = $1
+          AND p.draft = false
+          AND (p.scheduled_publish_date IS NULL OR p.scheduled_publish_date <= CURRENT_TIMESTAMP)
+      `,
+      [req.user.id],
+    ),
+  ]);
+  const pagination = createPaginationMetadata({
+    page,
+    limit,
+    total: countResult.rows[0].count,
+  });
+
+  return res.status(200).json({ bookmarks: result.rows, pagination });
 };
 
 export const checkBookmarkStatus = async (req, res) => {

@@ -1,10 +1,12 @@
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bookmark, Compass, LogIn } from "lucide-react";
 import { AuthContext } from "../AuthContext/authContext";
 import api from "../api/axios";
-import CollectionPage from "../Components/library/CollectionPage";
+import CollectionPage, { CollectionLoadMore } from "../Components/library/CollectionPage";
 import PostCard from "../Components/home/PostCard";
+import { useToast } from "../Context/ToastContext.jsx";
+import { decrementPaginationTotal, mergeUniqueById, readPaginatedList } from "../utils/pagination";
 
 const baseUrl = import.meta.env.VITE_BASE_URL;
 
@@ -13,26 +15,45 @@ export default function Bookmarks() {
   const [posts, setPosts] = useState([]);
   const [status, setStatus] = useState(currentUser ? "loading" : "empty");
   const [requestVersion, setRequestVersion] = useState(0);
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const toast = useToast();
+
+  const loadBookmarks = useCallback(async (page, { append = false, signal } = {}) => {
+    if (append) setLoadingMore(true);
+    else setStatus("loading");
+    try {
+      const response = await api.get("/api/bookmarks", {
+        params: { page, limit: 20 },
+        signal,
+      });
+      const { items, pagination: nextPagination } = readPaginatedList(response.data, "bookmarks");
+      setPosts((current) => append ? mergeUniqueById(current, items) : items);
+      setPagination(nextPagination);
+      setStatus("success");
+    } catch (error) {
+      if (error.code === "ERR_CANCELED") return;
+      if (append) toast.error("More bookmarks couldn’t be loaded. Try again.");
+      else setStatus("error");
+    } finally {
+      if (!signal?.aborted) setLoadingMore(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (!currentUser) {
       setPosts([]);
+      setPagination(null);
       setStatus("empty");
       return undefined;
     }
 
     const controller = new AbortController();
-    setStatus("loading");
-    api.get("/api/bookmarks", { signal: controller.signal })
-      .then((response) => {
-        setPosts(Array.isArray(response.data) ? response.data : []);
-        setStatus("success");
-      })
-      .catch((error) => {
-        if (error.code !== "ERR_CANCELED") setStatus("error");
-      });
+    setPosts([]);
+    setPagination(null);
+    loadBookmarks(1, { signal: controller.signal });
     return () => controller.abort();
-  }, [currentUser, requestVersion]);
+  }, [currentUser, loadBookmarks, requestVersion]);
 
   const pageStatus = status === "success" && posts.length === 0 ? "empty" : status;
 
@@ -40,8 +61,8 @@ export default function Bookmarks() {
     <CollectionPage
       title="Bookmarks"
       description="Stories you saved for another quiet moment."
-      count={posts.length}
-      countLabel={posts.length === 1 ? "saved story" : "saved stories"}
+      count={pagination?.total ?? posts.length}
+      countLabel={(pagination?.total ?? posts.length) === 1 ? "saved story" : "saved stories"}
       status={pageStatus}
       errorMessage="Your saved stories couldn’t be loaded. Check your connection and try again."
       emptyTitle={currentUser ? "No bookmarks yet" : "Sign in to see your bookmarks"}
@@ -60,10 +81,20 @@ export default function Bookmarks() {
             baseUrl={baseUrl}
             bookmarkInitialState
             onBookmarkChange={(bookmarked) => {
-              if (!bookmarked) setPosts((current) => current.filter((item) => item.id !== post.id));
+              if (!bookmarked) {
+                setPosts((current) => current.filter((item) => item.id !== post.id));
+                setPagination(decrementPaginationTotal);
+              }
             }}
           />
         ))}
+        {pagination?.hasNext && (
+          <CollectionLoadMore
+            loading={loadingMore}
+            label="Load more bookmarks"
+            onClick={() => loadBookmarks(pagination.page + 1, { append: true })}
+          />
+        )}
       </div>
     </CollectionPage>
   );

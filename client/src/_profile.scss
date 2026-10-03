@@ -367,6 +367,12 @@
   }
 }
 
+.followers-list__load-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) var(--space-6);
+}
+
 .followers-list__identity {
   min-width: 0;
   display: flex;

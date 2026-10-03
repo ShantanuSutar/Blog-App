@@ -182,17 +182,20 @@ test("draft and scheduled-post listings are scoped to the authenticated user", a
   const calls = [];
   t.mock.method(db, "query", async (query, values) => {
     calls.push({ query, values });
+    if (/COUNT\(\*\)/.test(query)) return { rows: [{ count: "0" }], rowCount: 1 };
     return { rows: [], rowCount: 0 };
   });
 
-  await getUserDrafts({ user: { id: otherUserId } }, createResponse());
-  await getUserScheduledPosts({ user: { id: otherUserId } }, createResponse());
+  await getUserDrafts({ query: {}, user: { id: otherUserId } }, createResponse());
+  await getUserScheduledPosts({ query: {}, user: { id: otherUserId } }, createResponse());
 
-  assert.equal(calls.length, 2);
-  assert.deepEqual(calls[0].values, [otherUserId]);
+  assert.equal(calls.length, 4);
+  assert.deepEqual(calls[0].values, [otherUserId, 20, 0]);
   assert.deepEqual(calls[1].values, [otherUserId]);
+  assert.deepEqual(calls[2].values, [otherUserId, 20, 0]);
+  assert.deepEqual(calls[3].values, [otherUserId]);
   assert.match(calls[0].query, /uid = \$1 AND draft = true/);
-  assert.match(calls[1].query, /uid = \$1 AND draft = true/);
+  assert.match(calls[2].query, /uid = \$1 AND draft = true/);
 });
 
 test("comment creation cannot impersonate another user", async (t) => {
@@ -243,17 +246,19 @@ test("bookmark reads and deletes are scoped to the authenticated user", async (t
   const calls = [];
   t.mock.method(db, "query", async (query, values) => {
     calls.push({ query, values });
+    if (/COUNT\(b\.id\)/.test(query)) return { rows: [{ count: "0" }], rowCount: 1 };
     return { rows: [], rowCount: 0 };
   });
 
-  await getBookmarks({ user: { id: otherUserId } }, createResponse());
+  await getBookmarks({ query: {}, user: { id: otherUserId } }, createResponse());
   await removeBookmark(
     { params: { postId: String(resourceId) }, user: { id: otherUserId } },
     createResponse(),
   );
 
-  assert.deepEqual(calls[0].values, [otherUserId]);
-  assert.deepEqual(calls[1].values, [otherUserId, resourceId]);
+  assert.deepEqual(calls[0].values, [otherUserId, 20, 0]);
+  assert.deepEqual(calls[1].values, [otherUserId]);
+  assert.deepEqual(calls[2].values, [otherUserId, resourceId]);
 });
 
 test("bookmark creation resolves visibility and insertion in one database round trip", async (t) => {
@@ -344,7 +349,7 @@ test("reaction reads do not expose activity on draft or future-scheduled posts",
   });
 
   await getReactions(
-    { params: { postId: String(resourceId) } },
+    { params: { postId: String(resourceId) }, query: {} },
     createResponse(),
   );
   await getUserReaction(
@@ -357,11 +362,13 @@ test("reaction reads do not expose activity on draft or future-scheduled posts",
 
   assert.match(calls[0].query, /JOIN posts p/);
   assert.match(calls[0].query, /p\.draft = false/);
-  assert.deepEqual(calls[0].values, [resourceId]);
-  assert.match(calls[1].query, /JOIN comments c/);
-  assert.match(calls[1].query, /JOIN posts p/);
-  assert.match(calls[1].query, /p\.draft = false/);
-  assert.deepEqual(calls[1].values, [otherUserId, resourceId]);
+  assert.deepEqual(calls[0].values, [resourceId, 20, 0]);
+  assert.match(calls[1].query, /GROUP BY r\.reaction_type/);
+  assert.deepEqual(calls[1].values, [resourceId]);
+  assert.match(calls[2].query, /JOIN comments c/);
+  assert.match(calls[2].query, /JOIN posts p/);
+  assert.match(calls[2].query, /p\.draft = false/);
+  assert.deepEqual(calls[2].values, [otherUserId, resourceId]);
 });
 
 test("follow mutations always use the authenticated user as follower", async (t) => {
@@ -391,8 +398,8 @@ test("follow lists distinguish missing users from empty lists in one query", asy
   let queryCount = 0;
   t.mock.method(db, "query", async (query, values) => {
     queryCount += 1;
-    assert.match(query, /LEFT JOIN follows/);
-    assert.deepEqual(values, [ownerId]);
+    assert.match(query, /relationship_page/);
+    assert.deepEqual(values, [ownerId, 20, 0]);
     return {
       rows: [{
         owner_username: "owner",
@@ -401,13 +408,14 @@ test("follow lists distinguish missing users from empty lists in one query", asy
         avatar: null,
         bio: null,
         created_at: null,
+        total_count: 0,
       }],
       rowCount: 1,
     };
   });
 
   const res = createResponse();
-  await getFollowers({ params: { userId: String(ownerId) } }, res);
+  await getFollowers({ params: { userId: String(ownerId) }, query: {} }, res);
 
   assert.equal(queryCount, 1);
   assert.deepEqual(res.body, {
@@ -415,6 +423,14 @@ test("follow lists distinguish missing users from empty lists in one query", asy
     username: "owner",
     followers: [],
     count: 0,
+    pagination: {
+      page: 1,
+      limit: 20,
+      total: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrevious: false,
+    },
   });
 });
 
