@@ -1,5 +1,27 @@
 export const SESSION_STORAGE_KEY = "user";
 
+const decodeTokenPayload = (token) => {
+  try {
+    const encodedPayload = token.split(".")[1];
+    if (!encodedPayload) return null;
+
+    const normalized = encodedPayload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
+    return JSON.parse(atob(normalized));
+  } catch {
+    return null;
+  }
+};
+
+export const getSessionExpiration = (session) => {
+  if (typeof session?.token !== "string") return null;
+  const payload = decodeTokenPayload(session.token);
+  if (!Number.isInteger(payload?.exp) || payload.exp <= 0) return null;
+  return payload.exp * 1000;
+};
+
 const isValidSession = (value) => (
   value !== null
   && typeof value === "object"
@@ -9,6 +31,7 @@ const isValidSession = (value) => (
   && value.username.trim().length > 0
   && typeof value.token === "string"
   && value.token.trim().length > 0
+  && getSessionExpiration(value) > Date.now()
 );
 
 const storage = () => {
