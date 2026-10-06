@@ -1,15 +1,7 @@
 import axios from 'axios';
+import { clearSession, getAccessToken } from '../auth/session.js';
 
 const URL = import.meta.env.VITE_BASE_URL;
-
-const readStoredUser = () => {
-    try {
-        return JSON.parse(localStorage.getItem('user')) || null;
-    } catch {
-        localStorage.removeItem('user');
-        return null;
-    }
-};
 
 const getRequestToken = (config) => {
     const authorization = typeof config?.headers?.get === 'function'
@@ -28,9 +20,10 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-    const storedUser = readStoredUser();
-    if (storedUser?.token) {
-        config.headers.Authorization = `Bearer ${storedUser.token}`;
+    const token = getAccessToken();
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        config.authToken = token;
     }
 
     return config;
@@ -40,13 +33,13 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401 && !error.config?.url?.includes('/api/auth/login')) {
-            const storedUser = readStoredUser();
-            const requestToken = getRequestToken(error.config);
+            const activeToken = getAccessToken();
+            const requestToken = error.config?.authToken || getRequestToken(error.config);
 
             // A request started before a successful login can finish later with
             // a 401. Only that request's token may invalidate the current session.
-            if (storedUser?.token && requestToken === storedUser.token) {
-                localStorage.removeItem('user');
+            if (activeToken && requestToken === activeToken) {
+                clearSession();
                 window.dispatchEvent(new Event('auth:expired'));
             }
         }

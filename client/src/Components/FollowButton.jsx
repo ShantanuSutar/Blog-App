@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { Check, Plus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../AuthContext/authContext.jsx";
 import api from "../api/axios.js";
 import { useToast } from "../Context/ToastContext.jsx";
@@ -12,6 +12,7 @@ export default function FollowButton({ userId, username, initialFollowing = fals
   const [error, setError] = useState("");
   const { currentUser } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export default function FollowButton({ userId, username, initialFollowing = fals
 
   const handleToggleFollow = async () => {
     if (!currentUser) {
-      navigate("/login");
+      navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       return;
     }
     if (loading) return;
@@ -47,7 +48,7 @@ export default function FollowButton({ userId, username, initialFollowing = fals
       toast.success(nextFollowing ? `You’re now following ${username || "this writer"}.` : `You unfollowed ${username || "this writer"}.`);
     } catch (requestError) {
       if (requestError.response?.status === 401) {
-        navigate("/login");
+        navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       } else {
         const message = requestError.response?.status === 403
           ? "This account cannot be followed."

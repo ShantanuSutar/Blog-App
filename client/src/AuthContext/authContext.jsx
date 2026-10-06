@@ -1,32 +1,21 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import api from "../api/axios.js";
+import {
+  clearSession,
+  getSession,
+  SESSION_STORAGE_KEY,
+  setSession,
+  syncSessionFromStorage,
+} from "../auth/session.js";
 export const AuthContext = createContext();
 
-const persistUser = (user) => {
-  try {
-    if (user) localStorage.setItem("user", JSON.stringify(user));
-    else localStorage.removeItem("user");
-  } catch {
-    // Keep the in-memory session usable when storage is unavailable.
-  }
-};
-
-const getStoredUser = () => {
-  try {
-    return JSON.parse(localStorage.getItem("user")) || null;
-  } catch {
-    persistUser(null);
-    return null;
-  }
-};
-
 export const AuthContextProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(getStoredUser);
+  const [currentUser, setCurrentUser] = useState(getSession);
 
   const login = useCallback(async (inputs) => {
     const res = await api.post(`/api/auth/login`, inputs);
     const nextUser = { ...res.data.other, token: res.data.token };
-    persistUser(nextUser);
+    setSession(nextUser);
     setCurrentUser(nextUser);
     return res;
   }, []);
@@ -35,23 +24,37 @@ export const AuthContextProvider = ({ children }) => {
     try {
       await api.post(`/api/auth/logout`);
     } finally {
+      clearSession();
       setCurrentUser(null);
-      persistUser(null);
     }
   }, []);
 
   const updateCurrentUser = useCallback((updates) => {
-    setCurrentUser((user) => user ? { ...user, ...updates } : user);
+    setCurrentUser((user) => {
+      if (!user) return user;
+      const nextUser = { ...user, ...updates };
+      setSession(nextUser);
+      return nextUser;
+    });
   }, []);
 
   useEffect(() => {
-    persistUser(currentUser);
-  }, [currentUser]);
+    const handleExpiredSession = () => {
+      clearSession();
+      setCurrentUser(null);
+    };
+    const handleStorage = (event) => {
+      if (event.key === SESSION_STORAGE_KEY || event.key === null) {
+        setCurrentUser(syncSessionFromStorage());
+      }
+    };
 
-  useEffect(() => {
-    const handleExpiredSession = () => setCurrentUser(null);
     window.addEventListener("auth:expired", handleExpiredSession);
-    return () => window.removeEventListener("auth:expired", handleExpiredSession);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("auth:expired", handleExpiredSession);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   const value = useMemo(() => ({ currentUser, login, logout, updateCurrentUser }), [currentUser, login, logout, updateCurrentUser]);

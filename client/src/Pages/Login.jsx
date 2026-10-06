@@ -63,7 +63,7 @@ export default function Login() {
   };
 
   const useDemoAccount = () => {
-    setInputs({ username: "demo", password: "demo" });
+    setInputs({ username: "maya_writes", password: "DemoPass123!" });
     setErrors({});
     setFormError("");
   };
