@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import jwt from "jsonwebtoken";
@@ -499,4 +500,38 @@ test("validation and parsing failures use safe centralized API errors", async ()
 
   const missingRoute = await apiRequest(api.baseUrl, "/api/does-not-exist");
   expectApiError(missingRoute, { status: 404, code: "ROUTE_NOT_FOUND" });
+});
+
+test("the sample seed script loads a complete, internally consistent website dataset", async () => {
+  const seedSql = await readFile(new URL("../../seed_sample.sql", import.meta.url), "utf8");
+  await db.query(seedSql);
+
+  const result = await db.query(`
+    SELECT
+      (SELECT COUNT(*)::integer FROM users) AS users,
+      (SELECT COUNT(*)::integer FROM posts WHERE draft = false) AS published_posts,
+      (SELECT COUNT(*)::integer FROM posts WHERE draft = true AND scheduled_publish_date IS NULL) AS drafts,
+      (SELECT COUNT(*)::integer FROM posts WHERE draft = true AND scheduled_publish_date IS NOT NULL) AS scheduled_posts,
+      (SELECT COUNT(*)::integer FROM comments) AS comments,
+      (SELECT COUNT(*)::integer FROM bookmarks) AS bookmarks,
+      (SELECT COUNT(*)::integer FROM reactions) AS reactions,
+      (SELECT COUNT(*)::integer FROM follows) AS follows,
+      (SELECT COUNT(*)::integer FROM activities) AS activities,
+      (SELECT COUNT(*)::integer FROM subscribers) AS subscribers,
+      (SELECT COUNT(*)::integer FROM posts WHERE search_vector IS NULL) AS missing_search_vectors
+  `);
+
+  assert.deepEqual(result.rows[0], {
+    users: 8,
+    published_posts: 24,
+    drafts: 3,
+    scheduled_posts: 3,
+    comments: 24,
+    bookmarks: 18,
+    reactions: 25,
+    follows: 17,
+    activities: 90,
+    subscribers: 3,
+    missing_search_vectors: 0,
+  });
 });
