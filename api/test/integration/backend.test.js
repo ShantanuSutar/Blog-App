@@ -45,8 +45,18 @@ test("the harness runs migrations in an isolated temporary schema", async () => 
       "004_validate_post_state_and_draft_index.sql",
       "005_post_full_text_search.sql",
       "006_comment_pagination_index.sql",
+      "007_scheduled_publish_timezone.sql",
     ],
   );
+
+  const scheduleColumn = await db.query(`
+    SELECT data_type
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'posts'
+      AND column_name = 'scheduled_publish_date'
+  `);
+  assert.equal(scheduleColumn.rows[0]?.data_type, "timestamp with time zone");
 });
 
 test("registration and login work without exposing password data", async () => {
