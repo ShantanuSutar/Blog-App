@@ -1,5 +1,5 @@
 @use "tokens";
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap");
 $dark: var(--color-background); // Unified Deep Space (Foundation)
 $lessdark: var(--color-surface); // Surface Elevation
 $dark-hover: var(--color-surface-hover); // Interaction Hover
@@ -131,28 +131,7 @@ samp {
 }
 
 @import "navbar";
-
-//FOOTER
-footer {
-  padding-block: var(--space-6);
-  border-top: 1px solid var(--color-border);
-  font-size: var(--font-size-body);
-
-  .footer-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-  }
-
-  img {
-    height: 48px;
-  }
-}
-
-body.dark footer img {
-  filter: brightness(0) invert(1);
-}
+@import "footer";
 
 //HOME
 .home.dark {

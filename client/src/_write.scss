@@ -166,6 +166,7 @@
 
     &.ql-blank::before { left: clamp(var(--space-8), 5vw, var(--space-12)); right: clamp(var(--space-8), 5vw, var(--space-12)); color: var(--color-text-disabled); font-style: normal; }
     p { margin-bottom: 1.35em; }
+    em, i { font-style: italic; }
     h1, h2, h3 { margin: 1.6em 0 0.6em; line-height: var(--line-height-heading); letter-spacing: var(--letter-spacing-heading); }
     blockquote { margin: 1.75em 0; padding-left: var(--space-5); border-left: 3px solid var(--color-primary); color: var(--color-text-secondary); }
     pre.ql-syntax { margin-block: 1.75em; padding: var(--space-5); overflow-x: auto; border-radius: var(--radius-md); background: var(--color-surface-subtle); color: var(--color-text-primary); font: 0.875rem/1.65 var(--font-mono); }
