@@ -1,5 +1,10 @@
 export const SESSION_STORAGE_KEY = "user";
 
+// The current API issues one-hour access tokens. Older deployed API builds did
+// not include an `exp` claim, so keep those sessions bounded on the client
+// instead of rejecting an otherwise successful login response.
+const LEGACY_SESSION_DURATION_MS = 60 * 60 * 1000;
+
 const decodeTokenPayload = (token) => {
   try {
     const encodedPayload = token.split(".")[1];
@@ -18,8 +23,33 @@ const decodeTokenPayload = (token) => {
 export const getSessionExpiration = (session) => {
   if (typeof session?.token !== "string") return null;
   const payload = decodeTokenPayload(session.token);
-  if (!Number.isInteger(payload?.exp) || payload.exp <= 0) return null;
-  return payload.exp * 1000;
+  if (!Number.isInteger(payload?.id) || payload.id <= 0) return null;
+  if (Number(payload.id) !== Number(session?.id)) return null;
+
+  if (Number.isInteger(payload.exp) && payload.exp > 0) {
+    return payload.exp * 1000;
+  }
+
+  const fallbackExpiration = Number(session?.expiresAt);
+  return Number.isFinite(fallbackExpiration) && fallbackExpiration > 0
+    ? fallbackExpiration
+    : null;
+};
+
+const normalizeSession = (session) => {
+  if (!session || typeof session !== "object") return session;
+
+  const payload = typeof session.token === "string"
+    ? decodeTokenPayload(session.token)
+    : null;
+  const tokenHasExpiration = Number.isInteger(payload?.exp) && payload.exp > 0;
+
+  if (tokenHasExpiration || Number(session.expiresAt) > 0) return session;
+
+  return {
+    ...session,
+    expiresAt: Date.now() + LEGACY_SESSION_DURATION_MS,
+  };
 };
 
 const isValidSession = (value) => (
@@ -67,17 +97,19 @@ export const getSession = () => activeSession;
 export const getAccessToken = () => activeSession?.token || null;
 
 export const setSession = (session) => {
-  if (!isValidSession(session)) {
+  const normalizedSession = normalizeSession(session);
+
+  if (!isValidSession(normalizedSession)) {
     throw new Error("Cannot store an invalid authentication session");
   }
 
-  activeSession = session;
+  activeSession = normalizedSession;
   try {
-    storage()?.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    storage()?.setItem(SESSION_STORAGE_KEY, JSON.stringify(normalizedSession));
   } catch {
     // Keep the authenticated in-memory session usable when storage is blocked.
   }
-  return session;
+  return normalizedSession;
 };
 
 export const clearSession = () => {

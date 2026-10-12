@@ -16,8 +16,8 @@ export const AuthContextProvider = ({ children }) => {
   const login = useCallback(async (inputs) => {
     const res = await api.post(`/api/auth/login`, inputs);
     const nextUser = { ...res.data.other, token: res.data.token };
-    setSession(nextUser);
-    setCurrentUser(nextUser);
+    const session = setSession(nextUser);
+    setCurrentUser(session);
     return res;
   }, []);
 
@@ -34,8 +34,7 @@ export const AuthContextProvider = ({ children }) => {
     setCurrentUser((user) => {
       if (!user) return user;
       const nextUser = { ...user, ...updates };
-      setSession(nextUser);
-      return nextUser;
+      return setSession(nextUser);
     });
   }, []);
 
